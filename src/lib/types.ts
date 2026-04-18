@@ -49,6 +49,8 @@ export type CancellationPolicy = 'flexible' | 'moderate' | 'strict';
 
 export type Currency = 'KES' | 'USD' | 'EUR' | 'GBP';
 
+export type ListingStatus = 'draft' | 'pending_review' | 'approved' | 'rejected';
+
 // ----- Database row types -----
 
 export interface Profile {
@@ -85,6 +87,14 @@ export interface Property {
   is_featured: boolean;
   rating_average: number;
   rating_count: number;
+  status: ListingStatus;
+  rejection_reason: string | null;
+  low_season_price: number | null;
+  high_season_price: number | null;
+  peak_season_price: number | null;
+  low_season_months: string | null;
+  high_season_months: string | null;
+  peak_season_months: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +145,8 @@ export interface Boat {
   is_featured: boolean;
   rating_average: number;
   rating_count: number;
+  status: ListingStatus;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
 }

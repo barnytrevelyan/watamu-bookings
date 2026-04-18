@@ -20,6 +20,8 @@ interface Property {
   average_rating: number;
   bookings_count: number;
   cover_image: string | null;
+  status: string;
+  rejection_reason: string | null;
 }
 
 export default function PropertiesPage() {
@@ -49,6 +51,8 @@ export default function PropertiesPage() {
           is_published,
           base_price,
           currency,
+          status,
+          rejection_reason,
           wb_images(url),
           wb_reviews(rating),
           wb_bookings(id)
@@ -83,6 +87,8 @@ export default function PropertiesPage() {
           average_rating: avgRating,
           bookings_count: (p.wb_bookings || []).length,
           cover_image: coverImg,
+          status: p.status || 'draft',
+          rejection_reason: p.rejection_reason || null,
         };
       });
 
@@ -212,12 +218,19 @@ export default function PropertiesPage() {
                     No image
                   </div>
                 )}
-                <div className="absolute right-2 top-2">
-                  <Badge
-                    variant={property.is_published ? 'default' : 'secondary'}
-                  >
-                    {property.is_published ? 'Published' : 'Draft'}
-                  </Badge>
+                <div className="absolute right-2 top-2 flex gap-1">
+                  {property.status === 'pending_review' && (
+                    <Badge variant="warning">Pending Review</Badge>
+                  )}
+                  {property.status === 'approved' && (
+                    <Badge variant="success">Approved</Badge>
+                  )}
+                  {property.status === 'rejected' && (
+                    <Badge variant="danger">Rejected</Badge>
+                  )}
+                  {(!property.status || property.status === 'draft') && (
+                    <Badge variant="default">Draft</Badge>
+                  )}
                 </div>
               </div>
               <div className="p-4">
@@ -244,6 +257,11 @@ export default function PropertiesPage() {
                   )}
                   <span>{property.bookings_count} bookings</span>
                 </div>
+                {property.status === 'rejected' && property.rejection_reason && (
+                  <div className="mt-3 rounded-lg bg-red-50 border border-red-100 p-2 text-xs text-red-700">
+                    <span className="font-medium">Feedback:</span> {property.rejection_reason}
+                  </div>
+                )}
                 <div className="mt-4 flex gap-2">
                   <Button
                     size="sm"
@@ -254,27 +272,31 @@ export default function PropertiesPage() {
                   >
                     Edit
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => router.push(`/properties/${property.slug}`)}
-                  >
-                    View
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={togglingId === property.id}
-                    onClick={() =>
-                      togglePublished(property.id, property.is_published)
-                    }
-                  >
-                    {togglingId === property.id
-                      ? '...'
-                      : property.is_published
-                        ? 'Unpublish'
-                        : 'Publish'}
-                  </Button>
+                  {property.is_published && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => router.push(`/properties/${property.slug}`)}
+                    >
+                      View
+                    </Button>
+                  )}
+                  {property.status === 'approved' && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={togglingId === property.id}
+                      onClick={() =>
+                        togglePublished(property.id, property.is_published)
+                      }
+                    >
+                      {togglingId === property.id
+                        ? '...'
+                        : property.is_published
+                          ? 'Unpublish'
+                          : 'Publish'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>

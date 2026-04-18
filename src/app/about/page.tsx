@@ -102,13 +102,112 @@ export default function AboutPage() {
           </p>
         </div>
 
+        {/* Getting Here */}
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Getting to Watamu</h2>
+          <div className="space-y-4">
+            <div className="flex gap-4 items-start">
+              <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-sm">By Air</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Fly into Malindi Airport (MAL), just 20 minutes south of Watamu. Daily flights from Nairobi
+                  Wilson (Safarilink, Fly540) take about 1 hour. Mombasa Moi International Airport (MBA) is
+                  approximately 2 hours by road.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4 items-start">
+              <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0H21M3.375 14.25h17.25M21 12.75V7.5a2.25 2.25 0 0 0-2.25-2.25h-7.5L8.25 2.25H3.375A2.25 2.25 0 0 0 1.125 4.5v9.75" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-sm">By Road</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Watamu is about 105 km north of Mombasa on the coast road (B8). The drive takes around
+                  2 hours. From Nairobi, it&apos;s roughly 8 hours via the Nairobi–Mombasa highway. Matatus and
+                  buses run daily from Mombasa and Malindi.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4 items-start">
+              <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-sm">Getting Around</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Watamu is a small town — most places are within tuk-tuk or boda-boda (motorbike taxi)
+                  distance. Many properties and hotels can arrange airport transfers. Bicycle hire is also
+                  popular for exploring the village and nearby beaches.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Emergency Contacts */}
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Useful Contacts</h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-red-50 rounded-xl p-5 border border-red-100">
+              <h3 className="font-semibold text-red-900 text-sm mb-2">Emergency</h3>
+              <p className="text-sm text-red-800">Kenya Police: <span className="font-mono font-semibold">999</span></p>
+              <p className="text-sm text-red-800">Ambulance: <span className="font-mono font-semibold">112</span></p>
+              <p className="text-sm text-red-800 mt-1">Watamu Police Station: <span className="font-mono font-semibold">+254 42 233 2013</span></p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+              <h3 className="font-semibold text-blue-900 text-sm mb-2">Medical</h3>
+              <p className="text-sm text-blue-800">Watamu Hospital: <span className="font-mono font-semibold">+254 42 232 3053</span></p>
+              <p className="text-sm text-blue-800">Star Hospital Malindi: <span className="font-mono font-semibold">+254 42 213 0891</span></p>
+              <p className="text-sm text-blue-800 mt-1">Nearest decompression chamber is in Mombasa</p>
+            </div>
+            <div className="bg-green-50 rounded-xl p-5 border border-green-100">
+              <h3 className="font-semibold text-green-900 text-sm mb-2">Conservation</h3>
+              <p className="text-sm text-green-800">Local Ocean Conservation: <span className="font-mono font-semibold">+254 42 233 2218</span></p>
+              <p className="text-sm text-green-800 mt-1">Report stranded turtles or marine wildlife emergencies</p>
+            </div>
+            <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+              <h3 className="font-semibold text-amber-900 text-sm mb-2">KWS Marine Park</h3>
+              <p className="text-sm text-amber-800">KWS Watamu: <span className="font-mono font-semibold">+254 42 232 0646</span></p>
+              <p className="text-sm text-amber-800 mt-1">
+                <a
+                  href="https://kws.go.ke/parks/watamu-marine-national-park"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-700 font-medium underline hover:no-underline"
+                >
+                  Pay park fees online →
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="text-center pt-8 border-t border-gray-100">
-          <Link
-            href="/properties"
-            className="inline-block bg-[var(--color-primary-600)] text-white py-3 px-8 rounded-lg font-semibold hover:bg-[var(--color-primary-700)] transition-colors"
-          >
-            Browse Properties
-          </Link>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link
+              href="/properties"
+              className="inline-block bg-[var(--color-primary-600)] text-white py-3 px-8 rounded-lg font-semibold hover:bg-[var(--color-primary-700)] transition-colors"
+            >
+              Browse Properties
+            </Link>
+            <Link
+              href="/map"
+              className="inline-block bg-white text-gray-700 py-3 px-8 rounded-lg font-semibold border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              Explore the Map
+            </Link>
+          </div>
         </div>
       </section>
     </div>

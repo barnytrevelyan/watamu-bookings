@@ -24,6 +24,8 @@ function RegisterForm() {
     phone: '',
     password: '',
     confirmPassword: '',
+    businessName: '',
+    ownerType: 'property' as 'property' | 'boat' | 'both',
   });
   const [role, setRole] = useState<'guest' | 'owner'>(
     inviteToken ? 'owner' : 'guest'
@@ -41,9 +43,7 @@ function RegisterForm() {
     setLoading(true);
     setError(null);
 
-    const { fullName, email, phone, password, confirmPassword } = formData;
-
-    // --- Client-side validations ---
+    const { fullName, email, phone, password, confirmPassword, businessName, ownerType } = formData;
 
     if (password.length < 8) {
       setError('Password must be at least 8 characters.');
@@ -57,9 +57,8 @@ function RegisterForm() {
       return;
     }
 
-    // Only allow owner role if invitation token is present
-    if (role === 'owner' && !inviteToken) {
-      setError('An invitation token is required to register as an owner.');
+    if (role === 'owner' && !fullName.trim()) {
+      setError('Full name is required.');
       setLoading(false);
       return;
     }
@@ -67,7 +66,7 @@ function RegisterForm() {
     try {
       const supabase = createClient();
 
-      // If registering as owner, verify invitation first
+      // If registering as owner with invitation token, verify invitation first
       if (role === 'owner' && inviteToken) {
         const { data: invitation, error: inviteError } = await supabase
           .from('wb_invitations')
@@ -126,24 +125,27 @@ function RegisterForm() {
         return;
       }
 
-      // If user was created and we got back a user ID, create their profile.
-      // Note: depending on Supabase config, the user may or may not be
-      // auto-confirmed. If email confirmation is required, the profile
-      // will be created via a DB trigger on auth.users insert instead.
       if (authData.user) {
+        const profileData: Record<string, any> = {
+          id: authData.user.id,
+          full_name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+          role,
+        };
+
+        // Add owner-specific fields
+        if (role === 'owner') {
+          profileData.business_name = businessName.trim() || null;
+          profileData.owner_type = ownerType;
+        }
+
         const { error: profileError } = await supabase
           .from('wb_profiles')
-          .upsert({
-            id: authData.user.id,
-            full_name: fullName.trim(),
-            email: email.trim().toLowerCase(),
-            phone: phone.trim(),
-            role,
-          });
+          .upsert(profileData);
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
-          // Don't block the user — the auth account was created
         }
 
         // If owner registration with invitation, mark invitation as accepted
@@ -195,6 +197,11 @@ function RegisterForm() {
               <span className="font-medium">{formData.email}</span>. Click the
               link to verify your account.
             </p>
+            {role === 'owner' && (
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm text-teal-800">
+                Once verified, you can log in and start creating your listings from the dashboard.
+              </div>
+            )}
             <Link
               href="/auth/login"
               className="inline-block mt-4 text-blue-600 hover:text-blue-500 font-medium text-sm"
@@ -240,33 +247,74 @@ function RegisterForm() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => !inviteToken && setRole('guest')}
+                  onClick={() => setRole('guest')}
                   className={`py-3 px-4 rounded-lg border-2 text-sm font-medium transition-colors ${
                     role === 'guest'
                       ? 'border-blue-600 bg-blue-50 text-blue-700'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                  } ${inviteToken ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  }`}
                 >
+                  <span className="block text-lg mb-1">🏖️</span>
                   Guest
                 </button>
                 <button
                   type="button"
-                  onClick={() => inviteToken && setRole('owner')}
+                  onClick={() => setRole('owner')}
                   className={`py-3 px-4 rounded-lg border-2 text-sm font-medium transition-colors ${
                     role === 'owner'
                       ? 'border-blue-600 bg-blue-50 text-blue-700'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                  } ${!inviteToken ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  }`}
                 >
-                  Property / Boat Owner
+                  <span className="block text-lg mb-1">🏠</span>
+                  I want to list my property/boat
                 </button>
               </div>
-              {!inviteToken && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Owner registration requires an invitation link.
-                </p>
-              )}
             </div>
+
+            {/* Owner-specific fields */}
+            {role === 'owner' && (
+              <div className="space-y-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                <p className="text-sm font-medium text-teal-800">Owner Details</p>
+                <div>
+                  <label
+                    htmlFor="businessName"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Business name <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <input
+                    id="businessName"
+                    type="text"
+                    value={formData.businessName}
+                    onChange={(e) => updateField('businessName', e.target.value)}
+                    className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Watamu Villas Ltd"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    What will you list?
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['property', 'boat', 'both'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => updateField('ownerType', type)}
+                        className={`py-2 px-3 rounded-lg border text-xs font-medium transition-colors capitalize ${
+                          formData.ownerType === type
+                            ? 'border-teal-500 bg-white text-teal-700'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}
+                      >
+                        {type === 'both' ? 'Both' : type === 'property' ? 'Property' : 'Boat'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <label
@@ -394,6 +442,8 @@ function RegisterForm() {
                   </svg>
                   Creating account...
                 </span>
+              ) : role === 'owner' ? (
+                'Create owner account'
               ) : (
                 'Create account'
               )}

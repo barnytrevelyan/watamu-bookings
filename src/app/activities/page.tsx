@@ -110,6 +110,30 @@ export default function ActivitiesPage() {
         ))}
       </div>
 
+      {/* KWS Fees callout */}
+      <section className="max-w-7xl mx-auto px-4 pb-8">
+        <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center gap-6">
+          <div className="flex-1">
+            <h3 className="text-lg font-bold mb-1">KWS Marine Park Entry Fees</h3>
+            <p className="text-white/85 text-sm">
+              Entry to Watamu Marine National Park requires a KWS fee. Non-resident adults KES 1,770 (~$13),
+              residents KES 300. Pay online to skip the queue.
+            </p>
+          </div>
+          <a
+            href="https://kws.go.ke/parks/watamu-marine-national-park"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors shrink-0"
+          >
+            Pay Fees Online
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+          </a>
+        </div>
+      </section>
+
       {/* Quick links nav */}
       <section className="bg-gray-50 py-12 px-4">
         <div className="max-w-5xl mx-auto">
