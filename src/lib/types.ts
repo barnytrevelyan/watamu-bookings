@@ -26,11 +26,25 @@ export type BoatType =
 
 export type TripType =
   | 'half_day'
+  | 'half_day_morning'
+  | 'half_day_afternoon'
   | 'full_day'
   | 'overnight'
   | 'multi_day'
   | 'sunset_cruise'
   | 'custom';
+
+/** Human-friendly labels for trip types */
+export const TRIP_TYPE_LABELS: Record<TripType, string> = {
+  half_day: 'Half Day',
+  half_day_morning: 'Half Day — Morning',
+  half_day_afternoon: 'Half Day — Afternoon',
+  full_day: 'Full Day',
+  overnight: 'Overnight',
+  multi_day: 'Multi-Day',
+  sunset_cruise: 'Sunset Cruise',
+  custom: 'Custom',
+};
 
 export type BookingStatus =
   | 'pending_payment'
@@ -175,7 +189,9 @@ export interface BoatTrip {
   price: number;
   currency: Currency;
   max_passengers: number;
+  max_guests?: number;
   includes: string[];
+  departure_time: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
+import { TRIP_TYPE_LABELS } from '@/lib/types';
+import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 
@@ -30,8 +32,14 @@ interface TripPackage {
 
 const BOAT_TYPES = ['sportfisher', 'deep_sea', 'catamaran', 'dhow', 'speedboat', 'sailboat', 'pontoon'];
 const TRIP_TYPES = [
-  'deep_sea_fishing', 'reef_fishing', 'bottom_fishing', 'trolling', 'popping', 'jigging',
-  'snorkeling', 'sunset_cruise', 'island_hopping', 'whale_watching',
+  'half_day_morning',
+  'half_day_afternoon',
+  'half_day',
+  'full_day',
+  'overnight',
+  'sunset_cruise',
+  'custom',
+  'multi_day',
 ];
 const TARGET_SPECIES = [
   'Marlin', 'Sailfish', 'Yellowfin Tuna', 'Wahoo', 'Dorado', 'Giant Trevally', 'Kingfish', 'Barracuda', 'Snapper', 'Grouper',
@@ -426,7 +434,7 @@ export default function EditBoatPage() {
                     </div>
                     <Select value={trip.trip_type} onChange={(e) => updateTrip(i, 'trip_type', e.target.value)}>
                       {TRIP_TYPES.map((t) => (
-                        <option key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
+                        <option key={t} value={t}>{TRIP_TYPE_LABELS[t as TripType] || t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
                       ))}
                     </Select>
                     <Input type="number" min="1" value={trip.duration_hours} onChange={(e) => updateTrip(i, 'duration_hours', parseInt(e.target.value))} placeholder="Hours" />

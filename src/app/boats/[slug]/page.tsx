@@ -6,7 +6,8 @@ import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
 import BoatBookingSidebar from "./BoatBookingSidebar";
-import type { Boat, BoatTrip, Review, Image } from "@/lib/types";
+import type { Boat, BoatTrip, Review, Image, TripType } from "@/lib/types";
+import { TRIP_TYPE_LABELS } from "@/lib/types";
 
 /* ---------- Types ---------- */
 
@@ -41,7 +42,7 @@ async function getBoat(slug: string): Promise<BoatDetail | null> {
       `
       *,
       images:wb_images(id, url, alt, position),
-      trips:wb_boat_trips(id, name, trip_type, duration_hours, price, description, max_guests, includes),
+      trips:wb_boat_trips(id, name, trip_type, duration_hours, price, description, max_guests, includes, departure_time),
       reviews:wb_reviews(
         id, rating, comment, created_at,
         author:profiles(id, full_name, avatar_url)
@@ -250,7 +251,7 @@ export default async function BoatDetailPage({
                             <h3 className="font-semibold text-gray-900">{trip.name}</h3>
                             {trip.trip_type && (
                               <Badge variant="outline" className="text-xs">
-                                {trip.trip_type}
+                                {TRIP_TYPE_LABELS[trip.trip_type as TripType] || trip.trip_type.replace(/_/g, ' ')}
                               </Badge>
                             )}
                           </div>
@@ -262,6 +263,9 @@ export default async function BoatDetailPage({
                               <span>
                                 {trip.duration_hours} hour{trip.duration_hours !== 1 ? "s" : ""}
                               </span>
+                            )}
+                            {trip.departure_time && (
+                              <span>Departs {trip.departure_time}</span>
                             )}
                             {trip.max_guests && (
                               <span>Up to {trip.max_guests} guests</span>

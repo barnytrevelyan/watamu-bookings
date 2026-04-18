@@ -50,10 +50,16 @@ async function getBoats(searchParams: SearchParams) {
   // Trip-type filtering — if the user filters by trip type, we need boats that
   // offer that kind of trip. We do a sub-query to find matching boat IDs.
   if (searchParams.trip_type) {
-    const { data: matchingBoatIds } = await supabase
-      .from("wb_boat_trips")
-      .select("boat_id")
-      .eq("trip_type", searchParams.trip_type);
+    let tripQuery = supabase.from("wb_boat_trips").select("boat_id");
+
+    // "half_day" matches half_day, half_day_morning, and half_day_afternoon
+    if (searchParams.trip_type === "half_day") {
+      tripQuery = tripQuery.in("trip_type", ["half_day", "half_day_morning", "half_day_afternoon"]);
+    } else {
+      tripQuery = tripQuery.eq("trip_type", searchParams.trip_type);
+    }
+
+    const { data: matchingBoatIds } = await tripQuery;
 
     if (matchingBoatIds && matchingBoatIds.length > 0) {
       const ids = [...new Set(matchingBoatIds.map((r) => r.boat_id))];

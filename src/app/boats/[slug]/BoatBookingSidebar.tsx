@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { createBrowserClient } from "@/lib/supabase/client";
-import type { BoatTrip } from "@/lib/types";
+import type { BoatTrip, TripType } from "@/lib/types";
+import { TRIP_TYPE_LABELS } from "@/lib/types";
 
 interface AvailabilityDay {
   date: string;
@@ -132,12 +133,16 @@ export default function BoatBookingSidebar({
             value={selectedTripId}
             onChange={(e) => setSelectedTripId(e.target.value)}
           >
-            {trips.map((trip) => (
-              <option key={trip.id} value={trip.id}>
-                {trip.name} — KES {trip.price.toLocaleString()}
-                {trip.duration_hours ? ` (${trip.duration_hours}h)` : ""}
-              </option>
-            ))}
+            {trips.map((trip) => {
+              const label = TRIP_TYPE_LABELS[trip.trip_type as TripType] || "";
+              const timeInfo = trip.departure_time ? `, ${trip.departure_time}` : "";
+              return (
+                <option key={trip.id} value={trip.id}>
+                  {trip.name} — KES {trip.price.toLocaleString()}
+                  {trip.duration_hours ? ` (${trip.duration_hours}h${timeInfo})` : ""}
+                </option>
+              );
+            })}
           </Select>
           {selectedTrip?.description && (
             <p className="text-xs text-gray-500 mt-1">{selectedTrip.description}</p>
@@ -189,10 +194,20 @@ export default function BoatBookingSidebar({
             <span>{selectedTrip.name}</span>
             <span>KES {tripPrice.toLocaleString()}</span>
           </div>
+          <div className="flex justify-between text-gray-500">
+            <span>Type</span>
+            <span>{TRIP_TYPE_LABELS[selectedTrip.trip_type as TripType] || selectedTrip.trip_type}</span>
+          </div>
           {selectedTrip.duration_hours && (
             <div className="flex justify-between text-gray-500">
               <span>Duration</span>
               <span>{selectedTrip.duration_hours} hours</span>
+            </div>
+          )}
+          {selectedTrip.departure_time && (
+            <div className="flex justify-between text-gray-500">
+              <span>Departure</span>
+              <span>{selectedTrip.departure_time}</span>
             </div>
           )}
           <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-100">

@@ -32,11 +32,13 @@ const boatTypes = [
 
 const tripTypes = [
   { value: '', label: 'All Trips' },
-  { value: 'deep-sea', label: 'Deep Sea Fishing' },
-  { value: 'reef', label: 'Reef Fishing' },
-  { value: 'bottom', label: 'Bottom Fishing' },
-  { value: 'trolling', label: 'Trolling' },
-  { value: 'sunset-cruise', label: 'Sunset Cruise' },
+  { value: 'half_day_morning', label: 'Half Day — Morning' },
+  { value: 'half_day_afternoon', label: 'Half Day — Afternoon' },
+  { value: 'half_day', label: 'Half Day (Any)' },
+  { value: 'full_day', label: 'Full Day' },
+  { value: 'overnight', label: 'Overnight' },
+  { value: 'multi_day', label: 'Multi-Day' },
+  { value: 'sunset_cruise', label: 'Sunset Cruise' },
 ];
 
 const priceRanges = [
@@ -187,7 +189,7 @@ export default function SearchFilters({
               onChange={(e) => setBoatType(e.target.value)}
             />
             <Select
-              label="Trip Type"
+              label="Duration"
               options={tripTypes}
               value={tripType}
               onChange={(e) => setTripType(e.target.value)}

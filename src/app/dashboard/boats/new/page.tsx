@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
+import { TRIP_TYPE_LABELS } from '@/lib/types';
+import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 
 interface BoatFeature {
@@ -40,6 +42,8 @@ const BOAT_TYPES = [
 ];
 
 const TRIP_TYPES = [
+  'half_day_morning',
+  'half_day_afternoon',
   'half_day',
   'full_day',
   'overnight',
@@ -250,12 +254,12 @@ export default function NewBoatPage() {
       ...prev,
       {
         name: '',
-        trip_type: 'half_day',
+        trip_type: 'half_day_morning',
         duration_hours: 4,
         price_total: 0,
         price_per_person: 0,
         currency: 'KES',
-        departure_time: '06:00',
+        departure_time: '06:30',
         max_guests: parseInt(capacity) || 6,
         includes: '',
       },
@@ -759,7 +763,7 @@ export default function NewBoatPage() {
                       <Select value={trip.trip_type} onChange={(e) => updateTrip(i, 'trip_type', e.target.value)}>
                         {TRIP_TYPES.map((t) => (
                           <option key={t} value={t}>
-                            {t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                            {TRIP_TYPE_LABELS[t as TripType] || t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                           </option>
                         ))}
                       </Select>
