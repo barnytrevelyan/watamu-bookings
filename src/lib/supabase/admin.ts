@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient as _createClient } from '@supabase/supabase-js';
 
 /**
  * Admin Supabase client using the service role key.
@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
  * to the browser.
  */
 export function createClient() {
-  return createClient(
+  return _createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
