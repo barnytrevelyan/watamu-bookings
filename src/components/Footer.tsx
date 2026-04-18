@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Waves, Facebook, Instagram, Twitter, Mail, Phone, MapPin } from 'lucide-react';
+import { Waves, Mail, MapPin } from 'lucide-react';
 
 const footerColumns = [
   {
@@ -24,13 +24,13 @@ const footerColumns = [
     ],
   },
   {
-    title: 'Support',
+    title: 'Explore',
     links: [
-      { label: 'Help Center', href: '/help' },
-      { label: 'Cancellation Policy', href: '/cancellation-policy' },
-      { label: 'Safety Information', href: '/safety' },
-      { label: 'List Your Property', href: '/host' },
-      { label: 'Contact Us', href: '/contact' },
+      { label: 'Activities', href: '/activities' },
+      { label: 'Tides & Weather', href: '/tides' },
+      { label: 'Map', href: '/map' },
+      { label: 'List Your Property', href: '/auth/register' },
+      { label: 'About Us', href: '/about' },
     ],
   },
 ];
@@ -50,9 +50,9 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed max-w-sm mb-6">
-              Discover the beauty of Watamu, Kenya. Book stunning beachfront
-              properties and unforgettable fishing charter experiences along the
-              Kenyan coast.
+              Your local alternative to the big platforms. Book stunning beachfront
+              properties and unforgettable fishing charter experiences in Watamu,
+              Kenya.
             </p>
 
             <div className="space-y-2 text-sm">
@@ -63,39 +63,12 @@ export default function Footer() {
               <div className="flex items-center gap-2 text-gray-400">
                 <Mail className="h-4 w-4 shrink-0" />
                 <a
-                  href="mailto:hello@watamubookings.com"
+                  href="mailto:info@watamubookings.com"
                   className="hover:text-white transition-colors"
                 >
-                  hello@watamubookings.com
+                  info@watamubookings.com
                 </a>
               </div>
-              <div className="flex items-center gap-2 text-gray-400">
-                <Phone className="h-4 w-4 shrink-0" />
-                <a
-                  href="tel:+254700000000"
-                  className="hover:text-white transition-colors"
-                >
-                  +254 700 000 000
-                </a>
-              </div>
-            </div>
-
-            {/* Social icons */}
-            <div className="flex gap-3 mt-6">
-              {[
-                { icon: Facebook, href: '#', label: 'Facebook' },
-                { icon: Instagram, href: '#', label: 'Instagram' },
-                { icon: Twitter, href: '#', label: 'Twitter' },
-              ].map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  aria-label={social.label}
-                  className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-[var(--color-primary-600)] hover:text-white transition-colors"
-                >
-                  <social.icon className="h-5 w-5" />
-                </a>
-              ))}
             </div>
           </div>
 
@@ -128,11 +101,14 @@ export default function Footer() {
             reserved.
           </p>
           <div className="flex gap-6 text-sm text-gray-500">
-            <Link href="/privacy" className="hover:text-white transition-colors">
-              Privacy Policy
+            <Link href="/about" className="hover:text-white transition-colors">
+              About
             </Link>
-            <Link href="/terms" className="hover:text-white transition-colors">
-              Terms of Service
+            <Link href="/activities" className="hover:text-white transition-colors">
+              Activities
+            </Link>
+            <Link href="/map" className="hover:text-white transition-colors">
+              Map
             </Link>
           </div>
         </div>

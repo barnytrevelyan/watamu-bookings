@@ -450,15 +450,7 @@ function RegisterForm() {
             </button>
 
             <p className="text-xs text-gray-500 text-center">
-              By creating an account, you agree to our{' '}
-              <a href="/terms" className="text-blue-600 hover:underline">
-                Terms of Service
-              </a>{' '}
-              and{' '}
-              <a href="/privacy" className="text-blue-600 hover:underline">
-                Privacy Policy
-              </a>
-              .
+              By creating an account, you agree to our Terms of Service and Privacy Policy.
             </p>
           </form>
         </div>
