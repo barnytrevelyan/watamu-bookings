@@ -2,41 +2,22 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Waves,
   Menu,
   X,
-  User,
   LogOut,
   Settings,
   LayoutDashboard,
   ChevronDown,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
-
-interface AuthUser {
-  name: string;
-  email: string;
-  avatar?: string;
-  role?: 'guest' | 'owner' | 'admin';
-}
-
-function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  const login = () => {
-    setUser({ name: 'Guest User', email: 'guest@example.com', role: 'guest' });
-  };
-
-  const logout = () => {
-    setUser(null);
-  };
-
-  return { user, login, logout };
-}
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -54,11 +35,25 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setDropdownOpen(false);
+      setMobileOpen(false);
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+  };
+
   const navLinks = [
     { href: '/properties', label: 'Properties' },
     { href: '/boats', label: 'Fishing Charters' },
     { href: '/about', label: 'About' },
   ];
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100">
@@ -88,25 +83,19 @@ export default function Navbar() {
 
           {/* Desktop auth */}
           <div className="hidden md:flex items-center gap-3">
-            {user ? (
+            {loading ? (
+              <div className="h-8 w-20 bg-gray-100 rounded-lg animate-pulse" />
+            ) : user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-600)] flex items-center justify-center text-sm font-semibold">
-                      {user.name.charAt(0)}
-                    </div>
-                  )}
+                  <div className="h-8 w-8 rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-600)] flex items-center justify-center text-sm font-semibold">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
                   <span className="text-sm font-medium text-gray-700">
-                    {user.name}
+                    {displayName}
                   </span>
                   <ChevronDown className="h-4 w-4 text-gray-400" />
                 </button>
@@ -122,19 +111,16 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                     <Link
-                      href="/settings"
+                      href="/dashboard/bookings"
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                       onClick={() => setDropdownOpen(false)}
                     >
                       <Settings className="h-4 w-4" />
-                      Settings
+                      My Bookings
                     </Link>
                     <div className="border-t border-gray-100 my-1" />
                     <button
-                      onClick={() => {
-                        logout();
-                        setDropdownOpen(false);
-                      }}
+                      onClick={handleSignOut}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full"
                     >
                       <LogOut className="h-4 w-4" />
@@ -145,12 +131,12 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link href="/login">
+                <Link href="/auth/login">
                   <Button variant="ghost" size="sm">
                     Log in
                   </Button>
                 </Link>
-                <Link href="/register">
+                <Link href="/auth/register">
                   <Button variant="primary" size="sm">
                     Register
                   </Button>
@@ -194,11 +180,11 @@ export default function Navbar() {
               <div className="space-y-2">
                 <div className="flex items-center gap-3 px-4 py-2">
                   <div className="h-10 w-10 rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-600)] flex items-center justify-center text-sm font-semibold">
-                    {user.name.charAt(0)}
+                    {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {user.name}
+                      {displayName}
                     </p>
                     <p className="text-xs text-gray-500">{user.email}</p>
                   </div>
@@ -211,10 +197,7 @@ export default function Navbar() {
                   Dashboard
                 </Link>
                 <button
-                  onClick={() => {
-                    logout();
-                    setMobileOpen(false);
-                  }}
+                  onClick={handleSignOut}
                   className="block w-full text-left px-4 py-3 text-base text-red-600 hover:bg-red-50 rounded-lg"
                 >
                   Log out
@@ -222,7 +205,7 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex gap-3">
-                <Link href="/login" className="flex-1">
+                <Link href="/auth/login" className="flex-1">
                   <Button
                     variant="outline"
                     fullWidth
@@ -231,7 +214,7 @@ export default function Navbar() {
                     Log in
                   </Button>
                 </Link>
-                <Link href="/register" className="flex-1">
+                <Link href="/auth/register" className="flex-1">
                   <Button
                     variant="primary"
                     fullWidth

@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
+import { getBoatImage } from "@/lib/images";
 import type { Boat } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -154,8 +155,20 @@ export default async function BoatsPage({
         {/* Boat grid */}
         {boats.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {boats.map((boat) => (
-              <BoatCard key={boat.id} boat={boat} />
+            {boats.map((boat: any, index: number) => (
+              <BoatCard
+                key={boat.id}
+                slug={boat.slug}
+                name={boat.name}
+                type={boat.boat_type?.replace('_', ' ') || 'Sport Fisher'}
+                coverImage={boat.images?.[0]?.url || getBoatImage(index)}
+                captainName={boat.captain_name || 'TBA'}
+                capacity={boat.capacity || 6}
+                rating={boat.average_rating || 0}
+                reviewCount={boat.review_count || 0}
+                startingPrice={boat.price_from || 0}
+                currency={boat.currency || 'KES'}
+              />
             ))}
           </div>
         ) : (

@@ -18,6 +18,7 @@ const sizeMap = {
   lg: 'h-6 w-6',
 };
 
+export { StarRating };
 export default function StarRating({
   rating,
   maxStars = 5,

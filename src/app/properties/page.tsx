@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import PropertyCard from "@/components/PropertyCard";
 import SearchFilters from "@/components/SearchFilters";
+import { getPropertyImage } from "@/lib/images";
 import type { Property } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -153,8 +154,22 @@ export default async function PropertiesPage({
         {/* Property grid */}
         {properties.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {properties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
+            {properties.map((property: any, index: number) => (
+              <PropertyCard
+                key={property.id}
+                slug={property.slug}
+                name={property.name}
+                location={property.city || 'Watamu'}
+                type={property.property_type?.replace('_', ' ') || 'House'}
+                coverImage={property.images?.[0]?.url || getPropertyImage(index)}
+                rating={property.average_rating || 0}
+                reviewCount={property.review_count || 0}
+                pricePerNight={property.price_per_night || property.base_price_per_night || 0}
+                currency={property.currency || 'KES'}
+                bedrooms={property.bedrooms || 0}
+                bathrooms={property.bathrooms || 0}
+                maxGuests={property.max_guests || 2}
+              />
             ))}
           </div>
         ) : (

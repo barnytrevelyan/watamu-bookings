@@ -131,8 +131,8 @@ export default async function HomePage() {
       <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center overflow-hidden">
         {/* Hero background image */}
         <Image
-          src={STOCK_IMAGES.hero.tropicalBeach}
-          alt="Watamu beach coastline"
+          src="/images/watamu-hero.jpg"
+          alt="White sand beach and turquoise ocean in Watamu, Kenya"
           fill
           className="object-cover"
           priority

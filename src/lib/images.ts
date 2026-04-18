@@ -7,10 +7,10 @@
 export const STOCK_IMAGES = {
   // Hero / Landing page backgrounds
   hero: {
-    beach: 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=1920&q=80&fit=crop',
+    beach: 'https://images.unsplash.com/photo-1509233725247-49e657c54213?w=1920&q=80&fit=crop',
     oceanSunset: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80&fit=crop',
-    tropicalBeach: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=1920&q=80&fit=crop',
-    aerialOcean: 'https://images.unsplash.com/photo-1505228395891-9a51e7e86bf6?w=1920&q=80&fit=crop',
+    tropicalBeach: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1920&q=80&fit=crop',
+    aerialOcean: 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=1920&q=80&fit=crop',
   },
 
   // Property placeholder images
