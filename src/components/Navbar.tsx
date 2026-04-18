@@ -50,6 +50,9 @@ export default function Navbar() {
   const navLinks = [
     { href: '/properties', label: 'Properties' },
     { href: '/boats', label: 'Fishing Charters' },
+    { href: '/activities', label: 'Activities' },
+    { href: '/map', label: 'Map' },
+    { href: '/tides', label: 'Tides & Weather' },
     { href: '/about', label: 'About' },
   ];
 

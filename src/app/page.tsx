@@ -4,6 +4,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import PropertyCard from "@/components/PropertyCard";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
+import WeatherWidget from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/Button";
 import { STOCK_IMAGES, getPropertyImage, getBoatImage } from "@/lib/images";
 import type { Property, Boat } from "@/lib/types";
@@ -151,7 +152,7 @@ export default async function HomePage() {
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
-            Discover Watamu
+            Your Stay in Watamu Starts Here
           </h1>
           <p className="text-lg sm:text-xl text-white/90 mb-10 max-w-2xl mx-auto">
             Book stunning beachfront stays and world-class fishing charters on
@@ -287,6 +288,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ===== WEATHER WIDGET ===== */}
+      <WeatherWidget />
 
       {/* ===== HOW IT WORKS ===== */}
       <section className="py-16 lg:py-24 px-4 bg-gray-50">
