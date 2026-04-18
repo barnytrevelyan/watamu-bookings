@@ -121,7 +121,7 @@ export default function ActivitiesPage() {
             </p>
           </div>
           <a
-            href="https://kws.go.ke/parks/watamu-marine-national-park"
+            href="https://kwspay.ecitizen.go.ke/single-park-entry/watamu-marine-park/guests"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors shrink-0"

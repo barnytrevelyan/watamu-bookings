@@ -91,15 +91,27 @@ export default function AboutPage() {
             securely, and give you a full dashboard to manage your listings, bookings, and reviews.
           </p>
           <p className="mt-4 text-gray-600 leading-relaxed">
-            Interested? Get in touch at{' '}
+            Getting started is free — create an owner account, build your listing page with photos,
+            pricing, and amenities, then submit it for review. Once approved, your property or boat
+            will be live and bookable on the site.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/auth/register"
+              className="inline-flex items-center gap-2 bg-teal-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors"
+            >
+              Create Owner Account
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
             <a
               href="mailto:info@watamubookings.com"
-              className="text-[var(--color-primary-600)] font-medium hover:underline"
+              className="inline-flex items-center gap-2 bg-white text-gray-700 font-semibold px-6 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
             >
-              info@watamubookings.com
-            </a>{' '}
-            and we'll send you an invitation to get started.
-          </p>
+              Questions? Email Us
+            </a>
+          </div>
         </div>
 
         {/* Getting Here */}
@@ -181,7 +193,7 @@ export default function AboutPage() {
               <p className="text-sm text-amber-800">KWS Watamu: <span className="font-mono font-semibold">+254 42 232 0646</span></p>
               <p className="text-sm text-amber-800 mt-1">
                 <a
-                  href="https://kws.go.ke/parks/watamu-marine-national-park"
+                  href="https://kwspay.ecitizen.go.ke/single-park-entry/watamu-marine-park/guests"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-amber-700 font-medium underline hover:no-underline"
