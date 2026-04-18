@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ChevronLeft,
+  Download,
 } from 'lucide-react';
 
 interface DashboardSidebarProps {
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/dashboard/bookings', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/reviews', label: 'Reviews', icon: Star },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/import', label: 'Import Listing', icon: Download },
 ];
 
 export default function DashboardSidebar({

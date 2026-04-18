@@ -12,6 +12,7 @@ import { TRIP_TYPE_LABELS } from '@/lib/types';
 import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
+import CalendarSync from '@/components/CalendarSync';
 
 interface BoatFeature {
   id: string;
@@ -509,6 +510,15 @@ export default function EditBoatPage() {
           </div>
         )}
       </Card>
+
+      {/* Calendar Sync */}
+      {params.id && (
+        <CalendarSync
+          listingType="boat"
+          listingId={params.id as string}
+          listingName={name}
+        />
+      )}
 
       <div className="flex justify-end gap-3 pb-8">
         <Button variant="outline" onClick={() => router.back()}>Cancel</Button>

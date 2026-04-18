@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
+import CalendarSync from '@/components/CalendarSync';
 
 interface Amenity {
   id: string;
@@ -556,6 +557,15 @@ export default function EditPropertyPage() {
           </div>
         )}
       </Card>
+
+      {/* Calendar Sync */}
+      {params.id && (
+        <CalendarSync
+          listingType="property"
+          listingId={params.id as string}
+          listingName={name}
+        />
+      )}
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => router.push('/dashboard/properties')}>
