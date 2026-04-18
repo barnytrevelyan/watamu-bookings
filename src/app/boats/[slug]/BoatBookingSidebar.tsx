@@ -35,11 +35,13 @@ export default function BoatBookingSidebar({
 
   const [selectedTripId, setSelectedTripId] = useState<string>(trips[0]?.id ?? "");
   const [tripDate, setTripDate] = useState<string>("");
-  const [guests, setGuests] = useState(1);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const guests = adults + children;
   const selectedTrip = trips.find((t) => t.id === selectedTripId);
-  const tripPrice = selectedTrip?.price ?? 0;
+  const tripPrice = (selectedTrip as any)?.price_total ?? (selectedTrip as any)?.price ?? 0;
   const maxGuests = selectedTrip?.max_guests ?? capacity ?? 10;
 
   // Blocked dates
@@ -82,18 +84,19 @@ export default function BoatBookingSidebar({
       const { data, error } = await supabase
         .from("wb_bookings")
         .insert({
+          listing_type: "boat",
           boat_id: boatId,
-          boat_trip_id: selectedTripId,
-          user_id: user.id,
+          trip_id: selectedTripId,
+          guest_id: user.id,
           check_in: tripDate,
           check_out: tripDate,
-          guests,
-          nights: 0,
-          nightly_rate: 0,
+          trip_date: tripDate,
+          guests_count: guests,
+          adults_count: adults,
+          children_count: children,
           total_price: tripPrice,
-          status: "pending",
+          status: "pending_payment",
           currency: "KES",
-          booking_type: "boat",
         })
         .select("id")
         .single();
@@ -172,19 +175,34 @@ export default function BoatBookingSidebar({
         />
       </div>
 
-      {/* Guests */}
+      {/* Guests — Adults + Children */}
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-500 mb-1">Guests</label>
-        <Select
-          value={String(guests)}
-          onChange={(e) => setGuests(Number(e.target.value))}
-        >
-          {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>
-              {n} guest{n !== 1 ? "s" : ""}
-            </option>
-          ))}
-        </Select>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-0.5">Adults</label>
+            <Select
+              value={String(adults)}
+              onChange={(e) => setAdults(Number(e.target.value))}
+            >
+              {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-0.5">Children</label>
+            <Select
+              value={String(children)}
+              onChange={(e) => setChildren(Number(e.target.value))}
+            >
+              {Array.from({ length: Math.max(0, maxGuests - adults) + 1 }, (_, i) => i).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1">{guests} total guest{guests !== 1 ? 's' : ''} (max {maxGuests})</p>
       </div>
 
       {/* Price summary */}

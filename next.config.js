@@ -20,6 +20,15 @@ const nextConfig = {
       },
     ],
   },
+  // Enable wildcard subdomains for watamu.ke
+  // Each boat/property gets slug.watamu.ke
+  async rewrites() {
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 module.exports = nextConfig;

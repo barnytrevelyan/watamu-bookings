@@ -7,7 +7,7 @@ import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
 import BoatBookingSidebar from "./BoatBookingSidebar";
 import type { Boat, BoatTrip, Review, Image, TripType } from "@/lib/types";
-import { TRIP_TYPE_LABELS } from "@/lib/types";
+import { TRIP_TYPE_LABELS, MONTH_LABELS } from "@/lib/types";
 
 /* ---------- Types ---------- */
 
@@ -42,13 +42,14 @@ async function getBoat(slug: string): Promise<BoatDetail | null> {
       `
       *,
       images:wb_images(id, url, alt, position),
-      trips:wb_boat_trips(id, name, trip_type, duration_hours, price, description, max_guests, includes, departure_time),
+      trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, price_per_person, description, max_guests, includes, departure_time, target_species, seasonal_months),
       reviews:wb_reviews(
-        id, rating, comment, created_at,
-        author:profiles(id, full_name, avatar_url)
+        id, rating, comment, created_at, is_verified, reported_catch, trip_name,
+        boat_equipment_rating, captain_crew_rating, fishing_experience_rating,
+        author:wb_profiles(id, full_name, avatar_url)
       ),
       features:wb_boat_feature_links(feature:wb_boat_features(id, name, icon, category)),
-      owner:profiles!wb_boats_owner_id_fkey(id, full_name, avatar_url, created_at)
+      owner:wb_profiles!wb_boats_owner_id_fkey(id, full_name, avatar_url, created_at)
     `
     )
     .eq("slug", slug)
@@ -117,11 +118,26 @@ export default async function BoatDetailPage({
 
   const totalReviews = reviews.length;
   const averageRating =
-    totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
+    totalReviews > 0 ? reviews.reduce((sum, r: any) => sum + r.rating, 0) / totalReviews : 0;
   const ratingDistribution = [5, 4, 3, 2, 1].map((star) => ({
     star,
-    count: reviews.filter((r) => Math.round(r.rating) === star).length,
+    count: reviews.filter((r: any) => Math.round(r.rating) === star).length,
   }));
+
+  // Multi-dimensional rating averages for boats
+  const boatSubRatings = (() => {
+    const withBoatRatings = reviews.filter((r: any) => r.boat_equipment_rating);
+    if (withBoatRatings.length === 0) return null;
+    const avg = (field: string) => {
+      const vals = withBoatRatings.filter((r: any) => r[field]).map((r: any) => r[field]);
+      return vals.length > 0 ? vals.reduce((a: number, b: number) => a + b, 0) / vals.length : 0;
+    };
+    return [
+      { label: 'Boat & Equipment', score: avg('boat_equipment_rating') },
+      { label: 'Captain & Crew', score: avg('captain_crew_rating') },
+      { label: 'Fishing Experience', score: avg('fishing_experience_rating') },
+    ];
+  })();
 
   // Group features by category
   const featuresByCategory = features.reduce<Record<string, BoatFeature[]>>((acc, f) => {
@@ -156,6 +172,12 @@ export default async function BoatDetailPage({
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 {boat.boat_type && <Badge variant="secondary">{boat.boat_type}</Badge>}
                 {boat.is_featured && <Badge variant="default">Featured</Badge>}
+                {boat.instant_confirmation && (
+                  <Badge variant="success" className="flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+                    Instant Confirmation
+                  </Badge>
+                )}
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
                 {boat.name}
@@ -240,18 +262,27 @@ export default async function BoatDetailPage({
               <section className="mb-10">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Trip Packages</h2>
                 <div className="space-y-4">
-                  {trips.map((trip) => (
+                  {trips.map((trip: any) => (
                     <div
                       key={trip.id}
                       className="border border-gray-200 rounded-xl p-5 hover:border-teal-300 transition-colors"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
                             <h3 className="font-semibold text-gray-900">{trip.name}</h3>
                             {trip.trip_type && (
                               <Badge variant="outline" className="text-xs">
                                 {TRIP_TYPE_LABELS[trip.trip_type as TripType] || trip.trip_type.replace(/_/g, ' ')}
+                              </Badge>
+                            )}
+                            {boat.cancellation_policy === 'flexible' && (
+                              <Badge variant="success" className="text-xs">FREE Cancellation</Badge>
+                            )}
+                            {boat.instant_confirmation && (
+                              <Badge variant="info" className="text-xs flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+                                Instant Confirmation
                               </Badge>
                             )}
                           </div>
@@ -265,23 +296,56 @@ export default async function BoatDetailPage({
                               </span>
                             )}
                             {trip.departure_time && (
-                              <span>Departs {trip.departure_time}</span>
+                              <span>Departs {String(trip.departure_time).slice(0, 5)}</span>
                             )}
                             {trip.max_guests && (
                               <span>Up to {trip.max_guests} guests</span>
                             )}
                           </div>
-                          {trip.includes && (
+
+                          {/* Target species */}
+                          {trip.target_species && trip.target_species.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {trip.target_species.map((species: string) => (
+                                <span
+                                  key={species}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454Z" />
+                                  </svg>
+                                  {species}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Seasonal availability */}
+                          {trip.seasonal_months && trip.seasonal_months.length > 0 && trip.seasonal_months.length < 12 && (
+                            <div className="flex items-center gap-1.5 mt-2 text-xs text-gray-500">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                              </svg>
+                              <span>Available: {trip.seasonal_months.map((m: number) => MONTH_LABELS[m - 1]).join(', ')}</span>
+                            </div>
+                          )}
+
+                          {trip.includes && Array.isArray(trip.includes) && trip.includes.length > 0 && (
                             <p className="text-xs text-gray-500 mt-2">
-                              <span className="font-medium">Includes:</span> {trip.includes}
+                              <span className="font-medium">Includes:</span> {trip.includes.join(', ')}
                             </p>
                           )}
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-xl font-bold text-teal-700">
-                            KES {trip.price.toLocaleString()}
+                            KES {(trip.price_total || trip.price || 0).toLocaleString()}
                           </p>
                           <p className="text-xs text-gray-400">per trip</p>
+                          {trip.price_per_person && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              or KES {trip.price_per_person.toLocaleString()}/person
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -345,31 +409,60 @@ export default async function BoatDetailPage({
             {boat.captain_name && (
               <section className="mb-10">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Captain</h2>
-                <div className="flex items-start gap-4 bg-gray-50 rounded-xl p-5">
-                  {boat.captain_image_url ? (
-                    <img
-                      src={boat.captain_image_url}
-                      alt={boat.captain_name}
-                      className="w-16 h-16 rounded-full object-cover shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-xl shrink-0">
-                      {boat.captain_name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div>
-                    <p className="font-semibold text-gray-900 text-lg">
-                      Captain {boat.captain_name}
-                    </p>
-                    {boat.captain_bio && (
-                      <p className="text-sm text-gray-600 mt-1 leading-relaxed">
-                        {boat.captain_bio}
-                      </p>
+                <div className="bg-gray-50 rounded-xl p-5">
+                  <div className="flex items-start gap-4">
+                    {boat.captain_image_url ? (
+                      <img
+                        src={boat.captain_image_url}
+                        alt={boat.captain_name}
+                        className="w-20 h-20 rounded-full object-cover shrink-0 ring-2 ring-white shadow"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-2xl shrink-0 ring-2 ring-white shadow">
+                        {boat.captain_name.charAt(0).toUpperCase()}
+                      </div>
                     )}
-                    {boat.captain_experience_years && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        {boat.captain_experience_years}+ years of experience
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 text-lg">
+                        Captain {boat.captain_name}
                       </p>
+                      {boat.captain_bio && (
+                        <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                          {boat.captain_bio}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Captain stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-gray-200">
+                    {boat.captain_experience_years && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-gray-900">{boat.captain_experience_years}+</p>
+                        <p className="text-xs text-gray-500">Years Experience</p>
+                      </div>
+                    )}
+                    {(boat.captain_fishing_reports ?? 0) > 0 && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-gray-900">{boat.captain_fishing_reports}</p>
+                        <p className="text-xs text-gray-500">Fishing Reports</p>
+                      </div>
+                    )}
+                    {totalReviews > 0 && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-gray-900">{totalReviews}</p>
+                        <p className="text-xs text-gray-500">Reviews</p>
+                      </div>
+                    )}
+                    {boat.captain_response_time_hours && (
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-gray-900">
+                          {boat.captain_response_time_hours < 1
+                            ? `${Math.round(boat.captain_response_time_hours * 60)}min`
+                            : `${boat.captain_response_time_hours}h`}
+                        </p>
+                        <p className="text-xs text-gray-500">Response Time</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -391,7 +484,7 @@ export default async function BoatDetailPage({
                 <>
                   {/* Rating summary */}
                   <div className="flex flex-col sm:flex-row gap-8 mb-8 p-6 bg-gray-50 rounded-xl">
-                    <div className="text-center sm:text-left">
+                    <div className="text-center sm:text-left shrink-0">
                       <p className="text-5xl font-bold text-gray-900">
                         {averageRating.toFixed(1)}
                       </p>
@@ -420,6 +513,26 @@ export default async function BoatDetailPage({
                       ))}
                     </div>
                   </div>
+
+                  {/* Multi-dimensional boat ratings */}
+                  {boatSubRatings && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                      {boatSubRatings.map(({ label, score }) => (
+                        <div key={label} className="bg-white border border-gray-100 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">{label}</span>
+                            <span className="text-sm font-bold text-gray-900">{score.toFixed(1)}</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-teal-500 rounded-full transition-all"
+                              style={{ width: `${(score / 5) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Review cards */}
                   <div className="space-y-6">

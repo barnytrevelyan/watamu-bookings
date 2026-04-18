@@ -46,6 +46,12 @@ export const TRIP_TYPE_LABELS: Record<TripType, string> = {
   custom: 'Custom',
 };
 
+/** Short month labels for seasonal display */
+export const MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
 export type BookingStatus =
   | 'pending_payment'
   | 'confirmed'
@@ -161,6 +167,18 @@ export interface Boat {
   rating_count: number;
   status: ListingStatus;
   rejection_reason: string | null;
+  instant_confirmation: boolean;
+  captain_name: string | null;
+  captain_bio: string | null;
+  captain_image_url: string | null;
+  captain_experience_years: number | null;
+  captain_response_time_hours: number | null;
+  captain_fishing_reports: number;
+  target_species: string[] | null;
+  fishing_techniques: string[] | null;
+  departure_point: string | null;
+  safety_equipment: string | null;
+  home_port: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -187,11 +205,15 @@ export interface BoatTrip {
   description: string | null;
   duration_hours: number;
   price: number;
+  price_total: number;
+  price_per_person: number | null;
   currency: Currency;
   max_passengers: number;
   max_guests?: number;
   includes: string[];
   departure_time: string | null;
+  target_species: string[];
+  seasonal_months: number[];
   created_at: string;
   updated_at: string;
 }
@@ -235,6 +257,8 @@ export interface Booking {
   check_in: string;
   check_out: string;
   guests_count: number;
+  adults_count: number | null;
+  children_count: number;
   total_amount: number;
   currency: Currency;
   status: BookingStatus;
@@ -268,6 +292,19 @@ export interface Review {
   rating: number;
   comment: string | null;
   owner_reply: string | null;
+  // Property sub-ratings
+  cleanliness_rating: number | null;
+  location_rating: number | null;
+  value_rating: number | null;
+  communication_rating: number | null;
+  // Boat sub-ratings
+  boat_equipment_rating: number | null;
+  captain_crew_rating: number | null;
+  fishing_experience_rating: number | null;
+  // Verified + catch
+  is_verified: boolean;
+  reported_catch: string[];
+  trip_name: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -41,8 +41,11 @@ export default function PropertyBookingSidebar({
 
   const [checkIn, setCheckIn] = useState<string>("");
   const [checkOut, setCheckOut] = useState<string>("");
-  const [guests, setGuests] = useState(1);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+
+  const guests = adults + children;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Blocked dates set for quick lookup
@@ -197,19 +200,34 @@ export default function PropertyBookingSidebar({
         </div>
       </div>
 
-      {/* Guests */}
+      {/* Guests — Adults + Children */}
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-500 mb-1">Guests</label>
-        <Select
-          value={String(guests)}
-          onChange={(e) => setGuests(Number(e.target.value))}
-        >
-          {Array.from({ length: maxGuests || 10 }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>
-              {n} guest{n !== 1 ? "s" : ""}
-            </option>
-          ))}
-        </Select>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-0.5">Adults</label>
+            <Select
+              value={String(adults)}
+              onChange={(e) => setAdults(Number(e.target.value))}
+            >
+              {Array.from({ length: maxGuests || 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-[10px] text-gray-400 mb-0.5">Children</label>
+            <Select
+              value={String(children)}
+              onChange={(e) => setChildren(Number(e.target.value))}
+            >
+              {Array.from({ length: Math.max(0, (maxGuests || 10) - adults) + 1 }, (_, i) => i).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1">{guests} total guest{guests !== 1 ? 's' : ''} (max {maxGuests || 10})</p>
       </div>
 
       {/* Room selection (if multiple rooms) */}

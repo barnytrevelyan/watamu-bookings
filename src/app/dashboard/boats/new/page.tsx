@@ -28,6 +28,8 @@ interface TripPackage {
   departure_time: string;
   max_guests: number;
   includes: string;
+  target_species: string[];
+  seasonal_months: number[];
 }
 
 const BOAT_TYPES = [
@@ -177,6 +179,9 @@ export default function NewBoatPage() {
   const [capacity, setCapacity] = useState('6');
   const [crewSize, setCrewSize] = useState('2');
   const [captainName, setCaptainName] = useState('');
+  const [captainBio, setCaptainBio] = useState('');
+  const [captainExperienceYears, setCaptainExperienceYears] = useState('');
+  const [instantConfirmation, setInstantConfirmation] = useState(false);
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
 
@@ -262,6 +267,8 @@ export default function NewBoatPage() {
         departure_time: '06:30',
         max_guests: parseInt(capacity) || 6,
         includes: '',
+        target_species: [],
+        seasonal_months: [],
       },
     ]);
   }
@@ -347,6 +354,9 @@ export default function NewBoatPage() {
           capacity: parseInt(capacity),
           crew_size: parseInt(crewSize),
           captain_name: captainName.trim() || null,
+          captain_bio: captainBio.trim() || null,
+          captain_experience_years: captainExperienceYears ? parseInt(captainExperienceYears) : null,
+          instant_confirmation: instantConfirmation,
           target_species: selectedSpecies,
           fishing_techniques: selectedTechniques,
           safety_equipment: safetyEquipment.trim() || null,
@@ -387,6 +397,8 @@ export default function NewBoatPage() {
             departure_time: t.departure_time,
             max_guests: t.max_guests,
             includes: t.includes ? t.includes.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+            target_species: t.target_species || [],
+            seasonal_months: t.seasonal_months || [],
             sort_order: i,
           }));
 
@@ -576,6 +588,10 @@ export default function NewBoatPage() {
               <Input value={captainName} onChange={(e) => setCaptainName(e.target.value)} placeholder="Captain name" />
             </div>
             <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Captain Experience (years)</label>
+              <Input type="number" min="0" value={captainExperienceYears} onChange={(e) => setCaptainExperienceYears(e.target.value)} placeholder="15" />
+            </div>
+            <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Currency</label>
               <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
                 <option value="KES">KES (Kenyan Shilling)</option>
@@ -598,6 +614,15 @@ export default function NewBoatPage() {
             <Input value={departurePoint} onChange={(e) => setDeparturePoint(e.target.value)} />
           </div>
           <div className="mt-4">
+            <label className="mb-1 block text-sm font-medium text-gray-700">Captain Bio</label>
+            <Textarea
+              value={captainBio}
+              onChange={(e) => setCaptainBio(e.target.value)}
+              placeholder="Tell guests about the captain's experience, specialties, and personality..."
+              rows={3}
+            />
+          </div>
+          <div className="mt-4">
             <label className="mb-1 block text-sm font-medium text-gray-700">Safety Equipment</label>
             <Textarea
               value={safetyEquipment}
@@ -605,6 +630,20 @@ export default function NewBoatPage() {
               placeholder="Life jackets, first aid kit, fire extinguisher, radio, GPS, flares..."
               rows={3}
             />
+          </div>
+          <div className="mt-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={instantConfirmation}
+                onChange={(e) => setInstantConfirmation(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Instant Confirmation</span>
+                <p className="text-xs text-gray-500">Bookings are confirmed automatically without manual approval</p>
+              </div>
+            </label>
           </div>
         </Card>
       )}
@@ -822,6 +861,60 @@ export default function NewBoatPage() {
                         placeholder="Fishing gear, bait, refreshments, lunch..."
                         rows={2}
                       />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-xs text-gray-600">Target Species for this trip</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TARGET_SPECIES.map((species) => (
+                          <button
+                            key={species}
+                            type="button"
+                            onClick={() => {
+                              const current = trip.target_species || [];
+                              const updated = current.includes(species)
+                                ? current.filter((s) => s !== species)
+                                : [...current, species];
+                              updateTrip(i, 'target_species', updated);
+                            }}
+                            className={`rounded-full border px-2 py-0.5 text-xs transition-all ${
+                              (trip.target_species || []).includes(species)
+                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                            }`}
+                          >
+                            {species}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-xs text-gray-600">Available Months (leave empty for year-round)</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((month, idx) => {
+                          const monthNum = idx + 1;
+                          const active = (trip.seasonal_months || []).includes(monthNum);
+                          return (
+                            <button
+                              key={month}
+                              type="button"
+                              onClick={() => {
+                                const current = trip.seasonal_months || [];
+                                const updated = active
+                                  ? current.filter((m) => m !== monthNum)
+                                  : [...current, monthNum].sort((a, b) => a - b);
+                                updateTrip(i, 'seasonal_months', updated);
+                              }}
+                              className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-all ${
+                                active
+                                  ? 'border-teal-500 bg-teal-50 text-teal-700'
+                                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                              }`}
+                            >
+                              {month}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

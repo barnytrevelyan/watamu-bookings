@@ -247,10 +247,12 @@ export default async function HomePage() {
                     coverImage={boat.images?.[0]?.url || getBoatImage(index)}
                     captainName={boat.captain_name || 'TBA'}
                     capacity={boat.capacity}
+                    lengthFt={boat.length_ft}
                     rating={boat.avg_rating || 0}
                     reviewCount={boat.review_count || 0}
                     startingPrice={lowestTrip?.price_total || 0}
                     currency={boat.currency || 'KES'}
+                    instantConfirmation={boat.instant_confirmation || false}
                   />
                 );
               })}

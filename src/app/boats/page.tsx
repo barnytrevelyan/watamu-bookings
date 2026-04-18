@@ -170,10 +170,12 @@ export default async function BoatsPage({
                 coverImage={boat.images?.[0]?.url || getBoatImage(index)}
                 captainName={boat.captain_name || 'TBA'}
                 capacity={boat.capacity || 6}
-                rating={boat.average_rating || 0}
+                lengthFt={boat.length_ft || null}
+                rating={boat.average_rating || boat.avg_rating || 0}
                 reviewCount={boat.review_count || 0}
-                startingPrice={boat.price_from || 0}
+                startingPrice={boat.price_from || (boat.trips?.[0]?.price_total) || 0}
                 currency={boat.currency || 'KES'}
+                instantConfirmation={boat.instant_confirmation || false}
               />
             ))}
           </div>
