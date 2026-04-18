@@ -131,7 +131,7 @@ export default async function HomePage() {
       <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center overflow-hidden">
         {/* Hero background image */}
         <Image
-          src="/images/watamu-hero.jpg"
+          src="https://jiyoxdeiyydyxjymahrh.supabase.co/storage/v1/object/public/watamu-images/hero/watamu-hero.jpg"
           alt="White sand beach and turquoise ocean in Watamu, Kenya"
           fill
           className="object-cover"
@@ -330,19 +330,17 @@ export default async function HomePage() {
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/host/properties/new">
-                  <Button size="lg" className="bg-white text-teal-700 hover:bg-gray-100 font-semibold px-8">
-                    List Your Property
-                  </Button>
+                <Link
+                  href="/about"
+                  className="inline-block bg-white text-teal-700 hover:bg-gray-100 font-semibold text-lg px-8 py-3 rounded-lg transition-colors shadow-lg"
+                >
+                  List Your Property
                 </Link>
-                <Link href="/host/boats/new">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-white text-white hover:bg-white/10 font-semibold px-8"
-                  >
-                    List Your Boat
-                  </Button>
+                <Link
+                  href="/about"
+                  className="inline-block border-2 border-white text-white hover:bg-white/20 font-semibold text-lg px-8 py-3 rounded-lg transition-colors"
+                >
+                  List Your Boat
                 </Link>
               </div>
             </div>
