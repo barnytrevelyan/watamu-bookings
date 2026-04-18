@@ -1,0 +1,254 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Ocean Blues - Primary */
+    --color-primary-50: #e6f3fa;
+    --color-primary-100: #b3ddf0;
+    --color-primary-200: #80c7e6;
+    --color-primary-300: #4db1dc;
+    --color-primary-400: #269bd2;
+    --color-primary-500: #0077b6;
+    --color-primary-600: #005f92;
+    --color-primary-700: #00476e;
+    --color-primary-800: #002f4a;
+    --color-primary-900: #001726;
+
+    /* Sandy Golds - Secondary */
+    --color-secondary-50: #fdf8ed;
+    --color-secondary-100: #f9eacc;
+    --color-secondary-200: #f4dbab;
+    --color-secondary-300: #efcc8a;
+    --color-secondary-400: #eabd69;
+    --color-secondary-500: #d4a24a;
+    --color-secondary-600: #b8862e;
+    --color-secondary-700: #8c6623;
+    --color-secondary-800: #604617;
+    --color-secondary-900: #34260c;
+
+    /* Coral Accents */
+    --color-coral-50: #fef0ee;
+    --color-coral-100: #fcd5cf;
+    --color-coral-200: #f9aba0;
+    --color-coral-300: #f68170;
+    --color-coral-400: #f35741;
+    --color-coral-500: #e63e28;
+    --color-coral-600: #c22e1c;
+    --color-coral-700: #952316;
+    --color-coral-800: #67180f;
+    --color-coral-900: #3a0d08;
+
+    /* Lush Greens */
+    --color-green-50: #edf7ee;
+    --color-green-100: #c9e8cc;
+    --color-green-200: #a5d9aa;
+    --color-green-300: #81ca88;
+    --color-green-400: #5dbb66;
+    --color-green-500: #3a9c42;
+    --color-green-600: #2e7d34;
+    --color-green-700: #235e27;
+    --color-green-800: #173f1a;
+    --color-green-900: #0c200d;
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-white text-gray-900 font-sans;
+  }
+
+  * {
+    @apply border-gray-200;
+  }
+}
+
+@layer components {
+  /* Calendar Styles */
+  .calendar-grid {
+    @apply grid grid-cols-7 gap-0;
+  }
+
+  .calendar-cell {
+    @apply relative flex flex-col items-center justify-center p-1 min-h-[3rem] text-sm
+           cursor-pointer transition-all duration-200 ease-in-out border border-transparent;
+  }
+
+  .calendar-cell:hover:not(.calendar-cell--disabled) {
+    @apply bg-blue-50 rounded-lg;
+  }
+
+  .calendar-cell--today {
+    @apply font-bold;
+  }
+
+  .calendar-cell--today::after {
+    content: '';
+    @apply absolute bottom-1 w-1 h-1 rounded-full bg-[var(--color-primary-500)];
+  }
+
+  .calendar-cell--selected {
+    @apply bg-[var(--color-primary-500)] text-white rounded-lg;
+  }
+
+  .calendar-cell--in-range {
+    @apply bg-[var(--color-primary-100)] text-[var(--color-primary-800)];
+  }
+
+  .calendar-cell--range-start {
+    @apply bg-[var(--color-primary-500)] text-white rounded-l-lg;
+  }
+
+  .calendar-cell--range-end {
+    @apply bg-[var(--color-primary-500)] text-white rounded-r-lg;
+  }
+
+  .calendar-cell--booked {
+    @apply bg-red-100 text-red-400 cursor-not-allowed line-through;
+  }
+
+  .calendar-cell--blocked {
+    @apply bg-gray-100 text-gray-400 cursor-not-allowed;
+  }
+
+  .calendar-cell--disabled {
+    @apply text-gray-300 cursor-not-allowed;
+  }
+
+  .calendar-cell--available {
+    @apply text-[var(--color-green-600)];
+  }
+
+  .calendar-price {
+    @apply text-[10px] leading-tight text-gray-500 mt-0.5;
+  }
+
+  .calendar-cell--selected .calendar-price,
+  .calendar-cell--range-start .calendar-price,
+  .calendar-cell--range-end .calendar-price {
+    @apply text-blue-100;
+  }
+
+  /* Smooth Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-fade-out {
+    animation: fadeOut 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  .animate-spin-slow {
+    animation: spin 1.2s linear infinite;
+  }
+
+  /* Tab indicator */
+  .tab-indicator {
+    @apply absolute bottom-0 h-0.5 bg-[var(--color-primary-500)] transition-all duration-300 ease-in-out;
+  }
+
+  /* Lightbox overlay */
+  .lightbox-overlay {
+    @apply fixed inset-0 bg-black/90 z-50 flex items-center justify-center;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  /* Star rating */
+  .star-interactive:hover ~ .star-interactive {
+    @apply text-gray-300;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
