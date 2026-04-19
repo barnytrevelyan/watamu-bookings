@@ -24,7 +24,7 @@ interface RecentBooking {
   listing_type: 'property' | 'boat';
   check_in: string;
   check_out: string;
-  total_amount: number;
+  total_price: number;
   currency: string;
   status: string;
 }
@@ -60,115 +60,120 @@ export default function DashboardPage() {
       try {
         const supabase = createClient();
 
-        // Fetch properties count
-        const { count: propertiesCount } = await supabase
-          .from('wb_properties')
-          .select('*', { count: 'exact', head: true })
-          .eq('owner_id', user!.id);
+        // Step 1: Get owner's listing IDs (bookings/reviews don't have owner_id)
+        const [propsRes, boatsRes] = await Promise.all([
+          supabase.from('wb_properties').select('id, avg_rating').eq('owner_id', user!.id),
+          supabase.from('wb_boats').select('id, avg_rating').eq('owner_id', user!.id),
+        ]);
 
-        // Fetch boats count
-        const { count: boatsCount } = await supabase
-          .from('wb_boats')
-          .select('*', { count: 'exact', head: true })
-          .eq('owner_id', user!.id);
+        const ownerProps = propsRes.data || [];
+        const ownerBoats = boatsRes.data || [];
+        const propIds = ownerProps.map((p: any) => p.id);
+        const boatIds = ownerBoats.map((b: any) => b.id);
 
-        // Fetch active bookings
-        const { count: activeBookingsCount } = await supabase
-          .from('wb_bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('owner_id', user!.id)
-          .in('status', ['confirmed', 'pending']);
+        // Calculate average rating from listings directly
+        const allRatings = [...ownerProps, ...ownerBoats]
+          .map((l: any) => l.avg_rating)
+          .filter((r: any) => r && r > 0);
+        const averageRating = allRatings.length > 0
+          ? allRatings.reduce((sum: number, r: number) => sum + r, 0) / allRatings.length
+          : 0;
 
-        // Fetch revenue this month
+        // Step 2: Fetch bookings for owner's listings
+        const allBookings: any[] = [];
+        if (propIds.length > 0) {
+          const { data } = await supabase
+            .from('wb_bookings')
+            .select('id, check_in, check_out, total_price, currency, status, created_at, property_id, boat_id, wb_profiles!guest_id(full_name), wb_properties!property_id(name)')
+            .in('property_id', propIds)
+            .order('created_at', { ascending: false });
+          if (data) allBookings.push(...data);
+        }
+        if (boatIds.length > 0) {
+          const { data } = await supabase
+            .from('wb_bookings')
+            .select('id, check_in, check_out, total_price, currency, status, created_at, property_id, boat_id, wb_profiles!guest_id(full_name), wb_boats!boat_id(name)')
+            .in('boat_id', boatIds)
+            .order('created_at', { ascending: false });
+          if (data) allBookings.push(...data);
+        }
+
+        // Deduplicate
+        const seenBookings = new Set<string>();
+        const uniqueBookings = allBookings.filter((b) => {
+          if (seenBookings.has(b.id)) return false;
+          seenBookings.add(b.id);
+          return true;
+        });
+        uniqueBookings.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        // Active bookings count
+        const activeBookingsCount = uniqueBookings.filter(
+          (b) => b.status === 'confirmed' || b.status === 'pending_payment'
+        ).length;
+
+        // Revenue this month
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
-
-        const { data: monthlyBookings } = await supabase
-          .from('wb_bookings')
-          .select('total_amount')
-          .eq('owner_id', user!.id)
-          .eq('status', 'completed')
-          .gte('created_at', startOfMonth.toISOString());
-
-        const revenueThisMonth = (monthlyBookings || []).reduce(
-          (sum, b) => sum + (b.total_amount || 0),
-          0
-        );
-
-        // Fetch average rating
-        const { data: reviews } = await supabase
-          .from('wb_reviews')
-          .select('rating')
-          .eq('owner_id', user!.id);
-
-        const averageRating =
-          reviews && reviews.length > 0
-            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            : 0;
+        const revenueThisMonth = uniqueBookings
+          .filter((b) => (b.status === 'completed' || b.status === 'confirmed') && new Date(b.created_at) >= startOfMonth)
+          .reduce((sum, b) => sum + (b.total_price || 0), 0);
 
         setStats({
-          totalProperties: propertiesCount || 0,
-          totalBoats: boatsCount || 0,
-          activeBookings: activeBookingsCount || 0,
+          totalProperties: ownerProps.length,
+          totalBoats: ownerBoats.length,
+          activeBookings: activeBookingsCount,
           revenueThisMonth,
           averageRating: Math.round(averageRating * 10) / 10,
         });
 
-        // Fetch recent bookings
-        const { data: bookingsData } = await supabase
-          .from('wb_bookings')
-          .select(
-            `
-            id,
-            check_in,
-            check_out,
-            total_amount,
-            currency,
-            status,
-            wb_profiles!guest_id(full_name),
-            wb_properties(name),
-            wb_boats(name)
-          `
-          )
-          .eq('owner_id', user!.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        const formattedBookings: RecentBooking[] = (bookingsData || []).map(
+        // Recent bookings (top 5)
+        const formattedBookings: RecentBooking[] = uniqueBookings.slice(0, 5).map(
           (b: any) => ({
             id: b.id,
             guest_name: b.wb_profiles?.full_name || 'Guest',
             listing_name: b.wb_properties?.name || b.wb_boats?.name || 'N/A',
-            listing_type: b.wb_properties ? 'property' : 'boat',
+            listing_type: b.property_id ? 'property' : 'boat',
             check_in: b.check_in,
             check_out: b.check_out,
-            total_amount: b.total_amount,
+            total_price: b.total_price || 0,
             currency: b.currency || 'KES',
             status: b.status,
           })
         );
         setRecentBookings(formattedBookings);
 
-        // Fetch recent reviews
-        const { data: reviewsData } = await supabase
-          .from('wb_reviews')
-          .select(
-            `
-            id,
-            rating,
-            comment,
-            created_at,
-            wb_profiles!guest_id(full_name),
-            wb_properties(name),
-            wb_boats(name)
-          `
-          )
-          .eq('owner_id', user!.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
+        // Recent reviews
+        const allReviews: any[] = [];
+        if (propIds.length > 0) {
+          const { data } = await supabase
+            .from('wb_reviews')
+            .select('id, rating, comment, created_at, property_id, boat_id, wb_profiles!guest_id(full_name), wb_properties!property_id(name)')
+            .in('property_id', propIds)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          if (data) allReviews.push(...data);
+        }
+        if (boatIds.length > 0) {
+          const { data } = await supabase
+            .from('wb_reviews')
+            .select('id, rating, comment, created_at, property_id, boat_id, wb_profiles!guest_id(full_name), wb_boats!boat_id(name)')
+            .in('boat_id', boatIds)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          if (data) allReviews.push(...data);
+        }
 
-        const formattedReviews: RecentReview[] = (reviewsData || []).map(
+        const seenReviews = new Set<string>();
+        const uniqueReviews = allReviews.filter((r) => {
+          if (seenReviews.has(r.id)) return false;
+          seenReviews.add(r.id);
+          return true;
+        });
+        uniqueReviews.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const formattedReviews: RecentReview[] = uniqueReviews.slice(0, 3).map(
           (r: any) => ({
             id: r.id,
             guest_name: r.wb_profiles?.full_name || 'Guest',
@@ -364,7 +369,7 @@ export default function DashboardPage() {
                         </td>
                         <td className="py-3 whitespace-nowrap">
                           {booking.currency}{' '}
-                          {booking.total_amount.toLocaleString()}
+                          {booking.total_price.toLocaleString()}
                         </td>
                         <td className="py-3">
                           <span

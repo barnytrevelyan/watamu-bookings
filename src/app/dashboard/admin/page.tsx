@@ -72,7 +72,7 @@ export default function AdminPage() {
 
     const props: PendingListing[] = (propsRes.data || []).map((p: any) => ({
       id: p.id,
-      name: p.name || p.title || 'Untitled',
+      name: p.name || 'Untitled',
       type: 'property' as const,
       owner_name: p.wb_profiles?.full_name || 'Unknown',
       owner_email: p.wb_profiles?.email || '',

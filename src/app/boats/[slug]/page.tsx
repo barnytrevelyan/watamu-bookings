@@ -41,7 +41,7 @@ async function getBoat(slug: string): Promise<BoatDetail | null> {
     .select(
       `
       *,
-      images:wb_images(id, url, alt, position),
+      images:wb_images(id, url, alt_text, sort_order),
       trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, price_per_person, description, max_guests, includes, departure_time, target_species, seasonal_months),
       reviews:wb_reviews(
         id, rating, comment, created_at, is_verified, reported_catch, trip_name,
@@ -66,7 +66,7 @@ async function getBoatAvailability(boatId: string) {
 
   const { data } = await supabase
     .from("wb_boat_availability")
-    .select("date, is_available")
+    .select("date, is_blocked")
     .eq("boat_id", boatId)
     .gte("date", today)
     .order("date", { ascending: true });
@@ -85,7 +85,7 @@ export async function generateMetadata({
   const boat = await getBoat(slug);
   if (!boat) return { title: "Boat Not Found" };
 
-  const cover = boat.images?.sort((a, b) => a.position - b.position)[0];
+  const cover = boat.images?.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
 
   return {
     title: boat.name,
@@ -93,7 +93,7 @@ export async function generateMetadata({
     openGraph: {
       title: boat.name,
       description: boat.description?.slice(0, 160),
-      images: cover ? [{ url: cover.url, alt: cover.alt ?? boat.name }] : [],
+      images: cover ? [{ url: cover.url, alt: cover.alt_text ?? boat.name }] : [],
     },
   };
 }
@@ -111,7 +111,7 @@ export default async function BoatDetailPage({
 
   const availability = await getBoatAvailability(boat.id);
 
-  const sortedImages = (boat.images ?? []).sort((a, b) => a.position - b.position);
+  const sortedImages = (boat.images ?? []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const trips = boat.trips ?? [];
   const reviews = boat.reviews ?? [];
   const features = (boat.features ?? []).map((f) => f.feature);
@@ -150,12 +150,12 @@ export default async function BoatDetailPage({
   // Spec items
   const specs = [
     { label: "Type", value: boat.boat_type },
-    { label: "Length", value: boat.length ? `${boat.length} ft` : null },
+    { label: "Length", value: boat.length_ft ? `${boat.length_ft} ft` : null },
     { label: "Capacity", value: boat.capacity ? `${boat.capacity} guests` : null },
     { label: "Crew", value: boat.crew_size ? `${boat.crew_size} crew` : null },
     { label: "Captain", value: boat.captain_name },
-    { label: "Engine", value: boat.engine },
-    { label: "Year Built", value: boat.year_built },
+    { label: "Home Port", value: boat.home_port },
+    { label: "Departure", value: boat.departure_point },
   ].filter((s) => s.value);
 
   return (
@@ -369,7 +369,7 @@ export default async function BoatDetailPage({
                       <div className="flex flex-wrap gap-2">
                         {(Array.isArray(boat.target_species)
                           ? boat.target_species
-                          : boat.target_species.split(",").map((s: string) => s.trim())
+                          : (boat.target_species as unknown as string)?.split(",").map((s: string) => s.trim()) ?? []
                         ).map((species: string) => (
                           <span
                             key={species}
@@ -389,7 +389,7 @@ export default async function BoatDetailPage({
                       <div className="flex flex-wrap gap-2">
                         {(Array.isArray(boat.fishing_techniques)
                           ? boat.fishing_techniques
-                          : boat.fishing_techniques.split(",").map((s: string) => s.trim())
+                          : (boat.fishing_techniques as unknown as string)?.split(",").map((s: string) => s.trim()) ?? []
                         ).map((technique: string) => (
                           <span
                             key={technique}

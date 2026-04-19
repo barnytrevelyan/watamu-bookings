@@ -1,5 +1,6 @@
 // ============================================================
 // Watamu Bookings — TypeScript types for all database tables
+// Aligned with actual Supabase schema (April 2026)
 // ============================================================
 
 // ----- Enums -----
@@ -71,6 +72,10 @@ export type Currency = 'KES' | 'USD' | 'EUR' | 'GBP';
 
 export type ListingStatus = 'draft' | 'pending_review' | 'approved' | 'rejected';
 
+export type RoomType = 'bedroom' | 'suite' | 'studio' | 'dormitory' | 'entire_unit';
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired';
+
 // ----- Database row types -----
 
 export interface Profile {
@@ -81,7 +86,10 @@ export interface Profile {
   phone: string | null;
   role: UserRole;
   bio: string | null;
-  location: string | null;
+  business_name: string | null;
+  owner_type: 'property' | 'boat' | 'both' | null;
+  is_verified: boolean;
+  is_super_admin: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -89,25 +97,30 @@ export interface Profile {
 export interface Property {
   id: string;
   owner_id: string;
-  title: string;
+  name: string;
   slug: string;
-  description: string;
+  description: string | null;
   property_type: PropertyType;
-  address: string;
-  city: string;
+  address: string | null;
+  city: string | null;
+  county: string | null;
+  country: string | null;
   latitude: number | null;
   longitude: number | null;
-  price_per_night: number;
-  currency: Currency;
   max_guests: number;
-  bedrooms: number;
-  bathrooms: number;
-  cancellation_policy: CancellationPolicy;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  base_price_per_night: number;
+  currency: string | null;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  cancellation_policy: CancellationPolicy | null;
+  house_rules: string | null;
   is_published: boolean;
   is_featured: boolean;
-  rating_average: number;
-  rating_count: number;
-  status: ListingStatus;
+  avg_rating: number;
+  review_count: number;
+  status: string | null;
   rejection_reason: string | null;
   low_season_price: number | null;
   high_season_price: number | null;
@@ -115,6 +128,8 @@ export interface Property {
   low_season_months: string | null;
   high_season_months: string | null;
   peak_season_months: string | null;
+  source_url: string | null;
+  import_source: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -124,11 +139,16 @@ export interface Room {
   property_id: string;
   name: string;
   description: string | null;
-  beds: number;
-  max_guests: number;
-  price_per_night: number;
+  room_type: RoomType | null;
+  max_guests: number | null;
+  bed_count: number | null;
+  bed_type: string | null;
+  price_per_night: number | null;
+  is_available: boolean;
+  sort_order: number | null;
   created_at: string;
-  updated_at: string;
+  // Joined data (not a DB column, populated via Supabase joins)
+  images?: Image[];
 }
 
 export interface Amenity {
@@ -136,11 +156,10 @@ export interface Amenity {
   name: string;
   icon: string | null;
   category: string | null;
-  created_at: string;
+  sort_order?: number | null;
 }
 
 export interface PropertyAmenity {
-  id: string;
   property_id: string;
   amenity_id: string;
 }
@@ -150,35 +169,36 @@ export interface Boat {
   owner_id: string;
   name: string;
   slug: string;
-  description: string;
+  description: string | null;
   boat_type: BoatType;
   capacity: number;
   length_ft: number | null;
-  crew_size: number;
-  location: string;
+  crew_size: number | null;
+  captain_name: string | null;
+  captain_included: boolean;
+  home_port: string | null;
+  departure_point: string | null;
   latitude: number | null;
   longitude: number | null;
-  price_per_trip: number;
-  currency: Currency;
-  cancellation_policy: CancellationPolicy;
+  currency: string | null;
+  cancellation_policy: CancellationPolicy | null;
+  safety_equipment: string | null;
+  fishing_techniques: string[] | null;
+  target_species: string[] | null;
   is_published: boolean;
   is_featured: boolean;
-  rating_average: number;
-  rating_count: number;
-  status: ListingStatus;
+  avg_rating: number;
+  review_count: number;
+  status: string | null;
   rejection_reason: string | null;
   instant_confirmation: boolean;
-  captain_name: string | null;
   captain_bio: string | null;
   captain_image_url: string | null;
   captain_experience_years: number | null;
   captain_response_time_hours: number | null;
   captain_fishing_reports: number;
-  target_species: string[] | null;
-  fishing_techniques: string[] | null;
-  departure_point: string | null;
-  safety_equipment: string | null;
-  home_port: string | null;
+  source_url: string | null;
+  import_source: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -188,11 +208,9 @@ export interface BoatFeature {
   name: string;
   icon: string | null;
   category: string | null;
-  created_at: string;
 }
 
 export interface BoatFeatureLink {
-  id: string;
   boat_id: string;
   feature_id: string;
 }
@@ -200,31 +218,32 @@ export interface BoatFeatureLink {
 export interface BoatTrip {
   id: string;
   boat_id: string;
-  trip_type: TripType;
   name: string;
   description: string | null;
+  trip_type: TripType;
   duration_hours: number;
-  price: number;
+  max_guests: number;
   price_total: number;
   price_per_person: number | null;
-  currency: Currency;
-  max_passengers: number;
-  max_guests?: number;
-  includes: string[];
+  currency: string | null;
   departure_time: string | null;
-  target_species: string[];
-  seasonal_months: number[];
+  includes: string[] | null;
+  is_active: boolean;
+  sort_order: number | null;
+  target_species: string[] | null;
+  seasonal_months: number[] | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Image {
   id: string;
   listing_type: ListingType;
-  listing_id: string;
+  property_id: string | null;
+  room_id: string | null;
+  boat_id: string | null;
   url: string;
-  alt: string | null;
-  position: number;
+  alt_text: string | null;
+  sort_order: number;
   is_cover: boolean;
   created_at: string;
 }
@@ -232,38 +251,43 @@ export interface Image {
 export interface Availability {
   id: string;
   property_id: string;
+  room_id: string | null;
   date: string;
-  is_available: boolean;
+  is_blocked: boolean;
   price_override: number | null;
-  created_at: string;
+  min_nights: number | null;
+  notes: string | null;
 }
 
 export interface BoatAvailability {
   id: string;
   boat_id: string;
   date: string;
-  is_available: boolean;
-  slots_remaining: number;
+  is_blocked: boolean;
   price_override: number | null;
-  created_at: string;
+  notes: string | null;
 }
 
 export interface Booking {
   id: string;
-  guest_id: string;
   listing_type: ListingType;
-  listing_id: string;
-  boat_trip_id: string | null;
+  property_id: string | null;
+  room_id: string | null;
+  boat_id: string | null;
+  trip_id: string | null;
+  guest_id: string;
   check_in: string;
   check_out: string;
+  trip_date: string | null;
   guests_count: number;
   adults_count: number | null;
   children_count: number;
-  total_amount: number;
-  currency: Currency;
+  total_price: number;
+  currency: string | null;
   status: BookingStatus;
-  cancellation_policy: CancellationPolicy;
   special_requests: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -272,26 +296,31 @@ export interface Payment {
   id: string;
   booking_id: string;
   amount: number;
-  currency: Currency;
-  method: PaymentMethod;
-  status: PaymentStatus;
+  currency: string | null;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
   stripe_payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+  mpesa_checkout_request_id: string | null;
   mpesa_receipt_number: string | null;
   mpesa_phone: string | null;
-  metadata: Record<string, unknown> | null;
+  transaction_ref: string | null;
+  failure_reason: string | null;
+  paid_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Review {
   id: string;
   booking_id: string;
-  reviewer_id: string;
   listing_type: ListingType;
-  listing_id: string;
+  property_id: string | null;
+  boat_id: string | null;
+  guest_id: string;
   rating: number;
   comment: string | null;
-  owner_reply: string | null;
+  owner_response: string | null;
+  owner_responded_at: string | null;
   // Property sub-ratings
   cleanliness_rating: number | null;
   location_rating: number | null;
@@ -303,28 +332,29 @@ export interface Review {
   fishing_experience_rating: number | null;
   // Verified + catch
   is_verified: boolean;
+  is_published: boolean;
   reported_catch: string[];
   trip_name: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Invitation {
   id: string;
   email: string;
+  token: string | null;
+  invited_by: string | null;
   role: UserRole;
-  invited_by: string;
-  token: string;
+  owner_type: string | null;
+  message: string | null;
+  status: InvitationStatus;
   accepted_at: string | null;
-  expires_at: string;
   created_at: string;
+  expires_at: string;
 }
 
 export interface Settings {
-  id: string;
   key: string;
-  value: string;
-  description: string | null;
+  value: Record<string, unknown> | null;
   updated_at: string;
 }
 
@@ -350,7 +380,7 @@ export interface BookingWithDetails extends Booking {
   review: Review | null;
   property?: Property;
   boat?: Boat;
-  boat_trip?: BoatTrip;
+  trip?: BoatTrip;
 }
 
 export interface ReviewWithAuthor extends Review {
@@ -411,11 +441,11 @@ export interface PaginatedResult<T> {
 
 // ----- API / form helper types -----
 
-export type PropertyInsert = Omit<Property, 'id' | 'created_at' | 'updated_at' | 'rating_average' | 'rating_count'>;
+export type PropertyInsert = Omit<Property, 'id' | 'created_at' | 'updated_at' | 'avg_rating' | 'review_count'>;
 export type PropertyUpdate = Partial<PropertyInsert>;
 
-export type BoatInsert = Omit<Boat, 'id' | 'created_at' | 'updated_at' | 'rating_average' | 'rating_count'>;
+export type BoatInsert = Omit<Boat, 'id' | 'created_at' | 'updated_at' | 'avg_rating' | 'review_count'>;
 export type BoatUpdate = Partial<BoatInsert>;
 
 export type BookingInsert = Omit<Booking, 'id' | 'created_at' | 'updated_at' | 'status'>;
-export type ReviewInsert = Omit<Review, 'id' | 'created_at' | 'updated_at' | 'owner_reply'>;
+export type ReviewInsert = Omit<Review, 'id' | 'created_at' | 'owner_response' | 'owner_responded_at'>;

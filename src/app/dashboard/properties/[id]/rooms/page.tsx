@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+// Select replaced with plain <select> for compatibility
 import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 
@@ -14,7 +14,7 @@ interface Room {
   id: string;
   name: string;
   room_type: string;
-  beds: number;
+  bed_count: number;
   max_guests: number;
   price_override: number | null;
   sort_order: number;
@@ -98,7 +98,7 @@ export default function RoomsPage() {
     setEditingRoom(room);
     setRoomName(room.name);
     setRoomType(room.room_type);
-    setBeds(room.beds.toString());
+    setBeds(room.bed_count.toString());
     setRoomMaxGuests(room.max_guests.toString());
     setPriceOverride(room.price_override?.toString() || '');
     setShowModal(true);
@@ -119,7 +119,7 @@ export default function RoomsPage() {
         property_id: propertyId,
         name: roomName.trim(),
         room_type: roomType,
-        beds: parseInt(beds),
+        bed_count: parseInt(beds),
         max_guests: parseInt(roomMaxGuests),
         price_override: priceOverride ? parseFloat(priceOverride) : null,
         sort_order: editingRoom ? editingRoom.sort_order : rooms.length,
@@ -188,7 +188,7 @@ export default function RoomsPage() {
       property_id: propertyId,
       name: room.name,
       room_type: room.room_type,
-      beds: room.beds,
+      bed_count: room.bed_count,
       max_guests: room.max_guests,
     }));
 
@@ -264,7 +264,7 @@ export default function RoomsPage() {
               <div className="flex-1">
                 <h3 className="font-medium text-gray-900">{room.name}</h3>
                 <p className="text-sm text-gray-500">
-                  {room.room_type} &middot; {room.beds} bed{room.beds !== 1 ? 's' : ''} &middot; up to {room.max_guests} guests
+                  {room.room_type} &middot; {room.bed_count} bed{room.bed_count !== 1 ? 's' : ''} &middot; up to {room.max_guests} guests
                 </p>
               </div>
               {room.price_override && (
@@ -286,7 +286,7 @@ export default function RoomsPage() {
       )}
 
       {/* Add/Edit Room Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)}>
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">
             {editingRoom ? 'Edit Room' : 'Add Room'}
@@ -297,11 +297,11 @@ export default function RoomsPage() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Room Type</label>
-            <Select value={roomType} onChange={(e) => setRoomType(e.target.value)}>
+            <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={roomType} onChange={(e) => setRoomType(e.target.value)}>
               {ROOM_TYPES.map((t) => (
                 <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
               ))}
-            </Select>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

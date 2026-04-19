@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Select } from '@/components/ui/Select';
+// import { Select } from '@/components/ui/Select';
 import { TRIP_TYPE_LABELS } from '@/lib/types';
 import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
@@ -543,13 +543,13 @@ export default function NewBoatPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Boat Type</label>
-                <Select value={boatType} onChange={(e) => setBoatType(e.target.value)}>
+                <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={boatType} onChange={(e) => setBoatType(e.target.value)}>
                   {BOAT_TYPES.map((t) => (
                     <option key={t} value={t}>
                       {t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                     </option>
                   ))}
-                </Select>
+                </select>
               </div>
             </div>
             <div>
@@ -593,20 +593,20 @@ export default function NewBoatPage() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Currency</label>
-              <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+              <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                 <option value="KES">KES (Kenyan Shilling)</option>
                 <option value="USD">USD (US Dollar)</option>
                 <option value="EUR">EUR (Euro)</option>
                 <option value="GBP">GBP (British Pound)</option>
-              </Select>
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Cancellation Policy</label>
-              <Select value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)}>
+              <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)}>
                 <option value="flexible">Flexible</option>
                 <option value="moderate">Moderate</option>
                 <option value="strict">Strict</option>
-              </Select>
+              </select>
             </div>
           </div>
           <div className="mt-4">
@@ -799,13 +799,13 @@ export default function NewBoatPage() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs text-gray-600">Type</label>
-                      <Select value={trip.trip_type} onChange={(e) => updateTrip(i, 'trip_type', e.target.value)}>
+                      <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={trip.trip_type} onChange={(e) => updateTrip(i, 'trip_type', e.target.value)}>
                         {TRIP_TYPES.map((t) => (
                           <option key={t} value={t}>
                             {TRIP_TYPE_LABELS[t as TripType] || t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                           </option>
                         ))}
-                      </Select>
+                      </select>
                     </div>
                     <div>
                       <label className="mb-1 block text-xs text-gray-600">Duration (hours)</label>

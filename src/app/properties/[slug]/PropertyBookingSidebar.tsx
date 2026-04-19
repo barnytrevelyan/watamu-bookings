@@ -6,13 +6,13 @@ import toast from "react-hot-toast";
 import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { createBrowserClient } from "@/lib/supabase/client";
+// Select replaced with plain <select> for compatibility
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import type { Room } from "@/lib/types";
 
 interface AvailabilityDay {
   date: string;
-  is_available: boolean;
+  is_blocked: boolean;
   price_override: number | null;
 }
 
@@ -50,7 +50,7 @@ export default function PropertyBookingSidebar({
 
   // Blocked dates set for quick lookup
   const blockedDates = useMemo(
-    () => new Set(availability.filter((d) => !d.is_available).map((d) => d.date)),
+    () => new Set(availability.filter((d) => d.is_blocked).map((d) => d.date)),
     [availability]
   );
 
@@ -131,7 +131,7 @@ export default function PropertyBookingSidebar({
         .insert({
           property_id: propertyId,
           room_id: selectedRoomId || null,
-          user_id: user.id,
+          guest_id: user.id,
           check_in: checkIn,
           check_out: checkOut,
           guests,
@@ -171,7 +171,7 @@ export default function PropertyBookingSidebar({
       {/* Calendar */}
       <div className="mb-4">
         <BookingCalendar
-          blockedDates={blockedDates}
+          blockedDates={[...blockedDates]}
           onSelect={handleDateSelect}
           checkIn={checkIn}
           checkOut={checkOut}
@@ -206,25 +206,27 @@ export default function PropertyBookingSidebar({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[10px] text-gray-400 mb-0.5">Adults</label>
-            <Select
+            <select
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
               value={String(adults)}
               onChange={(e) => setAdults(Number(e.target.value))}
             >
               {Array.from({ length: maxGuests || 10 }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
-            </Select>
+            </select>
           </div>
           <div>
             <label className="block text-[10px] text-gray-400 mb-0.5">Children</label>
-            <Select
+            <select
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
               value={String(children)}
               onChange={(e) => setChildren(Number(e.target.value))}
             >
               {Array.from({ length: Math.max(0, (maxGuests || 10) - adults) + 1 }, (_, i) => i).map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
-            </Select>
+            </select>
           </div>
         </div>
         <p className="text-[10px] text-gray-400 mt-1">{guests} total guest{guests !== 1 ? 's' : ''} (max {maxGuests || 10})</p>
@@ -234,7 +236,8 @@ export default function PropertyBookingSidebar({
       {rooms.length > 1 && (
         <div className="mb-4">
           <label className="block text-xs font-medium text-gray-500 mb-1">Room</label>
-          <Select
+          <select
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
             value={selectedRoomId}
             onChange={(e) => setSelectedRoomId(e.target.value)}
           >
@@ -247,7 +250,7 @@ export default function PropertyBookingSidebar({
                   : ""}
               </option>
             ))}
-          </Select>
+          </select>
         </div>
       )}
 

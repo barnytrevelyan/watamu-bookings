@@ -13,6 +13,7 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -24,20 +25,22 @@ export function useAuth() {
 
       if (session?.user) {
         setUser(session.user);
-        setLoading(false); // Unblock UI immediately
 
-        // 2. Fetch profile in background — non-blocking
+        // 2. Fetch profile — wait for it before marking loading as done
         supabase
           .from('wb_profiles')
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle()
           .then(({ data }) => {
-            if (mounted.current && data) {
-              setProfile(data as Profile);
+            if (mounted.current) {
+              if (data) setProfile(data as Profile);
+              setProfileLoaded(true);
+              setLoading(false);
             }
           });
       } else {
+        setProfileLoaded(true);
         setLoading(false);
       }
     });
@@ -50,7 +53,6 @@ export function useAuth() {
 
       if (session?.user) {
         setUser(session.user);
-        setLoading(false);
 
         // Refresh profile on auth change
         supabase
@@ -61,11 +63,14 @@ export function useAuth() {
           .then(({ data }) => {
             if (mounted.current) {
               setProfile(data ? (data as Profile) : null);
+              setProfileLoaded(true);
+              setLoading(false);
             }
           });
       } else {
         setUser(null);
         setProfile(null);
+        setProfileLoaded(true);
         setLoading(false);
       }
     });
@@ -79,7 +84,7 @@ export function useAuth() {
   // Derive role from profile first, fall back to JWT user_metadata
   const role = profile?.role || (user?.user_metadata?.role as string | undefined);
 
-  const isSuperAdmin = !!(profile as any)?.is_super_admin;
+  const isSuperAdmin = !!profile?.is_super_admin;
 
   return {
     user,

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Select } from '@/components/ui/Select';
+// Select replaced with plain <select> for compatibility
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 import CalendarSync from '@/components/CalendarSync';
@@ -61,7 +61,7 @@ export default function EditPropertyPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [isPublished, setIsPublished] = useState(false);
   const [existingImages, setExistingImages] = useState<
-    { id: string; url: string; alt: string; is_cover: boolean }[]
+    { id: string; url: string; alt_text: string; is_cover: boolean }[]
   >([]);
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
@@ -81,7 +81,7 @@ export default function EditPropertyPage() {
                 `
                 *,
                 wb_property_amenities(amenity_id),
-                wb_images(id, url, alt, is_cover, sort_order)
+                wb_images(id, url, alt_text, is_cover, sort_order)
               `
               )
               .eq('id', propertyId)
@@ -113,7 +113,7 @@ export default function EditPropertyPage() {
         setMaxGuests(property.max_guests?.toString() || '2');
         setCheckInTime(property.check_in_time || '14:00');
         setCheckOutTime(property.check_out_time || '10:00');
-        setBasePrice(property.base_price?.toString() || '');
+        setBasePrice(property.base_price_per_night?.toString() || '');
         setCurrency(property.currency || 'KES');
         setCancellationPolicy(property.cancellation_policy || 'moderate');
         setHouseRules(property.house_rules || '');
@@ -187,7 +187,7 @@ export default function EditPropertyPage() {
           max_guests: parseInt(maxGuests),
           check_in_time: checkInTime,
           check_out_time: checkOutTime,
-          base_price: parseFloat(basePrice),
+          base_price_per_night: parseFloat(basePrice),
           currency,
           cancellation_policy: cancellationPolicy,
           house_rules: houseRules.trim() || null,
@@ -234,7 +234,7 @@ export default function EditPropertyPage() {
           imageRows.push({
             property_id: propertyId,
             url: publicUrl,
-            alt: `${name} - Image ${startOrder + i + 1}`,
+            alt_text: `${name} - Image ${startOrder + i + 1}`,
             sort_order: startOrder + i,
             is_cover: existingImages.length === 0 && i === 0,
           });
@@ -349,13 +349,13 @@ export default function EditPropertyPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Property Type
               </label>
-              <Select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
+              <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
                 {PROPERTY_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                   </option>
                 ))}
-              </Select>
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -449,21 +449,21 @@ export default function EditPropertyPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Currency</label>
-                <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   <option value="KES">KES</option>
                   <option value="USD">USD</option>
                   <option value="EUR">EUR</option>
                   <option value="GBP">GBP</option>
-                </Select>
+                </select>
               </div>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Cancellation Policy</label>
-              <Select value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)}>
+              <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)}>
                 {CANCELLATION_POLICIES.map((p) => (
                   <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
                 ))}
-              </Select>
+              </select>
             </div>
           </div>
         )}
@@ -519,7 +519,7 @@ export default function EditPropertyPage() {
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                   {existingImages.map((img) => (
                     <div key={img.id} className="group relative aspect-square">
-                      <img src={img.url} alt={img.alt} className="h-full w-full rounded-lg object-cover" />
+                      <img src={img.url} alt={img.alt_text} className="h-full w-full rounded-lg object-cover" />
                       {img.is_cover && (
                         <span className="absolute left-1 top-1 rounded bg-teal-600 px-1.5 py-0.5 text-xs text-white">
                           Cover

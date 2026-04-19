@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       // Get property price for breakdown
       const { data: property } = await supabase
         .from('wb_properties')
-        .select('price_per_night, cleaning_fee, service_fee_percent')
+        .select('base_price_per_night, cleaning_fee, service_fee_percent')
         .eq('id', propertyId)
         .single();
 
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       const nights = Math.ceil(
         (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
       );
-      const accommodationCost = property.price_per_night * nights;
+      const accommodationCost = property.base_price_per_night * nights;
       const cleaningFee = property.cleaning_fee ?? 0;
       const serviceFeePercent = property.service_fee_percent ?? 10;
       const serviceFee = Math.round(accommodationCost * (serviceFeePercent / 100));
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         available: !!available,
         priceBreakdown: {
-          pricePerNight: property.price_per_night,
+          pricePerNight: property.base_price_per_night,
           nights,
           accommodationCost,
           cleaningFee,
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       // Get boat/trip price
       const { data: boat } = await supabase
         .from('wb_boats')
-        .select('price_per_trip, max_passengers')
+        .select('price_from, capacity')
         .eq('id', boatId)
         .single();
 
@@ -144,9 +144,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         available: !!available,
         priceBreakdown: {
-          pricePerTrip: boat.price_per_trip,
-          maxPassengers: boat.max_passengers,
-          totalPrice: boat.price_per_trip,
+          pricePerTrip: boat.price_from,
+          maxPassengers: boat.capacity,
+          totalPrice: boat.price_from,
           currency: 'KES',
         },
       });

@@ -30,7 +30,7 @@ interface RecentBooking {
   id: string;
   guest_name: string;
   listing_name: string;
-  total_amount: number;
+  total_price: number;
   currency: string;
   status: string;
   created_at: string;
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
           .select('*', { count: 'exact', head: true }),
         supabase
           .from('wb_bookings')
-          .select('total_amount')
+          .select('total_price')
           .in('status', ['completed', 'confirmed']),
         supabase
           .from('wb_profiles')
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
         supabase
           .from('wb_bookings')
           .select(
-            `id, total_amount, currency, status, created_at,
+            `id, total_price, currency, status, created_at,
             wb_profiles!guest_id(full_name),
             wb_properties(name),
             wb_boats(name)`
@@ -160,7 +160,7 @@ export default function AdminDashboard() {
       ]);
 
       const totalRevenue = (allBookings || []).reduce(
-        (sum, b) => sum + (b.total_amount || 0),
+        (sum, b) => sum + (b.total_price || 0),
         0
       );
 
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
           id: b.id,
           guest_name: b.wb_profiles?.full_name || 'Guest',
           listing_name: b.wb_properties?.name || b.wb_boats?.name || 'N/A',
-          total_amount: b.total_amount,
+          total_price: b.total_price,
           currency: b.currency || 'KES',
           status: b.status,
           created_at: b.created_at,
@@ -515,7 +515,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-900">
-                      {booking.currency} {booking.total_amount.toLocaleString()}
+                      {booking.currency} {booking.total_price.toLocaleString()}
                     </p>
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${

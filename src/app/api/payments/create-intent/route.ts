@@ -69,17 +69,18 @@ export async function POST(request: NextRequest) {
       );
       clientSecret = existingIntent.client_secret!;
     } else {
-      // Create a new PaymentIntent — amount in smallest currency unit (KES cents)
+      // Create a new PaymentIntent
       const paymentIntent = await createPaymentIntent({
-        amount: Math.round(booking.total_price * 100),
-        currency: 'kes',
+        bookingId: booking.id,
+        amount: booking.total_price,
+        currency: 'KES',
+        customerEmail: user.email || '',
         metadata: {
-          booking_id: booking.id,
           user_id: user.id,
         },
       });
 
-      clientSecret = paymentIntent.client_secret!;
+      clientSecret = paymentIntent.clientSecret;
 
       // Record the payment in wb_payments
       const { error: insertError } = await supabase
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
           payment_status: 'pending',
           amount: booking.total_price,
           currency: 'KES',
-          stripe_payment_intent_id: paymentIntent.id,
+          stripe_payment_intent_id: paymentIntent.paymentIntentId,
         });
 
       if (insertError) {

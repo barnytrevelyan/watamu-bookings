@@ -13,13 +13,18 @@ interface PriceOverride {
   price: number;
 }
 
-interface BookingCalendarProps {
+export interface BookingCalendarProps {
   bookedDates?: string[];
   blockedDates?: string[];
   priceOverrides?: PriceOverride[];
-  basePricePerNight: number;
+  basePricePerNight?: number;
   currency?: string;
   onDateRangeSelect?: (range: DateRange) => void;
+  // Convenience API used by booking sidebars
+  onSelect?: (dates: { checkIn: string; checkOut: string }) => void;
+  checkIn?: string;
+  checkOut?: string;
+  singleDate?: boolean;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -48,18 +53,37 @@ export default function BookingCalendar({
   bookedDates = [],
   blockedDates = [],
   priceOverrides = [],
-  basePricePerNight,
+  basePricePerNight = 0,
   currency = 'KES',
   onDateRangeSelect,
+  onSelect,
+  checkIn: initialCheckIn,
+  checkOut: initialCheckOut,
+  singleDate = false,
 }: BookingCalendarProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [checkIn, setCheckIn] = useState<Date | null>(null);
-  const [checkOut, setCheckOut] = useState<Date | null>(null);
+  const [checkIn, setCheckIn] = useState<Date | null>(
+    initialCheckIn ? new Date(initialCheckIn + 'T00:00:00') : null
+  );
+  const [checkOut, setCheckOut] = useState<Date | null>(
+    initialCheckOut && !singleDate ? new Date(initialCheckOut + 'T00:00:00') : null
+  );
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
+
+  // Helper to notify both callback styles
+  const notifySelect = (ci: Date | null, co: Date | null) => {
+    onDateRangeSelect?.({ checkIn: ci, checkOut: co });
+    if (onSelect && ci) {
+      onSelect({
+        checkIn: formatDateKey(ci),
+        checkOut: co ? formatDateKey(co) : formatDateKey(ci),
+      });
+    }
+  };
 
   const bookedSet = useMemo(() => new Set(bookedDates), [bookedDates]);
   const blockedSet = useMemo(() => new Set(blockedDates), [blockedDates]);
@@ -93,17 +117,25 @@ export default function BookingCalendar({
 
     if (clicked < today || bookedSet.has(key) || blockedSet.has(key)) return;
 
+    // Single-date mode (boat trips): just pick one date
+    if (singleDate) {
+      setCheckIn(clicked);
+      setCheckOut(null);
+      notifySelect(clicked, null);
+      return;
+    }
+
     if (!checkIn || (checkIn && checkOut)) {
       // Start new selection
       setCheckIn(clicked);
       setCheckOut(null);
-      onDateRangeSelect?.({ checkIn: clicked, checkOut: null });
+      notifySelect(clicked, null);
     } else {
       // Select check-out
       if (clicked <= checkIn) {
         setCheckIn(clicked);
         setCheckOut(null);
-        onDateRangeSelect?.({ checkIn: clicked, checkOut: null });
+        notifySelect(clicked, null);
       } else {
         // Check no booked/blocked dates in range
         let hasConflict = false;
@@ -121,10 +153,10 @@ export default function BookingCalendar({
         if (hasConflict) {
           setCheckIn(clicked);
           setCheckOut(null);
-          onDateRangeSelect?.({ checkIn: clicked, checkOut: null });
+          notifySelect(clicked, null);
         } else {
           setCheckOut(clicked);
-          onDateRangeSelect?.({ checkIn, checkOut: clicked });
+          notifySelect(checkIn, clicked);
         }
       }
     }

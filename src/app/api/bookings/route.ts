@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     if (listingType === 'property') {
       const { data: property, error: propError } = await supabase
         .from('wb_properties')
-        .select('price_per_night')
+        .select('base_price_per_night')
         .eq('id', propertyId)
         .single();
 
@@ -158,13 +158,13 @@ export async function POST(request: NextRequest) {
         (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
           (1000 * 60 * 60 * 24)
       );
-      totalPrice = property.price_per_night * nights;
+      totalPrice = property.base_price_per_night * nights;
     } else {
       // For boat trips, price comes from the trip or boat
       if (tripId) {
         const { data: trip, error: tripError } = await supabase
           .from('wb_boat_trips')
-          .select('price_per_person')
+          .select('price_total')
           .eq('id', tripId)
           .single();
 
@@ -174,11 +174,11 @@ export async function POST(request: NextRequest) {
             { status: 404 }
           );
         }
-        totalPrice = trip.price_per_person * guests;
+        totalPrice = trip.price_total;
       } else {
         const { data: boat, error: boatError } = await supabase
           .from('wb_boats')
-          .select('price_per_trip')
+          .select('price_from')
           .eq('id', boatId)
           .single();
 
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
             { status: 404 }
           );
         }
-        totalPrice = boat.price_per_trip;
+        totalPrice = boat.price_from ?? 0;
       }
     }
 
@@ -263,8 +263,8 @@ export async function GET(request: NextRequest) {
       .select(
         `
         *,
-        property:wb_properties(id, name, location, image_url),
-        boat:wb_boats(id, name, image_url)
+        property:wb_properties(id, name, city, slug),
+        boat:wb_boats(id, name, slug)
       `,
         { count: 'exact' }
       )

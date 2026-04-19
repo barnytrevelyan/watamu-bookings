@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/Button";
-import { Select } from "@/components/ui/Select";
+// Select replaced with plain <select> for compatibility
 import { Input } from "@/components/ui/Input";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import type { BoatTrip, TripType } from "@/lib/types";
 import { TRIP_TYPE_LABELS } from "@/lib/types";
 
 interface AvailabilityDay {
   date: string;
-  is_available: boolean;
+  is_blocked: boolean;
 }
 
 interface Props {
@@ -46,7 +46,7 @@ export default function BoatBookingSidebar({
 
   // Blocked dates
   const blockedDates = useMemo(
-    () => new Set(availability.filter((d) => !d.is_available).map((d) => d.date)),
+    () => new Set(availability.filter((d) => d.is_blocked).map((d) => d.date)),
     [availability]
   );
 
@@ -120,7 +120,7 @@ export default function BoatBookingSidebar({
         <div className="flex items-baseline gap-1 mb-5">
           <span className="text-sm text-gray-500">From</span>
           <span className="text-2xl font-bold text-gray-900">
-            KES {Math.min(...trips.map((t) => t.price)).toLocaleString()}
+            KES {Math.min(...trips.map((t) => (t as any).price_total ?? (t as any).price ?? 0)).toLocaleString()}
           </span>
           <span className="text-gray-500">/ trip</span>
         </div>
@@ -132,7 +132,8 @@ export default function BoatBookingSidebar({
           <label className="block text-xs font-medium text-gray-500 mb-1">
             Trip Package
           </label>
-          <Select
+          <select
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
             value={selectedTripId}
             onChange={(e) => setSelectedTripId(e.target.value)}
           >
@@ -141,12 +142,12 @@ export default function BoatBookingSidebar({
               const timeInfo = trip.departure_time ? `, ${trip.departure_time}` : "";
               return (
                 <option key={trip.id} value={trip.id}>
-                  {trip.name} — KES {trip.price.toLocaleString()}
+                  {trip.name} — KES {((trip as any).price_total ?? (trip as any).price ?? 0).toLocaleString()}
                   {trip.duration_hours ? ` (${trip.duration_hours}h${timeInfo})` : ""}
                 </option>
               );
             })}
-          </Select>
+          </select>
           {selectedTrip?.description && (
             <p className="text-xs text-gray-500 mt-1">{selectedTrip.description}</p>
           )}
@@ -157,7 +158,7 @@ export default function BoatBookingSidebar({
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-500 mb-1">Trip Date</label>
         <BookingCalendar
-          blockedDates={blockedDates}
+          blockedDates={[...blockedDates]}
           onSelect={handleDateSelect}
           checkIn={tripDate}
           checkOut={tripDate}
@@ -181,25 +182,27 @@ export default function BoatBookingSidebar({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[10px] text-gray-400 mb-0.5">Adults</label>
-            <Select
+            <select
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
               value={String(adults)}
               onChange={(e) => setAdults(Number(e.target.value))}
             >
               {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
-            </Select>
+            </select>
           </div>
           <div>
             <label className="block text-[10px] text-gray-400 mb-0.5">Children</label>
-            <Select
+            <select
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
               value={String(children)}
               onChange={(e) => setChildren(Number(e.target.value))}
             >
               {Array.from({ length: Math.max(0, maxGuests - adults) + 1 }, (_, i) => i).map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
-            </Select>
+            </select>
           </div>
         </div>
         <p className="text-[10px] text-gray-400 mt-1">{guests} total guest{guests !== 1 ? 's' : ''} (max {maxGuests})</p>

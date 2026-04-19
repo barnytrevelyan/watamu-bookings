@@ -3,26 +3,35 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 interface Tab {
-  id: string;
+  id?: string;
+  value?: string;
   label: string;
-  content: React.ReactNode;
+  content?: React.ReactNode;
   disabled?: boolean;
 }
 
 interface TabsProps {
   tabs: Tab[];
   defaultTab?: string;
+  activeTab?: string;
   onChange?: (tabId: string) => void;
+  onTabChange?: (tabId: string) => void;
   className?: string;
 }
 
 export function Tabs({
   tabs,
   defaultTab,
+  activeTab: controlledActiveTab,
   onChange,
+  onTabChange,
   className = '',
 }: TabsProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id || '');
+  // Normalise tabs to always have an id
+  const normalisedTabs = tabs.map((t) => ({ ...t, id: t.id || t.value || t.label }));
+  const isControlled = controlledActiveTab !== undefined;
+  const [internalActiveTab, setInternalActiveTab] = useState(defaultTab || normalisedTabs[0]?.id || '');
+  const activeTab = isControlled ? controlledActiveTab : internalActiveTab;
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const tabListRef = useRef<HTMLDivElement>(null);
@@ -40,11 +49,12 @@ export function Tabs({
   }, [activeTab]);
 
   const handleTabClick = (tabId: string) => {
-    setActiveTab(tabId);
+    if (!isControlled) setInternalActiveTab(tabId);
     onChange?.(tabId);
+    onTabChange?.(tabId);
   };
 
-  const activeContent = tabs.find((t) => t.id === activeTab)?.content;
+  const activeContent = normalisedTabs.find((t) => t.id === activeTab)?.content;
 
   return (
     <div className={className}>
@@ -54,7 +64,7 @@ export function Tabs({
         className="relative flex border-b border-gray-200"
         role="tablist"
       >
-        {tabs.map((tab) => (
+        {normalisedTabs.map((tab) => (
           <button
             key={tab.id}
             ref={(el) => {

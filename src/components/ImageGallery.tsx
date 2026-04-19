@@ -3,15 +3,29 @@
 import React, { useState, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Expand } from 'lucide-react';
 
+interface GalleryImage {
+  src?: string;
+  url?: string;
+  alt?: string;
+  alt_text?: string | null;
+}
+
 interface ImageGalleryProps {
-  images: { src: string; alt: string }[];
+  images: GalleryImage[];
+  alt?: string; // fallback alt text for all images
   className?: string;
 }
 
 export default function ImageGallery({
-  images,
+  images: rawImages,
+  alt: fallbackAlt = '',
   className = '',
 }: ImageGalleryProps) {
+  // Normalise images to { src, alt } regardless of input shape
+  const images = rawImages.map((img) => ({
+    src: img.src || img.url || '',
+    alt: img.alt || img.alt_text || fallbackAlt || '',
+  }));
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 

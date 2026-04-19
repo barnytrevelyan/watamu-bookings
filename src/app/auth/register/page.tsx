@@ -27,8 +27,9 @@ function RegisterForm() {
     businessName: '',
     ownerType: 'property' as 'property' | 'boat' | 'both',
   });
+  const urlRole = searchParams.get('role');
   const [role, setRole] = useState<'guest' | 'owner'>(
-    inviteToken ? 'owner' : 'guest'
+    inviteToken || urlRole === 'owner' ? 'owner' : 'guest'
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ function RegisterForm() {
       if (role === 'owner' && inviteToken) {
         const { data: invitation, error: inviteError } = await supabase
           .from('wb_invitations')
-          .select('id, email, owner_type, expires_at, accepted')
+          .select('id, email, owner_type, expires_at, status')
           .eq('token', inviteToken)
           .single();
 
@@ -80,13 +81,13 @@ function RegisterForm() {
           return;
         }
 
-        if (invitation.accepted) {
+        if (invitation.status === 'accepted') {
           setError('This invitation has already been used.');
           setLoading(false);
           return;
         }
 
-        if (new Date(invitation.expires_at) < new Date()) {
+        if (invitation.status === 'expired' || new Date(invitation.expires_at) < new Date()) {
           setError('This invitation has expired. Please request a new one.');
           setLoading(false);
           return;
@@ -100,15 +101,21 @@ function RegisterForm() {
       }
 
       // Create auth user
+      const metadata: Record<string, string> = {
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        role,
+      };
+      if (role === 'owner') {
+        metadata.owner_type = ownerType;
+        if (businessName.trim()) metadata.business_name = businessName.trim();
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          data: {
-            full_name: fullName.trim(),
-            phone: phone.trim(),
-            role,
-          },
+          data: metadata,
           emailRedirectTo: `${window.location.origin}/api/auth/callback`,
         },
       });
@@ -126,36 +133,14 @@ function RegisterForm() {
       }
 
       if (authData.user) {
-        const profileData: Record<string, any> = {
-          id: authData.user.id,
-          full_name: fullName.trim(),
-          email: email.trim().toLowerCase(),
-          phone: phone.trim(),
-          role,
-        };
-
-        // Add owner-specific fields
-        if (role === 'owner') {
-          profileData.business_name = businessName.trim() || null;
-          profileData.owner_type = ownerType;
-        }
-
-        const { error: profileError } = await supabase
-          .from('wb_profiles')
-          .upsert(profileData);
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-        }
-
-        // If owner registration with invitation, mark invitation as accepted
+        // Profile is created automatically by the handle_new_user trigger.
+        // Mark invitation as accepted if applicable.
         if (role === 'owner' && inviteToken) {
           await supabase
             .from('wb_invitations')
             .update({
-              accepted: true,
+              status: 'accepted' as any,
               accepted_at: new Date().toISOString(),
-              accepted_by: authData.user.id,
             })
             .eq('token', inviteToken);
         }

@@ -8,8 +8,11 @@ import Select from '@/components/ui/Select';
 
 type FilterTab = 'properties' | 'boats';
 
+type FilterVariant = 'hero' | 'properties' | 'boats';
+
 interface SearchFiltersProps {
   defaultTab?: FilterTab;
+  variant?: FilterVariant;
   onSearch?: (filters: Record<string, unknown>) => void;
 }
 
@@ -51,10 +54,14 @@ const priceRanges = [
 ];
 
 export default function SearchFilters({
-  defaultTab = 'properties',
+  defaultTab,
+  variant,
   onSearch,
 }: SearchFiltersProps) {
-  const [activeTab, setActiveTab] = useState<FilterTab>(defaultTab);
+  // variant maps to a sensible default tab
+  const resolvedDefault: FilterTab =
+    defaultTab ?? (variant === 'boats' ? 'boats' : 'properties');
+  const [activeTab, setActiveTab] = useState<FilterTab>(resolvedDefault);
 
   // Property filters
   const [checkIn, setCheckIn] = useState('');

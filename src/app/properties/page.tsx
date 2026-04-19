@@ -33,7 +33,7 @@ async function getProperties(searchParams: SearchParams) {
     .select(
       `
       *,
-      images:wb_images(id, url, alt, position),
+      images:wb_images(id, url, alt_text, sort_order),
       reviews:wb_reviews(rating)
     `,
       { count: "exact" }
@@ -45,10 +45,10 @@ async function getProperties(searchParams: SearchParams) {
     query = query.eq("property_type", searchParams.property_type);
   }
   if (searchParams.min_price) {
-    query = query.gte("price_per_night", Number(searchParams.min_price));
+    query = query.gte("base_price_per_night", Number(searchParams.min_price));
   }
   if (searchParams.max_price) {
-    query = query.lte("price_per_night", Number(searchParams.max_price));
+    query = query.lte("base_price_per_night", Number(searchParams.max_price));
   }
   if (searchParams.bedrooms) {
     query = query.gte("bedrooms", Number(searchParams.bedrooms));
@@ -65,7 +65,7 @@ async function getProperties(searchParams: SearchParams) {
       .select("property_id")
       .gte("date", searchParams.check_in)
       .lte("date", searchParams.check_out)
-      .eq("is_available", false);
+      .eq("is_blocked", true);
 
     if (unavailableIds && unavailableIds.length > 0) {
       const excludeIds = [...new Set(unavailableIds.map((r) => r.property_id))];
@@ -76,13 +76,13 @@ async function getProperties(searchParams: SearchParams) {
   // Sort
   switch (searchParams.sort) {
     case "price_asc":
-      query = query.order("price_per_night", { ascending: true });
+      query = query.order("base_price_per_night", { ascending: true });
       break;
     case "price_desc":
-      query = query.order("price_per_night", { ascending: false });
+      query = query.order("base_price_per_night", { ascending: false });
       break;
     case "rating":
-      query = query.order("average_rating", { ascending: false, nullsFirst: false });
+      query = query.order("avg_rating", { ascending: false, nullsFirst: false });
       break;
     case "newest":
       query = query.order("created_at", { ascending: false });
@@ -164,7 +164,7 @@ export default async function PropertiesPage({
                 coverImage={property.images?.[0]?.url || getPropertyImage(index)}
                 rating={property.average_rating || 0}
                 reviewCount={property.review_count || 0}
-                pricePerNight={property.price_per_night || property.base_price_per_night || 0}
+                pricePerNight={property.base_price_per_night || 0}
                 currency={property.currency || 'KES'}
                 bedrooms={property.bedrooms || 0}
                 bathrooms={property.bathrooms || 0}

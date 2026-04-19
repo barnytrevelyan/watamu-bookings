@@ -33,14 +33,15 @@ async function getProperty(slug: string): Promise<PropertyDetail | null> {
     .select(
       `
       *,
-      images:wb_images(id, url, alt, position),
-      rooms:wb_rooms(id, name, description, beds, max_guests, price_per_night, images:wb_images(id, url, alt, position)),
+      images:wb_images(id, url, alt_text, sort_order),
+      rooms:wb_rooms(id, name, description, bed_count, max_guests, price_per_night, images:wb_images(id, url, alt_text, sort_order)),
       amenities:wb_property_amenities(amenity:wb_amenities(id, name, icon, category)),
       reviews:wb_reviews(
         id, rating, comment, created_at,
-        author:profiles(id, full_name, avatar_url)
+        cleanliness_rating, location_rating, value_rating, communication_rating,
+        author:wb_profiles!guest_id(id, full_name, avatar_url)
       ),
-      owner:profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at)
+      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at)
     `
     )
     .eq("slug", slug)
@@ -57,7 +58,7 @@ async function getAvailability(propertyId: string) {
 
   const { data } = await supabase
     .from("wb_availability")
-    .select("date, is_available, price_override")
+    .select("date, is_blocked, price_override")
     .eq("property_id", propertyId)
     .gte("date", today)
     .order("date", { ascending: true });
@@ -76,7 +77,7 @@ export async function generateMetadata({
   const property = await getProperty(slug);
   if (!property) return { title: "Property Not Found" };
 
-  const coverImage = property.images?.sort((a, b) => a.position - b.position)[0];
+  const coverImage = property.images?.sort((a, b) => a.sort_order - b.sort_order)[0];
 
   return {
     title: property.name,
@@ -84,7 +85,7 @@ export async function generateMetadata({
     openGraph: {
       title: property.name,
       description: property.description?.slice(0, 160),
-      images: coverImage ? [{ url: coverImage.url, alt: coverImage.alt ?? property.name }] : [],
+      images: coverImage ? [{ url: coverImage.url, alt: coverImage.alt_text ?? property.name }] : [],
     },
   };
 }
@@ -102,7 +103,7 @@ export default async function PropertyDetailPage({
 
   const availability = await getAvailability(property.id);
 
-  const sortedImages = (property.images ?? []).sort((a, b) => a.position - b.position);
+  const sortedImages = (property.images ?? []).sort((a, b) => a.sort_order - b.sort_order);
   const amenities = (property.amenities ?? []).map((pa) => pa.amenity);
   const reviews = property.reviews ?? [];
   const rooms = property.rooms ?? [];
@@ -148,7 +149,7 @@ export default async function PropertyDetailPage({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                   </svg>
-                  {property.location || "Watamu, Kenya"}
+                  {[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}
                 </span>
                 {totalReviews > 0 && (
                   <span className="flex items-center gap-1">
@@ -191,7 +192,7 @@ export default async function PropertyDetailPage({
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {items.map((amenity) => (
-                        <AmenityBadge key={amenity.id} amenity={amenity} />
+                        <AmenityBadge key={amenity.id} name={amenity.name} icon={amenity.icon ?? undefined} category={(amenity.category as any) ?? undefined} />
                       ))}
                     </div>
                   </div>
@@ -220,7 +221,7 @@ export default async function PropertyDetailPage({
                         <p className="text-sm text-gray-600 mt-1">{room.description}</p>
                       )}
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                        {room.beds && <span>{room.beds}</span>}
+                        {room.bed_count && <span>{room.bed_count} bed{room.bed_count !== 1 ? 's' : ''}</span>}
                         {room.max_guests && (
                           <span>Sleeps {room.max_guests}</span>
                         )}
@@ -257,7 +258,7 @@ export default async function PropertyDetailPage({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                     </svg>
-                    <p className="text-sm font-medium">{property.location || "Watamu, Kenya"}</p>
+                    <p className="text-sm font-medium">{[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}</p>
                     <p className="text-xs text-gray-400 mt-1">
                       {property.latitude?.toFixed(4)}, {property.longitude?.toFixed(4)}
                     </p>
@@ -324,12 +325,10 @@ export default async function PropertyDetailPage({
               <PropertyBookingSidebar
                 propertyId={property.id}
                 propertySlug={property.slug}
-                pricePerNight={property.price_per_night}
+                pricePerNight={property.base_price_per_night}
                 maxGuests={property.max_guests}
                 rooms={rooms}
                 availability={availability}
-                cleaningFee={property.cleaning_fee}
-                serviceFeePercent={property.service_fee_percent}
               />
 
               {/* Owner info */}

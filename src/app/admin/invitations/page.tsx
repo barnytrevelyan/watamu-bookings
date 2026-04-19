@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+// import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -324,7 +324,7 @@ export default function AdminInvitationsPage() {
       )}
 
       {/* Send Invitation Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)}>
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">
             Send Invitation
@@ -355,14 +355,15 @@ export default function AdminInvitationsPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Owner Type
             </label>
-            <Select
+            <select
+              className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
               value={inviteOwnerType}
               onChange={(e) => setInviteOwnerType(e.target.value)}
             >
               <option value="property">Property Owner</option>
               <option value="boat">Boat Owner</option>
               <option value="both">Both (Property + Boat)</option>
-            </Select>
+            </select>
           </div>
 
           <div>

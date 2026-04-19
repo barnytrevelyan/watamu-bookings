@@ -48,7 +48,7 @@ export default function ReviewCard({
   const _tripName = tripName || review?.trip_name;
   const initials = _guestName
     .split(' ')
-    .map((n) => n.charAt(0))
+    .map((n: string) => n.charAt(0))
     .join('')
     .toUpperCase()
     .slice(0, 2);

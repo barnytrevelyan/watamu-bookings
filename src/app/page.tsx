@@ -16,7 +16,7 @@ async function getFeaturedProperties(): Promise<Property[]> {
     .select(
       `
       *,
-      images:wb_images(id, url, alt, position),
+      images:wb_images(id, url, alt_text, sort_order),
       reviews:wb_reviews(rating)
     `
     )
@@ -39,9 +39,9 @@ async function getFeaturedBoats(): Promise<Boat[]> {
     .select(
       `
       *,
-      images:wb_images(id, url, alt, position),
+      images:wb_images(id, url, alt_text, sort_order),
       reviews:wb_reviews(rating),
-      trips:wb_boat_trips(id, name, duration_hours, price)
+      trips:wb_boat_trips(id, name, duration_hours, price_total)
     `
     )
     .eq("is_featured", true)

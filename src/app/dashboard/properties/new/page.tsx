@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Select } from '@/components/ui/Select';
+// import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
 
 interface Amenity {
@@ -563,13 +563,13 @@ export default function NewPropertyPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Property Type *</label>
-                <Select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
+                <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
                   {PROPERTY_TYPES.map((t) => (
                     <option key={t} value={t}>
                       {t.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                     </option>
                   ))}
-                </Select>
+                </select>
               </div>
             </div>
 
@@ -938,22 +938,22 @@ export default function NewPropertyPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Currency</label>
-                <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   <option value="KES">KES (Kenyan Shilling)</option>
                   <option value="USD">USD (US Dollar)</option>
                   <option value="EUR">EUR (Euro)</option>
                   <option value="GBP">GBP (British Pound)</option>
-                </Select>
+                </select>
               </div>
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Cancellation Policy</label>
-              <Select value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)}>
+              <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)}>
                 {CANCELLATION_POLICIES.map((p) => (
                   <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
                 ))}
-              </Select>
+              </select>
               <p className="mt-1 text-xs text-gray-500">
                 {cancellationPolicy === 'flexible' && 'Guests can cancel up to 24 hours before check-in for a full refund.'}
                 {cancellationPolicy === 'moderate' && 'Guests can cancel up to 5 days before check-in for a full refund.'}

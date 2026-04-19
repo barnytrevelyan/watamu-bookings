@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
+// Select replaced with plain <select> for compatibility
 import { StarRating } from '@/components/StarRating';
 
 interface MonthlyData {
@@ -74,7 +74,7 @@ export default function PropertyAnalyticsPage() {
 
       const { data: bookings } = await supabase
         .from('wb_bookings')
-        .select('id, check_in, check_out, total_amount, status, source, created_at')
+        .select('id, check_in, check_out, total_price, status, source, created_at')
         .eq('property_id', propertyId)
         .gte('created_at', startDate.toISOString());
 
@@ -85,7 +85,7 @@ export default function PropertyAnalyticsPage() {
 
       const { data: availability } = await supabase
         .from('wb_availability')
-        .select('date, is_available')
+        .select('date, is_blocked')
         .eq('property_id', propertyId)
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', now.toISOString().split('T')[0]);
@@ -96,7 +96,7 @@ export default function PropertyAnalyticsPage() {
       );
 
       const totalRevenue = completedBookings.reduce(
-        (sum, b) => sum + (b.total_amount || 0),
+        (sum, b) => sum + (b.total_price || 0),
         0
       );
 
@@ -114,7 +114,7 @@ export default function PropertyAnalyticsPage() {
 
       // Occupancy
       const totalDays = (availability || []).length || 1;
-      const bookedDays = (availability || []).filter((a) => !a.is_available).length;
+      const bookedDays = (availability || []).filter((a) => a.is_blocked).length;
       const occupancyRate = Math.round((bookedDays / totalDays) * 100);
 
       // Monthly grouping
@@ -123,7 +123,7 @@ export default function PropertyAnalyticsPage() {
         const m = b.created_at.substring(0, 7); // YYYY-MM
         if (!monthlyMap[m]) monthlyMap[m] = { bookings: 0, revenue: 0 };
         monthlyMap[m].bookings++;
-        monthlyMap[m].revenue += b.total_amount || 0;
+        monthlyMap[m].revenue += b.total_price || 0;
       });
 
       const monthlyData = Object.entries(monthlyMap)
@@ -195,11 +195,11 @@ export default function PropertyAnalyticsPage() {
             <p className="text-sm text-gray-500">{data.propertyName}</p>
           </div>
         </div>
-        <Select value={period} onChange={(e) => setPeriod(e.target.value as any)} className="w-40">
+        <select className="w-40 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={period} onChange={(e) => setPeriod(e.target.value as any)}>
           <option value="month">This Month</option>
           <option value="quarter">This Quarter</option>
           <option value="year">This Year</option>
-        </Select>
+        </select>
       </div>
 
       {/* KPI Cards */}

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Select } from '@/components/ui/Select';
+// Select replaced with plain <select> for compatibility
 import { TRIP_TYPE_LABELS } from '@/lib/types';
 import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
@@ -25,7 +25,7 @@ interface TripPackage {
   name: string;
   trip_type: string;
   duration_hours: number;
-  price: number;
+  price_total: number;
   currency: string;
   departure_time: string;
   includes: string;
@@ -131,7 +131,7 @@ export default function EditBoatPage() {
             name: t.name,
             trip_type: t.trip_type,
             duration_hours: t.duration_hours,
-            price: t.price,
+            price_total: t.price_total,
             currency: t.currency || 'KES',
             departure_time: t.departure_time || '06:00',
             includes: t.includes || '',
@@ -164,7 +164,7 @@ export default function EditBoatPage() {
   }
 
   function addTrip() {
-    setTrips((p) => [...p, { name: '', trip_type: 'deep_sea_fishing', duration_hours: 4, price: 0, currency: 'KES', departure_time: '06:00', includes: '' }]);
+    setTrips((p) => [...p, { name: '', trip_type: 'deep_sea_fishing', duration_hours: 4, price_total: 0, currency: 'KES', departure_time: '06:00', includes: '' }]);
   }
 
   function updateTrip(index: number, field: keyof TripPackage, value: any) {
@@ -234,7 +234,7 @@ export default function EditBoatPage() {
 
       // Sync trips: delete existing, re-insert all
       await supabase.from('wb_boat_trips').delete().eq('boat_id', boatId);
-      const validTrips = trips.filter((t) => t.name.trim() && t.price > 0);
+      const validTrips = trips.filter((t) => t.name.trim() && t.price_total > 0);
       if (validTrips.length > 0) {
         await supabase.from('wb_boat_trips').insert(
           validTrips.map((t) => ({
@@ -242,7 +242,7 @@ export default function EditBoatPage() {
             name: t.name.trim(),
             trip_type: t.trip_type,
             duration_hours: t.duration_hours,
-            price: t.price,
+            price_total: t.price_total,
             currency: t.currency,
             departure_time: t.departure_time,
             includes: t.includes.trim() || null,
@@ -264,7 +264,7 @@ export default function EditBoatPage() {
           imageRows.push({
             boat_id: boatId,
             url: publicUrl,
-            alt: `${name} - Image ${startOrder + i + 1}`,
+            alt_text: `${name} - Image ${startOrder + i + 1}`,
             sort_order: startOrder + i,
             is_cover: existingImages.length === 0 && i === 0,
           });
@@ -338,11 +338,11 @@ export default function EditBoatPage() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Boat Type</label>
-              <Select value={boatType} onChange={(e) => setBoatType(e.target.value)}>
+              <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={boatType} onChange={(e) => setBoatType(e.target.value)}>
                 {BOAT_TYPES.map((t) => (
                   <option key={t} value={t}>{t.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
                 ))}
-              </Select>
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
@@ -433,13 +433,13 @@ export default function EditBoatPage() {
                     <div className="col-span-2">
                       <Input value={trip.name} onChange={(e) => updateTrip(i, 'name', e.target.value)} placeholder="Trip name" />
                     </div>
-                    <Select value={trip.trip_type} onChange={(e) => updateTrip(i, 'trip_type', e.target.value)}>
+                    <select className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500" value={trip.trip_type} onChange={(e) => updateTrip(i, 'trip_type', e.target.value)}>
                       {TRIP_TYPES.map((t) => (
                         <option key={t} value={t}>{TRIP_TYPE_LABELS[t as TripType] || t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</option>
                       ))}
-                    </Select>
+                    </select>
                     <Input type="number" min="1" value={trip.duration_hours} onChange={(e) => updateTrip(i, 'duration_hours', parseInt(e.target.value))} placeholder="Hours" />
-                    <Input type="number" min="0" value={trip.price || ''} onChange={(e) => updateTrip(i, 'price', parseFloat(e.target.value) || 0)} placeholder="Price" />
+                    <Input type="number" min="0" value={trip.price_total || ''} onChange={(e) => updateTrip(i, 'price_total', parseFloat(e.target.value) || 0)} placeholder="Price" />
                     <Input type="time" value={trip.departure_time} onChange={(e) => updateTrip(i, 'departure_time', e.target.value)} />
                     <div className="col-span-2">
                       <Textarea value={trip.includes} onChange={(e) => updateTrip(i, 'includes', e.target.value)} placeholder="What's included" rows={2} />

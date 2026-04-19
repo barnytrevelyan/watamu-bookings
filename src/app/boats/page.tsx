@@ -31,9 +31,9 @@ async function getBoats(searchParams: SearchParams) {
     .select(
       `
       *,
-      images:wb_images(id, url, alt, position),
+      images:wb_images(id, url, alt_text, sort_order),
       reviews:wb_reviews(rating),
-      trips:wb_boat_trips(id, name, trip_type, duration_hours, price, description)
+      trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, description)
     `,
       { count: "exact" }
     )
@@ -70,24 +70,15 @@ async function getBoats(searchParams: SearchParams) {
     }
   }
 
-  // Price range filtering on the base (cheapest trip) price
-  if (searchParams.min_price) {
-    query = query.gte("price_from", Number(searchParams.min_price));
-  }
-  if (searchParams.max_price) {
-    query = query.lte("price_from", Number(searchParams.max_price));
-  }
-
   // Sort
   switch (searchParams.sort) {
     case "price_asc":
-      query = query.order("price_from", { ascending: true });
-      break;
     case "price_desc":
-      query = query.order("price_from", { ascending: false });
+      // Price sorting done client-side since prices are in trips table
+      query = query.order("created_at", { ascending: false });
       break;
     case "rating":
-      query = query.order("average_rating", { ascending: false, nullsFirst: false });
+      query = query.order("avg_rating", { ascending: false, nullsFirst: false });
       break;
     case "newest":
       query = query.order("created_at", { ascending: false });
@@ -171,7 +162,7 @@ export default async function BoatsPage({
                 captainName={boat.captain_name || 'TBA'}
                 capacity={boat.capacity || 6}
                 lengthFt={boat.length_ft || null}
-                rating={boat.average_rating || boat.avg_rating || 0}
+                rating={boat.avg_rating || boat.avg_rating || 0}
                 reviewCount={boat.review_count || 0}
                 startingPrice={boat.price_from || (boat.trips?.[0]?.price_total) || 0}
                 currency={boat.currency || 'KES'}
