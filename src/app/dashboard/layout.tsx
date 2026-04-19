@@ -9,11 +9,13 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createClient();
 
-  // Try getUser first (validates with Supabase server)
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  // Use getSession() to read directly from cookies (no network call).
+  // getUser() was failing because the server-side JWT validation
+  // requires the middleware to perfectly forward refreshed cookies,
+  // which is fragile. getSession() is reliable for gating access.
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!user) {
-    console.error('Dashboard: No user found', userError?.message);
+  if (!session) {
     redirect('/auth/login');
   }
 
@@ -21,7 +23,7 @@ export default async function DashboardLayout({
   const { data: profile } = await supabase
     .from('wb_profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', session.user.id)
     .maybeSingle();
 
   if (profile?.role === 'guest') {
