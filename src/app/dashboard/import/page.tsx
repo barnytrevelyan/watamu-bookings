@@ -92,7 +92,9 @@ export default function ImportPage() {
             bathrooms: importedData.bathrooms || 1,
             cancellation_policy: 'moderate',
             is_published: false,
-            status: 'draft',
+            status: 'pending_review',
+            source_url: importedData.source_url || url.trim(),
+            import_source: 'airbnb',
           })
           .select('id')
           .single();
@@ -140,7 +142,9 @@ export default function ImportPage() {
             currency: 'KES',
             cancellation_policy: 'moderate',
             is_published: false,
-            status: 'draft',
+            status: 'pending_review',
+            source_url: importedData.source_url || url.trim(),
+            import_source: 'fishingbooker',
           })
           .select('id')
           .single();
@@ -459,10 +463,10 @@ export default function ImportPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
               <div>
-                <p className="text-sm font-medium text-amber-900">Your listing will be saved as a draft</p>
+                <p className="text-sm font-medium text-amber-900">Your listing will be submitted for review</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  You can edit all details, add more photos, and adjust pricing before publishing.
-                  Missing fields (marked &quot;Not detected&quot;) can be filled in manually.
+                  Imported listings are reviewed by our team to verify ownership before going live.
+                  You can edit details, add photos, and adjust pricing while you wait.
                 </p>
               </div>
             </div>
@@ -479,7 +483,7 @@ export default function ImportPage() {
               Cancel
             </Button>
             <Button onClick={handleSave} className="flex-1">
-              Import as Draft
+              Submit for Review
             </Button>
           </div>
         </div>
@@ -507,7 +511,7 @@ export default function ImportPage() {
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Import Complete!</h2>
           <p className="text-gray-600 mb-6">
-            Your listing has been created as a draft. You can now edit details, add more photos, and publish when ready.
+            Your listing has been submitted for review. Our team will verify ownership and approve it shortly. You can edit details in the meantime.
           </p>
           <div className="flex gap-3 justify-center">
             <Button

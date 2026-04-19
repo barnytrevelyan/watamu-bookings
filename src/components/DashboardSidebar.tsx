@@ -14,7 +14,9 @@ import {
   X,
   ChevronLeft,
   Download,
+  Shield,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DashboardSidebarProps {
   userName: string;
@@ -32,6 +34,10 @@ const navItems = [
   { href: '/dashboard/import', label: 'Import Listing', icon: Download },
 ];
 
+const adminItems = [
+  { href: '/dashboard/admin', label: 'Admin Panel', icon: Shield },
+];
+
 export default function DashboardSidebar({
   userName,
   userEmail,
@@ -39,6 +45,7 @@ export default function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAdmin } = useAuth();
 
   const initials = userName
     .split(' ')
@@ -102,6 +109,33 @@ export default function DashboardSidebar({
                       active
                         ? 'text-[var(--color-primary-500)]'
                         : 'text-gray-400'
+                    }`}
+                  />
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })}
+          {isAdmin && adminItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`
+                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                    transition-colors duration-200
+                    ${
+                      active
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'text-amber-600 hover:text-amber-800 hover:bg-amber-50'
+                    }
+                  `}
+                >
+                  <item.icon
+                    className={`h-5 w-5 shrink-0 ${
+                      active ? 'text-amber-600' : 'text-amber-400'
                     }`}
                   />
                   {item.label}

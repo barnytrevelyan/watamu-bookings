@@ -79,11 +79,14 @@ export function useAuth() {
   // Derive role from profile first, fall back to JWT user_metadata
   const role = profile?.role || (user?.user_metadata?.role as string | undefined);
 
+  const isSuperAdmin = !!(profile as any)?.is_super_admin;
+
   return {
     user,
     profile,
     loading,
     isAdmin: role === 'admin',
+    isSuperAdmin,
     isOwner: role === 'owner',
     isGuest: role === 'guest',
     signOut: async () => {
