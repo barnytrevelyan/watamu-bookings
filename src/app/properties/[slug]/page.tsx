@@ -10,6 +10,7 @@ import PropertyBookingSidebar from "./PropertyBookingSidebar";
 import PropertyHeaderActions from "./PropertyHeaderActions";
 import PropertyAmenitiesSection from "./PropertyAmenitiesSection";
 import PropertyMap from "./PropertyMap";
+import PropertyHostCard from "./PropertyHostCard";
 import type { Property, Room, Amenity, Review, Image } from "@/lib/types";
 
 /* ---------- Data fetching ---------- */
@@ -24,6 +25,9 @@ interface PropertyDetail extends Property {
     full_name: string;
     avatar_url: string | null;
     created_at: string;
+    business_name: string | null;
+    bio: string | null;
+    is_verified: boolean;
   } | null;
 }
 
@@ -43,7 +47,7 @@ async function getProperty(slug: string): Promise<PropertyDetail | null> {
         cleanliness_rating, location_rating, value_rating, communication_rating,
         author:wb_profiles!guest_id(id, full_name, avatar_url)
       ),
-      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at)
+      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at, business_name, bio, is_verified)
     `
     )
     .eq("slug", slug)
@@ -327,6 +331,19 @@ export default async function PropertyDetailPage({
               }
             />
 
+            {/* Host */}
+            <PropertyHostCard
+              owner={property.owner}
+              isSuperhost={isGuestFavourite}
+              totalReviews={totalReviews}
+              averageRating={averageRating}
+              listingYears={Math.max(
+                0,
+                new Date().getFullYear() -
+                  new Date(property.owner?.created_at ?? Date.now()).getFullYear()
+              )}
+            />
+
             {/* Reviews */}
             <section id="reviews" className="mb-10 scroll-mt-24">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -394,35 +411,8 @@ export default async function PropertyDetailPage({
                 cancellationPolicy={property.cancellation_policy}
               />
 
-              {/* Owner info */}
-              {property.owner && (
-                <div className="border border-gray-200 rounded-xl p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3">Hosted by</h3>
-                  <div className="flex items-center gap-3">
-                    {property.owner.avatar_url ? (
-                      <img
-                        src={property.owner.avatar_url}
-                        alt={property.owner.full_name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-lg">
-                        {property.owner.full_name?.charAt(0)?.toUpperCase() || "H"}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-medium text-gray-900">{property.owner.full_name}</p>
-                      <p className="text-sm text-gray-500">
-                        Member since{" "}
-                        {new Date(property.owner.created_at).toLocaleDateString("en-GB", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* The full host card now lives below in the main column,
+                  closer to the reviews. Sidebar stays focused on booking. */}
             </div>
           </aside>
         </div>
