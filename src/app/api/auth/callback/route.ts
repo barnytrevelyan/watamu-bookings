@@ -87,11 +87,11 @@ export async function GET(request: NextRequest) {
           .from('wb_profiles')
           .select('role')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.role === 'owner') {
           return NextResponse.redirect(
-            new URL('/dashboard/owner', requestUrl.origin)
+            new URL('/dashboard', requestUrl.origin)
           );
         }
       }

@@ -22,7 +22,7 @@ export default async function DashboardLayout({
   // Use maybeSingle to avoid throwing when profile doesn't exist yet
   const { data: profile } = await supabase
     .from('wb_profiles')
-    .select('role')
+    .select('role, full_name')
     .eq('id', session.user.id)
     .maybeSingle();
 
@@ -30,9 +30,13 @@ export default async function DashboardLayout({
     redirect('/');
   }
 
+  // Derive display name and email for the sidebar
+  const userName = profile?.full_name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+  const userEmail = session.user.email || '';
+
   return (
     <div className="flex h-screen bg-gray-50">
-      <DashboardSidebar />
+      <DashboardSidebar userName={userName} userEmail={userEmail} />
       <main className="flex-1 overflow-y-auto">
         <div className="p-4 md:p-8">{children}</div>
       </main>

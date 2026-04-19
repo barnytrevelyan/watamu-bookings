@@ -32,7 +32,7 @@ export function useAuth() {
         .from('wb_profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       return (data as Profile) ?? null;
     },
     [supabase],

@@ -1,74 +1,51 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" /></div>}>
-      <LoginForm />
-    </Suspense>
-  );
-}
-
-function LoginForm() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
-  const urlError = searchParams.get('error');
-
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(urlError);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+      const { error: updateError } = await supabase.auth.updateUser({
         password,
       });
 
-      if (authError) {
-        if (authError.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password.');
-        } else if (authError.message.includes('Email not confirmed')) {
-          setError('Please confirm your email address before signing in.');
-        } else {
-          setError(authError.message);
-        }
+      if (updateError) {
+        setError(updateError.message);
         return;
       }
 
-      // Check user role to decide where to redirect
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        // Use maybeSingle() to avoid throwing when no profile exists
-        const { data: profile } = await supabase
-          .from('wb_profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profile?.role === 'owner' && redirectTo === '/dashboard') {
-          router.push('/dashboard');
-        } else {
-          router.push(redirectTo);
-        }
-      } else {
-        router.push(redirectTo);
-      }
-
+      setSuccess(true);
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
     } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
@@ -76,26 +53,50 @@ function LoginForm() {
     }
   }
 
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow-sm rounded-xl sm:px-10 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">
+              Password updated
+            </h2>
+            <p className="text-gray-600">
+              Your password has been reset successfully. Redirecting you to the
+              dashboard...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo / Brand */}
         <Link href="/" className="flex justify-center">
-          <h1 className="text-3xl font-bold text-blue-600">
-            Watamu Bookings
-          </h1>
+          <h1 className="text-3xl font-bold text-blue-600">Watamu Bookings</h1>
         </Link>
         <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
-          Sign in to your account
+          Set a new password
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
-          <Link
-            href="/auth/register"
-            className="font-medium text-blue-600 hover:text-blue-500"
-          >
-            create a new account
-          </Link>
+          Choose a strong password for your account.
         </p>
       </div>
 
@@ -104,47 +105,41 @@ function LoginForm() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
-                htmlFor="email"
+                htmlFor="password"
                 className="block text-sm font-medium text-gray-700"
               >
-                Email address
+                New password
               </label>
               <input
-                id="email"
-                type="email"
-                autoComplete="email"
+                id="password"
+                type="password"
+                autoComplete="new-password"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="you@example.com"
+                placeholder="Minimum 8 characters"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Password
-                </label>
-                <Link
-                  href="/auth/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-500"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Confirm new password
+              </label>
               <input
-                id="password"
+                id="confirmPassword"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your password"
+                placeholder="Re-enter your password"
               />
             </div>
 
@@ -177,10 +172,10 @@ function LoginForm() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     />
                   </svg>
-                  Signing in...
+                  Updating...
                 </span>
               ) : (
-                'Sign in'
+                'Update password'
               )}
             </button>
           </form>

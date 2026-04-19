@@ -64,9 +64,6 @@ export async function middleware(request: NextRequest) {
   // Without it, the middleware does nothing useful.
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Debug header to verify middleware runs (remove in production)
-  supabaseResponse.headers.set('x-middleware-ran', user ? 'authenticated' : 'anonymous');
-
   // --- 2. Subdomain routing for watamu.ke ---
   const { hostname, pathname } = request.nextUrl;
 
