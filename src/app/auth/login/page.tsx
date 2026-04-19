@@ -52,11 +52,12 @@ function LoginForm() {
       } = await supabase.auth.getUser();
 
       if (user) {
+        // Use maybeSingle() to avoid throwing when no profile exists
         const { data: profile } = await supabase
           .from('wb_profiles')
           .select('role')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.role === 'owner' && redirectTo === '/dashboard') {
           router.push('/dashboard/owner');

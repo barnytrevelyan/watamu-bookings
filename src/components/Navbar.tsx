@@ -38,12 +38,12 @@ export default function Navbar() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      setDropdownOpen(false);
-      setMobileOpen(false);
-      router.push('/');
-      router.refresh();
+      // Hard redirect to clear all cached auth state
+      window.location.href = '/';
     } catch (err) {
       console.error('Sign out error:', err);
+      // Force redirect even if signOut throws
+      window.location.href = '/';
     }
   };
 

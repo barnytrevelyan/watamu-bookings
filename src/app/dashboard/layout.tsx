@@ -8,21 +8,23 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // Try getUser first (validates with Supabase server)
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (!user) {
+    console.error('Dashboard: No user found', userError?.message);
     redirect('/auth/login');
   }
 
+  // Use maybeSingle to avoid throwing when profile doesn't exist yet
   const { data: profile } = await supabase
     .from('wb_profiles')
     .select('role')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (!profile || profile.role === 'guest') {
+  if (profile?.role === 'guest') {
     redirect('/');
   }
 

@@ -62,7 +62,10 @@ export async function middleware(request: NextRequest) {
   // IMPORTANT: Do NOT remove this getUser() call.
   // It triggers the session refresh and cookie update.
   // Without it, the middleware does nothing useful.
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Debug header to verify middleware runs (remove in production)
+  supabaseResponse.headers.set('x-middleware-ran', user ? 'authenticated' : 'anonymous');
 
   // --- 2. Subdomain routing for watamu.ke ---
   const { hostname, pathname } = request.nextUrl;
