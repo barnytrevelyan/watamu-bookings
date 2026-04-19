@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { CalendarCheck } from 'lucide-react';
 
@@ -55,6 +54,7 @@ export default function BookingsPage() {
 
   async function fetchBookings() {
     setLoading(true);
+    setError(null);
     try {
       const supabase = createClient();
 
@@ -73,20 +73,16 @@ export default function BookingsPage() {
         return;
       }
 
-      // Fetch bookings for owner's listings
-      // We need to do two queries if owner has both properties and boats
       const allBookings: any[] = [];
 
       if (propIds.length > 0) {
         let query = supabase
           .from('wb_bookings')
           .select(
-            `
-            id, check_in, check_out, guests_count, total_price, currency, status,
+            `id, check_in, check_out, guests_count, total_price, currency, status,
             special_requests, created_at, property_id, boat_id,
             wb_profiles!guest_id(full_name, email),
-            wb_properties!property_id(name)
-          `
+            wb_properties!property_id(name)`
           )
           .in('property_id', propIds)
           .order('created_at', { ascending: false });
@@ -103,12 +99,10 @@ export default function BookingsPage() {
         let query = supabase
           .from('wb_bookings')
           .select(
-            `
-            id, check_in, check_out, guests_count, total_price, currency, status,
+            `id, check_in, check_out, guests_count, total_price, currency, status,
             special_requests, created_at, property_id, boat_id,
             wb_profiles!guest_id(full_name, email),
-            wb_boats!boat_id(name)
-          `
+            wb_boats!boat_id(name)`
           )
           .in('boat_id', boatIds)
           .order('created_at', { ascending: false });
@@ -135,7 +129,7 @@ export default function BookingsPage() {
         guest_name: b.wb_profiles?.full_name || 'Guest',
         guest_email: b.wb_profiles?.email || '',
         listing_name: b.wb_properties?.name || b.wb_boats?.name || 'N/A',
-        listing_type: b.property_id ? 'property' : 'boat',
+        listing_type: b.property_id ? ('property' as const) : ('boat' as const),
         check_in: b.check_in,
         check_out: b.check_out,
         guests_count: b.guests_count,
@@ -204,10 +198,7 @@ export default function BookingsPage() {
             size="sm"
             variant="outline"
             className="ml-3"
-            onClick={() => {
-              setError(null);
-              fetchBookings();
-            }}
+            onClick={() => fetchBookings()}
           >
             Retry
           </Button>
@@ -219,22 +210,30 @@ export default function BookingsPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
               <option value="all">All Statuses</option>
               <option value="pending_payment">Pending Payment</option>
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
               <option value="refunded">Refunded</option>
-            </Select>
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Type</label>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
               <option value="all">All Types</option>
               <option value="property">Properties</option>
               <option value="boat">Boats</option>
-            </Select>
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">From</label>
@@ -247,7 +246,7 @@ export default function BookingsPage() {
         </div>
       </Card>
 
-      {bookings.length === 0 ? (
+      {bookings.length === 0 && !error ? (
         <Card className="flex flex-col items-center justify-center p-12">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
             <CalendarCheck className="h-8 w-8 text-blue-500" />
@@ -274,13 +273,11 @@ export default function BookingsPage() {
             </thead>
             <tbody className="divide-y">
               {bookings.map((booking) => (
-                <React.Fragment key={booking.id}>
+                <Fragment key={booking.id}>
                   <tr
                     className="cursor-pointer hover:bg-gray-50"
                     onClick={() =>
-                      setExpandedId(
-                        expandedId === booking.id ? null : booking.id
-                      )
+                      setExpandedId(expandedId === booking.id ? null : booking.id)
                     }
                   >
                     <td className="py-3">
@@ -372,7 +369,7 @@ export default function BookingsPage() {
                       </td>
                     </tr>
                   )}
-                </React.Fragment>
+                </Fragment>
               ))}
             </tbody>
           </table>

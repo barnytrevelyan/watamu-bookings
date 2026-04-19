@@ -15,10 +15,10 @@ interface Property {
   slug: string;
   property_type: string;
   is_published: boolean;
-  base_price: number;
+  base_price_per_night: number;
   currency: string;
   average_rating: number;
-  bookings_count: number;
+  review_count: number;
   cover_image: string | null;
   status: string;
   rejection_reason: string | null;
@@ -49,13 +49,13 @@ export default function PropertiesPage() {
           slug,
           property_type,
           is_published,
-          base_price,
+          base_price_per_night,
           currency,
           status,
           rejection_reason,
-          wb_images(url),
-          wb_reviews(rating),
-          wb_bookings(id)
+          avg_rating,
+          review_count,
+          wb_images(url)
         `
         )
         .eq('owner_id', user!.id)
@@ -64,15 +64,6 @@ export default function PropertiesPage() {
       if (fetchError) throw fetchError;
 
       const formatted: Property[] = (data || []).map((p: any) => {
-        const ratings = (p.wb_reviews || []).map((r: any) => r.rating);
-        const avgRating =
-          ratings.length > 0
-            ? Math.round(
-                (ratings.reduce((a: number, b: number) => a + b, 0) /
-                  ratings.length) *
-                  10
-              ) / 10
-            : 0;
         const coverImg =
           p.wb_images && p.wb_images.length > 0 ? p.wb_images[0].url : null;
 
@@ -82,10 +73,10 @@ export default function PropertiesPage() {
           slug: p.slug,
           property_type: p.property_type,
           is_published: p.is_published,
-          base_price: p.base_price,
+          base_price_per_night: p.base_price_per_night || 0,
           currency: p.currency || 'KES',
-          average_rating: avgRating,
-          bookings_count: (p.wb_bookings || []).length,
+          average_rating: p.avg_rating || 0,
+          review_count: p.review_count || 0,
           cover_image: coverImg,
           status: p.status || 'draft',
           rejection_reason: p.rejection_reason || null,
@@ -245,7 +236,7 @@ export default function PropertiesPage() {
                     </p>
                   </div>
                   <p className="text-sm font-semibold text-gray-900">
-                    {property.currency} {property.base_price.toLocaleString()}
+                    {property.currency} {property.base_price_per_night.toLocaleString()}
                     <span className="font-normal text-gray-500">/night</span>
                   </p>
                 </div>
@@ -256,7 +247,7 @@ export default function PropertiesPage() {
                       <span>{property.average_rating}</span>
                     </div>
                   )}
-                  <span>{property.bookings_count} bookings</span>
+                  <span>{property.review_count} reviews</span>
                 </div>
                 {property.status === 'rejected' && property.rejection_reason && (
                   <div className="mt-3 rounded-lg bg-red-50 border border-red-100 p-2 text-xs text-red-700">

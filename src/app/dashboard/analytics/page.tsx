@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
 import { BarChart3 } from 'lucide-react';
 
 interface AnalyticsData {
@@ -251,16 +250,16 @@ export default function OverallAnalyticsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-        <Select
+        <select
           value={period}
           onChange={(e) => setPeriod(e.target.value as any)}
-          className="w-40"
+          className="w-40 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="week">Last 7 Days</option>
           <option value="month">This Month</option>
           <option value="quarter">This Quarter</option>
           <option value="year">This Year</option>
-        </Select>
+        </select>
       </div>
 
       {/* KPI Cards */}
