@@ -3,12 +3,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import ImageGallery from "@/components/ImageGallery";
-import AmenityBadge from "@/components/AmenityBadge";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
 import PropertyBookingSidebar from "./PropertyBookingSidebar";
 import PropertyHeaderActions from "./PropertyHeaderActions";
+import PropertyAmenitiesSection from "./PropertyAmenitiesSection";
+import PropertyMap from "./PropertyMap";
 import type { Property, Room, Amenity, Review, Image } from "@/lib/types";
 
 /* ---------- Data fetching ---------- */
@@ -129,14 +130,6 @@ export default async function PropertyDetailPage({
 
   // "Guest favourite" badge — conservative thresholds so it's earned.
   const isGuestFavourite = averageRating >= 4.8 && totalReviews >= 5;
-
-  // Group amenities by category
-  const amenitiesByCategory = amenities.reduce<Record<string, Amenity[]>>((acc, a) => {
-    const cat = a.category || "General";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(a);
-    return acc;
-  }, {});
 
   return (
     <div className="min-h-screen bg-white">
@@ -273,23 +266,7 @@ export default async function PropertyDetailPage({
             </section>
 
             {/* Amenities */}
-            {amenities.length > 0 && (
-              <section className="mb-10">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Amenities</h2>
-                {Object.entries(amenitiesByCategory).map(([category, items]) => (
-                  <div key={category} className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
-                      {category}
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {items.map((amenity) => (
-                        <AmenityBadge key={amenity.id} name={amenity.name} icon={amenity.icon ?? undefined} category={(amenity.category as any) ?? undefined} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            )}
+            <PropertyAmenitiesSection amenities={amenities} />
 
             {/* Rooms */}
             {rooms.length > 0 && (
@@ -339,24 +316,16 @@ export default async function PropertyDetailPage({
               </section>
             )}
 
-            {/* Map placeholder */}
-            {(property.latitude || property.longitude) && (
-              <section className="mb-10">
-                <h2 className="text-xl font-semibold text-gray-900 mb-3">Location</h2>
-                <div className="w-full h-64 rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-gray-200 flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <svg className="w-10 h-10 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    <p className="text-sm font-medium">{[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {property.latitude?.toFixed(4)}, {property.longitude?.toFixed(4)}
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
+            {/* Map */}
+            <PropertyMap
+              latitude={property.latitude}
+              longitude={property.longitude}
+              placeLabel={
+                [property.city, property.county || "Kilifi", property.country || "Kenya"]
+                  .filter(Boolean)
+                  .join(", ") || "Watamu, Kenya"
+              }
+            />
 
             {/* Reviews */}
             <section id="reviews" className="mb-10 scroll-mt-24">
