@@ -38,15 +38,45 @@ function extractAirbnbId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * SSRF guard — only allow https fetches to an airbnb.* host.
+ * Without this, the user-supplied `url` goes straight to fetch() and can hit
+ * internal metadata endpoints (e.g. 169.254.169.254) as long as the raw string
+ * includes "airbnb".
+ */
+function isAllowedAirbnbUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    return /(^|\.)airbnb\.[a-z.]+$/.test(host);
+  } catch {
+    return false;
+  }
+}
+
 async function scrapeAirbnb(url: string): Promise<ImportedProperty> {
-  // Fetch the page HTML
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-  });
+  if (!isAllowedAirbnbUrl(url)) {
+    throw new Error('URL is not a valid Airbnb https URL');
+  }
+
+  // Fetch the page HTML with a 10s timeout so a hung response cannot block the function.
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10_000);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+  } finally {
+    clearTimeout(t);
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch Airbnb listing: ${response.status}`);
@@ -54,33 +84,41 @@ async function scrapeAirbnb(url: string): Promise<ImportedProperty> {
 
   const html = await response.text();
 
+  // Airbnb serves a "helpful 404" page with HTTP 200 when a room ID doesn't exist.
+  // Detect that here so we don't save a listing named "404 Page Not Found".
+  if (/404 Page Not Found/i.test(html) && html.length < 10_000) {
+    throw new Error('That Airbnb listing could not be found. Please check the URL.');
+  }
+
   // Extract data from multiple sources in the HTML
 
-  // 1. JSON-LD structured data
-  const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  // 1. JSON-LD structured data. Airbnb pages often have multiple ld+json blocks
+  // (BreadcrumbList, Organization, LodgingBusiness, …). Iterate them all and
+  // prefer one whose @type looks like a listing, falling back to any block with a name.
   let jsonLd: any = null;
-  if (jsonLdMatch) {
+  const jsonLdMatches = html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
+  for (const m of jsonLdMatches) {
     try {
-      jsonLd = JSON.parse(jsonLdMatch[1]);
+      const parsed = JSON.parse(m[1]);
+      const type = parsed['@type'];
+      const isListingType = type === 'LodgingBusiness' || type === 'Product' || type === 'TouristAttraction' || type === 'Accommodation' || type === 'House' || type === 'Apartment';
+      if (isListingType) { jsonLd = parsed; break; }
+      if (!jsonLd && parsed && parsed.name && type !== 'BreadcrumbList' && type !== 'Organization') {
+        jsonLd = parsed; // tentative; keep iterating in case a better match appears
+      }
     } catch {}
   }
 
-  // 2. Airbnb bootstrapped data (the __NEXT_DATA__ or bootstrapData)
+  // 2. __NEXT_DATA__ (data-deferred-state is HTML-entity encoded, not URL-encoded —
+  // decodeURIComponent was wrong and its output was never read, so we drop it).
   let bootstrapData: any = null;
-  const dataMatch = html.match(/data-deferred-state-(\d+)="([^"]+)"/);
-  if (dataMatch) {
-    try {
-      bootstrapData = JSON.parse(decodeURIComponent(dataMatch[2]));
-    } catch {}
-  }
-
-  // Also try __NEXT_DATA__
   const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (nextDataMatch && !bootstrapData) {
+  if (nextDataMatch) {
     try {
       bootstrapData = JSON.parse(nextDataMatch[1]);
     } catch {}
   }
+  void bootstrapData; // reserved for future deeper extraction
 
   // 3. Open Graph meta tags
   const ogTitle = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title');
@@ -174,6 +212,12 @@ async function scrapeAirbnb(url: string): Promise<ImportedProperty> {
     .replace(/\s*\|\s*Airbnb$/i, '')
     .trim();
 
+  // Final validation: if we didn't get a usable name or any images, the scrape failed
+  // (blocked page, JS-only content, or bot wall). Fail loudly instead of saving junk.
+  if (!name || /^(404|Not Found|Page Not Found)$/i.test(name)) {
+    throw new Error('Could not parse the Airbnb listing. It may be unavailable or blocked by Airbnb.');
+  }
+
   return {
     name,
     description: description.slice(0, 5000),
@@ -211,17 +255,18 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
-    // Verify user is authenticated — use getSession() to read from cookies
-    // (getUser() makes a network call that can fail if the token needs refreshing)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // Verify user via getUser() (validates JWT with Supabase Auth server).
+    // getSession() only reads the cookie without verifying, which is unsafe for
+    // an endpoint that performs a write on the user's behalf.
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    const user = session.user;
 
     const { url } = await request.json();
+    const cleanUrl = typeof url === 'string' ? url.trim() : '';
 
-    if (!url || !url.includes('airbnb')) {
+    if (!isAllowedAirbnbUrl(cleanUrl)) {
       return NextResponse.json(
         { error: 'Please provide a valid Airbnb listing URL' },
         { status: 400 }
@@ -229,7 +274,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract and validate
-    const listingId = extractAirbnbId(url);
+    const listingId = extractAirbnbId(cleanUrl);
     if (!listingId) {
       return NextResponse.json(
         { error: 'Could not find Airbnb listing ID in URL. Please use a URL like airbnb.com/rooms/12345' },
@@ -238,13 +283,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Scrape the listing
-    const data = await scrapeAirbnb(url);
+    const data = await scrapeAirbnb(cleanUrl);
 
     // Log the import attempt
     await supabase.from('wb_import_logs').insert({
       owner_id: user.id,
       source: 'airbnb',
-      source_url: url,
+      source_url: cleanUrl,
       listing_type: 'property',
       status: 'completed',
       imported_data: data as any,

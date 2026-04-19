@@ -60,18 +60,31 @@ export default function ImportPage() {
 
   async function handleSave() {
     if (!user || !importedData) return;
+
+    // Guard against scraper failures that produced empty/404 garbage.
+    const rawName = (importedData.name || '').trim();
+    if (!rawName || /^(404|Not Found|Page Not Found|Access Denied)$/i.test(rawName)) {
+      setError('The imported listing has no usable name. Please try a different URL.');
+      return;
+    }
+
     setStep('saving');
+
+    // Build a slug with a short random suffix so repeat imports of the same
+    // listing name don't collide on the unique-index.
+    const slugSuffix = Math.random().toString(36).slice(2, 7);
+    const baseSlug = rawName
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const slug = `${baseSlug || 'listing'}-${slugSuffix}`;
 
     try {
       const supabase = createClient();
 
       if (source === 'airbnb') {
         // Create property from imported data
-        const slug = importedData.name
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/[\s_]+/g, '-')
-          .replace(/^-+|-+$/g, '');
 
         const { data: property, error: propError } = await supabase
           .from('wb_properties')
@@ -103,7 +116,7 @@ export default function ImportPage() {
 
         if (propError) throw propError;
 
-        // Insert images
+        // Insert images — surface errors instead of silently orphaning the property.
         if (importedData.images?.length > 0) {
           const imageRows = importedData.images.map((url: string, i: number) => ({
             property_id: property.id,
@@ -113,18 +126,13 @@ export default function ImportPage() {
             sort_order: i,
             is_cover: i === 0,
           }));
-          await supabase.from('wb_images').insert(imageRows);
+          const { error: imgErr } = await supabase.from('wb_images').insert(imageRows);
+          if (imgErr) throw imgErr;
         }
 
         setCreatedId(property.id);
       } else {
-        // Create boat from imported data
-        const slug = importedData.name
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/[\s_]+/g, '-')
-          .replace(/^-+|-+$/g, '');
-
+        // Create boat from imported data — reuse the slug computed above
         const { data: boat, error: boatError } = await supabase
           .from('wb_boats')
           .insert({
@@ -170,10 +178,11 @@ export default function ImportPage() {
               seasonal_months: [],
               sort_order: i,
             }));
-          await supabase.from('wb_boat_trips').insert(tripRows);
+          const { error: tripErr } = await supabase.from('wb_boat_trips').insert(tripRows);
+          if (tripErr) throw tripErr;
         }
 
-        // Insert images
+        // Insert images — surface errors instead of silently orphaning the boat.
         if (importedData.images?.length > 0) {
           const imageRows = importedData.images.map((url: string, i: number) => ({
             boat_id: boat.id,
@@ -183,7 +192,8 @@ export default function ImportPage() {
             sort_order: i,
             is_cover: i === 0,
           }));
-          await supabase.from('wb_images').insert(imageRows);
+          const { error: imgErr } = await supabase.from('wb_images').insert(imageRows);
+          if (imgErr) throw imgErr;
         }
 
         setCreatedId(boat.id);

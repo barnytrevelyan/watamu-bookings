@@ -44,14 +44,41 @@ interface ImportedBoat {
   source: 'fishingbooker';
 }
 
+/**
+ * SSRF guard — only allow https fetches to a fishingbooker.* host.
+ */
+function isAllowedFishingBookerUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    return /(^|\.)fishingbooker\.[a-z.]+$/.test(host);
+  } catch {
+    return false;
+  }
+}
+
 async function scrapeFishingBooker(url: string): Promise<ImportedBoat> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-  });
+  if (!isAllowedFishingBookerUrl(url)) {
+    throw new Error('URL is not a valid FishingBooker https URL');
+  }
+
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10_000);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+  } finally {
+    clearTimeout(t);
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch FishingBooker listing: ${response.status}`);
@@ -214,7 +241,9 @@ async function scrapeFishingBooker(url: string): Promise<ImportedBoat> {
         html.indexOf(tripName) + 500
       );
       const priceMatch = priceNearby.match(/\$\s*([\d,]+)/);
-      const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 0;
+      // Replace ALL commas — previously `replace(',', '')` only stripped the first,
+      // turning "$1,234,567" into 1234.
+      const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : 0;
 
       trips.push({
         name: tripName,
@@ -238,6 +267,11 @@ async function scrapeFishingBooker(url: string): Promise<ImportedBoat> {
   else if (text.includes('kayak')) boatType = 'kayak';
   else if (text.includes('deep sea') || text.includes('deep-sea')) boatType = 'deep_sea';
   else if (text.includes('glass bottom')) boatType = 'glass_bottom';
+
+  // Validation: empty/garbage name indicates scrape failure — fail loudly.
+  if (!name || /^(404|Not Found|Page Not Found|Access Denied)$/i.test(name)) {
+    throw new Error('Could not parse the FishingBooker listing. It may be unavailable or blocked.');
+  }
 
   return {
     name,
@@ -302,28 +336,30 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
+    // Verify user via getUser() (validates JWT) rather than getSession() which
+    // only reads the cookie without verification.
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    const user = session.user;
 
     const { url } = await request.json();
+    const cleanUrl = typeof url === 'string' ? url.trim() : '';
 
-    if (!url || !url.includes('fishingbooker')) {
+    if (!isAllowedFishingBookerUrl(cleanUrl)) {
       return NextResponse.json(
         { error: 'Please provide a valid FishingBooker charter URL' },
         { status: 400 }
       );
     }
 
-    const data = await scrapeFishingBooker(url);
+    const data = await scrapeFishingBooker(cleanUrl);
 
     // Log the import
     await supabase.from('wb_import_logs').insert({
       owner_id: user.id,
       source: 'fishingbooker',
-      source_url: url,
+      source_url: cleanUrl,
       listing_type: 'boat',
       status: 'completed',
       imported_data: data as any,
