@@ -189,18 +189,19 @@ export default function PropertiesPage() {
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-gray-900">
-            No properties yet
+            You have no properties listed
           </h2>
           <p className="mt-2 text-center text-gray-500">
-            Start by adding your first property to attract guests visiting
-            Watamu.
+            Add your first property to attract guests visiting Watamu.
           </p>
-          <Button
-            onClick={() => router.push('/dashboard/properties/new')}
-            className="mt-6"
-          >
-            Add Your First Property
-          </Button>
+          <div className="mt-6 flex gap-3">
+            <Button onClick={() => router.push('/dashboard/properties/new')}>
+              Add a Property
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard/import')}>
+              Import from Airbnb
+            </Button>
+          </div>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

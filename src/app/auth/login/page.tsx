@@ -36,6 +36,7 @@ function LoginForm() {
       });
 
       if (authError) {
+        setLoading(false);
         if (authError.message.includes('Invalid login credentials')) {
           setError('Invalid email or password.');
         } else if (authError.message.includes('Email not confirmed')) {
@@ -46,12 +47,19 @@ function LoginForm() {
         return;
       }
 
-      // Hard redirect so the page fully reloads with fresh auth state
+      // Verify the session was stored before redirecting
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setLoading(false);
+        setError('Sign in succeeded but session was not saved. Please try again.');
+        return;
+      }
+
+      // Keep loading=true (button shows "Signing in...") during redirect
       window.location.href = redirectTo;
     } catch {
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
       setLoading(false);
+      setError('An unexpected error occurred. Please try again.');
     }
   }
 

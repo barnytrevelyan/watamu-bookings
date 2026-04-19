@@ -337,13 +337,13 @@ export default async function HomePage() {
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link
-                  href="/about"
+                  href="/auth/register?role=owner"
                   className="inline-block bg-white text-teal-700 hover:bg-gray-100 font-semibold text-lg px-8 py-3 rounded-lg transition-colors shadow-lg"
                 >
                   List Your Property
                 </Link>
                 <Link
-                  href="/about"
+                  href="/auth/register?role=owner"
                   className="inline-block border-2 border-white text-white hover:bg-white/20 font-semibold text-lg px-8 py-3 rounded-lg transition-colors"
                 >
                   List Your Boat

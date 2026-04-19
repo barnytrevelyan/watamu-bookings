@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { StarRating } from '@/components/StarRating';
+import { Anchor, Plus } from 'lucide-react';
 
 interface Boat {
   id: string;
@@ -15,14 +17,14 @@ interface Boat {
   slug: string;
   boat_type: string;
   is_published: boolean;
-  base_price: number;
   currency: string;
   average_rating: number;
-  bookings_count: number;
+  review_count: number;
   cover_image: string | null;
   status: string;
-  max_passengers: number | null;
+  capacity: number | null;
   length_ft: number | null;
+  min_trip_price: number | null;
 }
 
 export default function BoatsPage() {
@@ -50,14 +52,14 @@ export default function BoatsPage() {
           slug,
           boat_type,
           is_published,
-          base_price,
           currency,
-          max_passengers,
+          capacity,
           length_ft,
           status,
+          avg_rating,
+          review_count,
           wb_images(url),
-          wb_reviews(rating),
-          wb_bookings(id)
+          wb_boat_trips(price_total)
         `
         )
         .eq('owner_id', user!.id)
@@ -66,17 +68,12 @@ export default function BoatsPage() {
       if (fetchError) throw fetchError;
 
       const formatted: Boat[] = (data || []).map((b: any) => {
-        const ratings = (b.wb_reviews || []).map((r: any) => r.rating);
-        const avgRating =
-          ratings.length > 0
-            ? Math.round(
-                (ratings.reduce((a: number, b: number) => a + b, 0) /
-                  ratings.length) *
-                  10
-              ) / 10
-            : 0;
         const coverImg =
           b.wb_images && b.wb_images.length > 0 ? b.wb_images[0].url : null;
+        const trips = b.wb_boat_trips || [];
+        const minPrice = trips.length > 0
+          ? Math.min(...trips.map((t: any) => t.price_total || 0))
+          : null;
 
         return {
           id: b.id,
@@ -84,14 +81,14 @@ export default function BoatsPage() {
           slug: b.slug,
           boat_type: b.boat_type,
           is_published: b.is_published,
-          base_price: b.base_price,
           currency: b.currency || 'KES',
-          average_rating: avgRating,
-          bookings_count: (b.wb_bookings || []).length,
+          average_rating: b.avg_rating || 0,
+          review_count: b.review_count || 0,
           cover_image: coverImg,
           status: b.status || 'draft',
-          max_passengers: b.max_passengers,
+          capacity: b.capacity,
           length_ft: b.length_ft,
+          min_trip_price: minPrice,
         };
       });
 
@@ -148,19 +145,22 @@ export default function BoatsPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-red-700">{error}</p>
-        <Button
-          onClick={() => {
-            setError(null);
-            setLoading(true);
-            fetchBoats();
-          }}
-          className="mt-4"
-          variant="outline"
-        >
-          Retry
-        </Button>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">My Boats</h1>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-red-700">{error}</p>
+          <Button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchBoats();
+            }}
+            className="mt-4"
+            variant="outline"
+          >
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -170,39 +170,30 @@ export default function BoatsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">My Boats</h1>
         <Button onClick={() => router.push('/dashboard/boats/new')}>
-          + Add New Boat
+          <Plus className="h-4 w-4 mr-1" />
+          Add New Boat
         </Button>
       </div>
 
       {boats.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-12">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
-            <svg
-              className="h-8 w-8 text-blue-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 17h1l1.5-4.5L7 17h2l1.5-4.5L12 17h2l1.5-4.5L17 17h2l1.5-4.5L22 17h1M5 21h14M12 3v4m-4-2l4 4 4-4"
-              />
-            </svg>
+            <Anchor className="h-8 w-8 text-blue-500" />
           </div>
           <h2 className="text-xl font-semibold text-gray-900">
-            No boats yet
+            You have no boats listed
           </h2>
           <p className="mt-2 text-center text-gray-500">
-            List your fishing charter or boat to reach guests visiting Watamu.
+            Add your first boat or charter to reach guests visiting Watamu.
           </p>
-          <Button
-            onClick={() => router.push('/dashboard/boats/new')}
-            className="mt-6"
-          >
-            Add Your First Boat
-          </Button>
+          <div className="mt-6 flex gap-3">
+            <Button onClick={() => router.push('/dashboard/boats/new')}>
+              Add a Boat
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard/import')}>
+              Import from FishingBooker
+            </Button>
+          </div>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -217,7 +208,7 @@ export default function BoatsPage() {
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-gray-400">
-                    No image
+                    <Anchor className="h-10 w-10" />
                   </div>
                 )}
                 <div className="absolute right-2 top-2 flex gap-1">
@@ -242,15 +233,17 @@ export default function BoatsPage() {
                       {boat.name}
                     </h3>
                     <p className="text-sm capitalize text-gray-500">
-                      {boat.boat_type}
+                      {boat.boat_type?.replace(/_/g, ' ')}
                       {boat.length_ft ? ` · ${boat.length_ft}ft` : ''}
-                      {boat.max_passengers ? ` · ${boat.max_passengers} pax` : ''}
+                      {boat.capacity ? ` · ${boat.capacity} pax` : ''}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {boat.currency} {boat.base_price?.toLocaleString()}
-                    <span className="font-normal text-gray-500">/trip</span>
-                  </p>
+                  {boat.min_trip_price != null && (
+                    <p className="text-sm font-semibold text-gray-900">
+                      {boat.currency} {boat.min_trip_price.toLocaleString()}
+                      <span className="font-normal text-gray-500">/trip</span>
+                    </p>
+                  )}
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
                   {boat.average_rating > 0 && (
@@ -259,7 +252,7 @@ export default function BoatsPage() {
                       <span>{boat.average_rating}</span>
                     </div>
                   )}
-                  <span>{boat.bookings_count} bookings</span>
+                  <span>{boat.review_count} reviews</span>
                 </div>
                 <div className="mt-4 flex gap-2">
                   <Button

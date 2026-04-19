@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
+import { BarChart3 } from 'lucide-react';
 
 interface AnalyticsData {
   totalRevenue: number;
@@ -13,7 +14,6 @@ interface AnalyticsData {
   averageOccupancy: number;
   revenueByListing: { name: string; type: string; revenue: number }[];
   ratingDistribution: number[];
-  bookingSources: Record<string, number>;
   monthlyRevenue: { month: string; revenue: number }[];
   monthlyBookings: { month: string; count: number }[];
 }
@@ -24,6 +24,7 @@ export default function OverallAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('year');
+  const [hasListings, setHasListings] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -32,6 +33,7 @@ export default function OverallAnalyticsPage() {
 
   async function fetchAnalytics() {
     setLoading(true);
+    setError(null);
     try {
       const supabase = createClient();
 
@@ -49,83 +51,114 @@ export default function OverallAnalyticsPage() {
         startDate = new Date(now.getFullYear(), 0, 1);
       }
 
-      // Fetch all bookings for period
-      const { data: bookings } = await supabase
-        .from('wb_bookings')
-        .select(
-          `
-          id, total_amount, status, source, created_at, property_id, boat_id,
-          wb_properties(name),
-          wb_boats(name)
-        `
-        )
-        .eq('owner_id', user!.id)
-        .gte('created_at', startDate.toISOString());
+      // Get owner's property and boat IDs
+      const [propsRes, boatsRes] = await Promise.all([
+        supabase.from('wb_properties').select('id, name').eq('owner_id', user!.id),
+        supabase.from('wb_boats').select('id, name').eq('owner_id', user!.id),
+      ]);
 
-      // Fetch reviews
-      const { data: reviews } = await supabase
-        .from('wb_reviews')
-        .select('rating')
-        .eq('owner_id', user!.id);
+      const ownerProps = propsRes.data || [];
+      const ownerBoats = boatsRes.data || [];
+      const propIds = ownerProps.map((p: any) => p.id);
+      const boatIds = ownerBoats.map((b: any) => b.id);
 
-      // Fetch availability
+      if (propIds.length === 0 && boatIds.length === 0) {
+        setHasListings(false);
+        setLoading(false);
+        return;
+      }
+
+      setHasListings(true);
+
+      // Fetch bookings for owner's listings
+      const allBookings: any[] = [];
+
+      if (propIds.length > 0) {
+        const { data: propBookings } = await supabase
+          .from('wb_bookings')
+          .select('id, total_price, status, created_at, property_id, boat_id')
+          .in('property_id', propIds)
+          .gte('created_at', startDate.toISOString());
+        if (propBookings) allBookings.push(...propBookings);
+      }
+
+      if (boatIds.length > 0) {
+        const { data: boatBookings } = await supabase
+          .from('wb_bookings')
+          .select('id, total_price, status, created_at, property_id, boat_id')
+          .in('boat_id', boatIds)
+          .gte('created_at', startDate.toISOString());
+        if (boatBookings) allBookings.push(...boatBookings);
+      }
+
+      // Deduplicate
+      const seen = new Set<string>();
+      const bookings = allBookings.filter((b) => {
+        if (seen.has(b.id)) return false;
+        seen.add(b.id);
+        return true;
+      });
+
+      // Fetch reviews for owner's listings
+      const allReviews: any[] = [];
+      if (propIds.length > 0) {
+        const { data: propReviews } = await supabase
+          .from('wb_reviews')
+          .select('rating')
+          .in('property_id', propIds);
+        if (propReviews) allReviews.push(...propReviews);
+      }
+      if (boatIds.length > 0) {
+        const { data: boatReviews } = await supabase
+          .from('wb_reviews')
+          .select('rating')
+          .in('boat_id', boatIds);
+        if (boatReviews) allReviews.push(...boatReviews);
+      }
+
+      // Fetch availability for occupancy calc
       const { data: availability } = await supabase
         .from('wb_availability')
-        .select('date, is_available, property_id')
+        .select('date, is_blocked, property_id')
+        .in('property_id', propIds)
         .gte('date', startDate.toISOString().split('T')[0])
         .lte('date', now.toISOString().split('T')[0]);
 
-      // Filter to owner's properties only
-      const { data: ownerProps } = await supabase
-        .from('wb_properties')
-        .select('id')
-        .eq('owner_id', user!.id);
-
-      const ownerPropIds = new Set((ownerProps || []).map((p: any) => p.id));
-      const ownerAvailability = (availability || []).filter((a: any) =>
-        ownerPropIds.has(a.property_id)
-      );
-
-      const allBookings = bookings || [];
-      const completed = allBookings.filter(
+      const completed = bookings.filter(
         (b) => b.status === 'completed' || b.status === 'confirmed'
       );
 
       const totalRevenue = completed.reduce(
-        (sum, b) => sum + (b.total_amount || 0),
+        (sum, b) => sum + (b.total_price || 0),
         0
       );
+
+      // Build name lookup
+      const nameMap: Record<string, { name: string; type: string }> = {};
+      ownerProps.forEach((p: any) => { nameMap[p.id] = { name: p.name, type: 'property' }; });
+      ownerBoats.forEach((b: any) => { nameMap[b.id] = { name: b.name, type: 'boat' }; });
 
       // Revenue by listing
       const revenueMap: Record<string, { name: string; type: string; revenue: number }> = {};
       completed.forEach((b: any) => {
         const key = b.property_id || b.boat_id || 'unknown';
+        const info = nameMap[key] || { name: 'Unknown', type: 'unknown' };
         if (!revenueMap[key]) {
-          revenueMap[key] = {
-            name: b.wb_properties?.name || b.wb_boats?.name || 'Unknown',
-            type: b.property_id ? 'property' : 'boat',
-            revenue: 0,
-          };
+          revenueMap[key] = { name: info.name, type: info.type, revenue: 0 };
         }
-        revenueMap[key].revenue += b.total_amount || 0;
+        revenueMap[key].revenue += b.total_price || 0;
       });
 
       // Rating distribution
       const ratingDist = [0, 0, 0, 0, 0];
-      (reviews || []).forEach((r: any) => {
+      allReviews.forEach((r: any) => {
         if (r.rating >= 1 && r.rating <= 5) ratingDist[r.rating - 1]++;
       });
 
-      // Sources
-      const sources: Record<string, number> = {};
-      allBookings.forEach((b) => {
-        const src = (b as any).source || 'direct';
-        sources[src] = (sources[src] || 0) + 1;
-      });
-
       // Occupancy
+      const ownerAvailability = availability || [];
       const totalDays = ownerAvailability.length || 1;
-      const bookedDays = ownerAvailability.filter((a) => !a.is_available).length;
+      const bookedDays = ownerAvailability.filter((a: any) => a.is_blocked).length;
       const avgOccupancy = Math.round((bookedDays / totalDays) * 100);
 
       // Monthly grouping
@@ -133,7 +166,7 @@ export default function OverallAnalyticsPage() {
       const monthlyCountMap: Record<string, number> = {};
       completed.forEach((b) => {
         const m = b.created_at.substring(0, 7);
-        monthlyRevMap[m] = (monthlyRevMap[m] || 0) + (b.total_amount || 0);
+        monthlyRevMap[m] = (monthlyRevMap[m] || 0) + (b.total_price || 0);
         monthlyCountMap[m] = (monthlyCountMap[m] || 0) + 1;
       });
 
@@ -147,17 +180,17 @@ export default function OverallAnalyticsPage() {
 
       setData({
         totalRevenue,
-        totalBookings: allBookings.length,
+        totalBookings: bookings.length,
         averageOccupancy: avgOccupancy,
         revenueByListing: Object.values(revenueMap).sort(
           (a, b) => b.revenue - a.revenue
         ),
         ratingDistribution: ratingDist,
-        bookingSources: sources,
         monthlyRevenue,
         monthlyBookings,
       });
     } catch (err) {
+      console.error(err);
       setError('Failed to load analytics');
     } finally {
       setLoading(false);
@@ -178,13 +211,33 @@ export default function OverallAnalyticsPage() {
     );
   }
 
+  if (!hasListings) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+        <Card className="flex flex-col items-center justify-center p-12">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-purple-50">
+            <BarChart3 className="h-8 w-8 text-purple-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">No analytics yet</h2>
+          <p className="mt-2 text-center text-gray-500 max-w-md">
+            Add your first property or boat to start tracking performance and revenue.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-red-700">{error || 'No data'}</p>
-        <Button variant="outline" className="mt-4" onClick={() => fetchAnalytics()}>
-          Retry
-        </Button>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-red-700">{error || 'No data'}</p>
+          <Button variant="outline" className="mt-4" onClick={() => fetchAnalytics()}>
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
@@ -193,7 +246,6 @@ export default function OverallAnalyticsPage() {
   const maxMonthlyBookings = Math.max(...data.monthlyBookings.map((m) => m.count), 1);
   const maxListingRev = Math.max(...data.revenueByListing.map((l) => l.revenue), 1);
   const maxRating = Math.max(...data.ratingDistribution, 1);
-  const totalSources = Object.values(data.bookingSources).reduce((a, b) => a + b, 0) || 1;
 
   return (
     <div className="space-y-6">
@@ -335,34 +387,6 @@ export default function OverallAnalyticsPage() {
               </div>
             ))}
           </div>
-        </Card>
-
-        {/* Booking Sources */}
-        <Card className="p-6 lg:col-span-2">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Booking Sources</h2>
-          {Object.keys(data.bookingSources).length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-500">No source data</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(data.bookingSources)
-                .sort(([, a], [, b]) => b - a)
-                .map(([source, count]) => (
-                  <div key={source} className="rounded-lg border border-gray-200 p-4">
-                    <p className="text-sm capitalize text-gray-500">{source}</p>
-                    <p className="mt-1 text-xl font-bold text-gray-900">{count}</p>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-teal-500"
-                        style={{ width: `${(count / totalSources) * 100}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {Math.round((count / totalSources) * 100)}% of total
-                    </p>
-                  </div>
-                ))}
-            </div>
-          )}
         </Card>
       </div>
     </div>

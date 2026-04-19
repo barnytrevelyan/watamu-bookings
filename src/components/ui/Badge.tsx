@@ -1,6 +1,6 @@
 import React from 'react';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
+type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'outline';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -19,6 +19,8 @@ const variantClasses: Record<BadgeVariant, string> = {
     'bg-[var(--color-coral-100)] text-[var(--color-coral-700)]',
   info:
     'bg-[var(--color-primary-100)] text-[var(--color-primary-700)]',
+  outline:
+    'bg-transparent border border-gray-300 text-gray-600',
 };
 
 export function Badge({

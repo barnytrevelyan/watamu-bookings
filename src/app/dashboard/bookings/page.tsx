@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
+import { CalendarCheck } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -18,20 +19,19 @@ interface Booking {
   check_in: string;
   check_out: string;
   guests_count: number;
-  total_amount: number;
+  total_price: number;
   currency: string;
   status: string;
-  payment_method: string | null;
-  payment_status: string | null;
-  notes: string | null;
+  special_requests: string | null;
   created_at: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
+  pending_payment: 'bg-yellow-100 text-yellow-800',
   confirmed: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800',
+  refunded: 'bg-gray-100 text-gray-800',
 };
 
 export default function BookingsPage() {
@@ -54,48 +54,83 @@ export default function BookingsPage() {
   }, [user, statusFilter, typeFilter, dateFrom, dateTo]);
 
   async function fetchBookings() {
+    setLoading(true);
     try {
       const supabase = createClient();
-      let query = supabase
-        .from('wb_bookings')
-        .select(
+
+      // Get owner's property and boat IDs first
+      const [propsRes, boatsRes] = await Promise.all([
+        supabase.from('wb_properties').select('id').eq('owner_id', user!.id),
+        supabase.from('wb_boats').select('id').eq('owner_id', user!.id),
+      ]);
+
+      const propIds = (propsRes.data || []).map((p: any) => p.id);
+      const boatIds = (boatsRes.data || []).map((b: any) => b.id);
+
+      if (propIds.length === 0 && boatIds.length === 0) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch bookings for owner's listings
+      // We need to do two queries if owner has both properties and boats
+      const allBookings: any[] = [];
+
+      if (propIds.length > 0) {
+        let query = supabase
+          .from('wb_bookings')
+          .select(
+            `
+            id, check_in, check_out, guests_count, total_price, currency, status,
+            special_requests, created_at, property_id, boat_id,
+            wb_profiles!guest_id(full_name, email),
+            wb_properties!property_id(name)
           `
-          id,
-          check_in,
-          check_out,
-          guests_count,
-          total_amount,
-          currency,
-          status,
-          payment_method,
-          payment_status,
-          notes,
-          created_at,
-          property_id,
-          boat_id,
-          wb_profiles!guest_id(full_name, email),
-          wb_properties(name),
-          wb_boats(name)
-        `
-        )
-        .eq('owner_id', user!.id)
-        .order('created_at', { ascending: false });
+          )
+          .in('property_id', propIds)
+          .order('created_at', { ascending: false });
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+        if (dateFrom) query = query.gte('check_in', dateFrom);
+        if (dateTo) query = query.lte('check_out', dateTo);
+
+        const { data } = await query;
+        if (data) allBookings.push(...data);
       }
 
-      if (dateFrom) {
-        query = query.gte('check_in', dateFrom);
-      }
-      if (dateTo) {
-        query = query.lte('check_out', dateTo);
+      if (boatIds.length > 0) {
+        let query = supabase
+          .from('wb_bookings')
+          .select(
+            `
+            id, check_in, check_out, guests_count, total_price, currency, status,
+            special_requests, created_at, property_id, boat_id,
+            wb_profiles!guest_id(full_name, email),
+            wb_boats!boat_id(name)
+          `
+          )
+          .in('boat_id', boatIds)
+          .order('created_at', { ascending: false });
+
+        if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+        if (dateFrom) query = query.gte('check_in', dateFrom);
+        if (dateTo) query = query.lte('check_out', dateTo);
+
+        const { data } = await query;
+        if (data) allBookings.push(...data);
       }
 
-      const { data, error: fetchErr } = await query;
-      if (fetchErr) throw fetchErr;
+      // Deduplicate and sort
+      const seen = new Set<string>();
+      const unique = allBookings.filter((b) => {
+        if (seen.has(b.id)) return false;
+        seen.add(b.id);
+        return true;
+      });
+      unique.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      let formatted: Booking[] = (data || []).map((b: any) => ({
+      let formatted: Booking[] = unique.map((b: any) => ({
         id: b.id,
         guest_name: b.wb_profiles?.full_name || 'Guest',
         guest_email: b.wb_profiles?.email || '',
@@ -104,12 +139,10 @@ export default function BookingsPage() {
         check_in: b.check_in,
         check_out: b.check_out,
         guests_count: b.guests_count,
-        total_amount: b.total_amount,
+        total_price: b.total_price || 0,
         currency: b.currency || 'KES',
         status: b.status,
-        payment_method: b.payment_method,
-        payment_status: b.payment_status,
-        notes: b.notes,
+        special_requests: b.special_requests,
         created_at: b.created_at,
       }));
 
@@ -119,6 +152,7 @@ export default function BookingsPage() {
 
       setBookings(formatted);
     } catch (err) {
+      console.error(err);
       setError('Failed to load bookings');
     } finally {
       setLoading(false);
@@ -132,8 +166,7 @@ export default function BookingsPage() {
       const { error: updateErr } = await supabase
         .from('wb_bookings')
         .update({ status: newStatus })
-        .eq('id', bookingId)
-        .eq('owner_id', user!.id);
+        .eq('id', bookingId);
 
       if (updateErr) throw updateErr;
 
@@ -167,6 +200,17 @@ export default function BookingsPage() {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-3"
+            onClick={() => {
+              setError(null);
+              fetchBookings();
+            }}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
@@ -177,10 +221,11 @@ export default function BookingsPage() {
             <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
             <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
+              <option value="pending_payment">Pending Payment</option>
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="refunded">Refunded</option>
             </Select>
           </div>
           <div>
@@ -204,11 +249,14 @@ export default function BookingsPage() {
 
       {bookings.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-12">
-          <h2 className="text-lg font-semibold text-gray-900">No bookings found</h2>
-          <p className="mt-2 text-gray-500">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
+            <CalendarCheck className="h-8 w-8 text-blue-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">No bookings yet</h2>
+          <p className="mt-2 text-center text-gray-500 max-w-md">
             {statusFilter !== 'all' || typeFilter !== 'all' || dateFrom || dateTo
-              ? 'Try adjusting your filters.'
-              : 'Bookings will appear here once guests start booking.'}
+              ? 'No bookings match your filters. Try adjusting them.'
+              : 'Bookings will appear here once guests start booking your properties or boats.'}
           </p>
         </Card>
       ) : (
@@ -220,16 +268,14 @@ export default function BookingsPage() {
                 <th className="pb-3 font-medium">Listing</th>
                 <th className="pb-3 font-medium">Dates</th>
                 <th className="pb-3 font-medium">Amount</th>
-                <th className="pb-3 font-medium">Payment</th>
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {bookings.map((booking) => (
-                <>
+                <React.Fragment key={booking.id}>
                   <tr
-                    key={booking.id}
                     className="cursor-pointer hover:bg-gray-50"
                     onClick={() =>
                       setExpandedId(
@@ -252,16 +298,11 @@ export default function BookingsPage() {
                       </div>
                     </td>
                     <td className="py-3 whitespace-nowrap">
-                      {new Date(booking.check_in).toLocaleDateString()} —{' '}
-                      {new Date(booking.check_out).toLocaleDateString()}
+                      {new Date(booking.check_in).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} —{' '}
+                      {new Date(booking.check_out).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="py-3 whitespace-nowrap font-medium">
-                      {booking.currency} {booking.total_amount.toLocaleString()}
-                    </td>
-                    <td className="py-3">
-                      <span className="text-xs capitalize text-gray-600">
-                        {booking.payment_method || '—'}
-                      </span>
+                      {booking.currency} {booking.total_price.toLocaleString()}
                     </td>
                     <td className="py-3">
                       <span
@@ -269,12 +310,12 @@ export default function BookingsPage() {
                           STATUS_COLORS[booking.status] || 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {booking.status}
+                        {booking.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="py-3">
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        {booking.status === 'pending' && (
+                        {booking.status === 'pending_payment' && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -284,7 +325,7 @@ export default function BookingsPage() {
                             Confirm
                           </Button>
                         )}
-                        {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                        {(booking.status === 'pending_payment' || booking.status === 'confirmed') && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -308,32 +349,30 @@ export default function BookingsPage() {
                     </td>
                   </tr>
                   {expandedId === booking.id && (
-                    <tr key={`${booking.id}-detail`}>
-                      <td colSpan={7} className="bg-gray-50 px-6 py-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                    <tr>
+                      <td colSpan={6} className="bg-gray-50 px-6 py-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
                           <div>
                             <p className="text-xs font-medium text-gray-500">Guests</p>
                             <p className="text-gray-900">{booking.guests_count || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-gray-500">Payment Status</p>
-                            <p className="capitalize text-gray-900">{booking.payment_status || 'N/A'}</p>
-                          </div>
-                          <div>
                             <p className="text-xs font-medium text-gray-500">Booked On</p>
                             <p className="text-gray-900">
-                              {new Date(booking.created_at).toLocaleDateString()}
+                              {new Date(booking.created_at).toLocaleDateString('en-GB', {
+                                day: 'numeric', month: 'short', year: 'numeric'
+                              })}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-gray-500">Notes</p>
-                            <p className="text-gray-900">{booking.notes || 'None'}</p>
+                            <p className="text-xs font-medium text-gray-500">Special Requests</p>
+                            <p className="text-gray-900">{booking.special_requests || 'None'}</p>
                           </div>
                         </div>
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>

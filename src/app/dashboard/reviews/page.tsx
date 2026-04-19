@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { StarRating } from '@/components/StarRating';
+import { Star } from 'lucide-react';
 
 interface Review {
   id: string;
@@ -37,41 +38,85 @@ export default function ReviewsPage() {
   }, [user, ratingFilter, typeFilter]);
 
   async function fetchReviews() {
+    setLoading(true);
     try {
       const supabase = createClient();
-      let query = supabase
-        .from('wb_reviews')
-        .select(
-          `
-          id,
-          rating,
-          comment,
-          owner_response,
-          created_at,
-          property_id,
-          boat_id,
-          wb_profiles!guest_id(full_name),
-          wb_properties(name),
-          wb_boats(name)
-        `
-        )
-        .eq('owner_id', user!.id)
-        .order('created_at', { ascending: false });
 
-      if (ratingFilter !== 'all') {
-        query = query.eq('rating', parseInt(ratingFilter));
+      // Get owner's property and boat IDs
+      const [propsRes, boatsRes] = await Promise.all([
+        supabase.from('wb_properties').select('id').eq('owner_id', user!.id),
+        supabase.from('wb_boats').select('id').eq('owner_id', user!.id),
+      ]);
+
+      const propIds = (propsRes.data || []).map((p: any) => p.id);
+      const boatIds = (boatsRes.data || []).map((b: any) => b.id);
+
+      if (propIds.length === 0 && boatIds.length === 0) {
+        setReviews([]);
+        setLoading(false);
+        return;
       }
 
-      const { data, error: fetchErr } = await query;
-      if (fetchErr) throw fetchErr;
+      const allReviews: any[] = [];
 
-      let formatted: Review[] = (data || []).map((r: any) => ({
+      if (propIds.length > 0) {
+        let query = supabase
+          .from('wb_reviews')
+          .select(
+            `
+            id, rating, comment, owner_response, created_at, property_id, boat_id,
+            wb_profiles!guest_id(full_name),
+            wb_properties!property_id(name)
+          `
+          )
+          .in('property_id', propIds)
+          .order('created_at', { ascending: false });
+
+        if (ratingFilter !== 'all') {
+          query = query.eq('rating', parseInt(ratingFilter));
+        }
+
+        const { data } = await query;
+        if (data) allReviews.push(...data);
+      }
+
+      if (boatIds.length > 0) {
+        let query = supabase
+          .from('wb_reviews')
+          .select(
+            `
+            id, rating, comment, owner_response, created_at, property_id, boat_id,
+            wb_profiles!guest_id(full_name),
+            wb_boats!boat_id(name)
+          `
+          )
+          .in('boat_id', boatIds)
+          .order('created_at', { ascending: false });
+
+        if (ratingFilter !== 'all') {
+          query = query.eq('rating', parseInt(ratingFilter));
+        }
+
+        const { data } = await query;
+        if (data) allReviews.push(...data);
+      }
+
+      // Deduplicate and sort
+      const seen = new Set<string>();
+      const unique = allReviews.filter((r) => {
+        if (seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      });
+      unique.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      let formatted: Review[] = unique.map((r: any) => ({
         id: r.id,
         guest_name: r.wb_profiles?.full_name || 'Guest',
         listing_name: r.wb_properties?.name || r.wb_boats?.name || 'N/A',
         listing_type: r.property_id ? 'property' : 'boat',
         rating: r.rating,
-        comment: r.comment,
+        comment: r.comment || '',
         owner_response: r.owner_response,
         created_at: r.created_at,
       }));
@@ -82,6 +127,7 @@ export default function ReviewsPage() {
 
       setReviews(formatted);
     } catch (err) {
+      console.error(err);
       setError('Failed to load reviews');
     } finally {
       setLoading(false);
@@ -97,8 +143,7 @@ export default function ReviewsPage() {
       const { error: updateErr } = await supabase
         .from('wb_reviews')
         .update({ owner_response: responseText.trim() })
-        .eq('id', reviewId)
-        .eq('owner_id', user!.id);
+        .eq('id', reviewId);
 
       if (updateErr) throw updateErr;
 
@@ -138,6 +183,17 @@ export default function ReviewsPage() {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-3"
+            onClick={() => {
+              setError(null);
+              fetchReviews();
+            }}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
@@ -168,11 +224,14 @@ export default function ReviewsPage() {
 
       {reviews.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-12">
-          <h2 className="text-lg font-semibold text-gray-900">No reviews found</h2>
-          <p className="mt-2 text-gray-500">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-50">
+            <Star className="h-8 w-8 text-yellow-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">No reviews yet</h2>
+          <p className="mt-2 text-center text-gray-500 max-w-md">
             {ratingFilter !== 'all' || typeFilter !== 'all'
-              ? 'Try adjusting your filters.'
-              : 'Reviews from your guests will appear here.'}
+              ? 'No reviews match your filters. Try adjusting them.'
+              : 'Reviews from your guests will appear here once they leave feedback.'}
           </p>
         </Card>
       ) : (
@@ -191,14 +250,18 @@ export default function ReviewsPage() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {review.listing_name} &middot;{' '}
-                        {new Date(review.created_at).toLocaleDateString()}
+                        {new Date(review.created_at).toLocaleDateString('en-GB', {
+                          day: 'numeric', month: 'short', year: 'numeric'
+                        })}
                       </p>
                     </div>
                   </div>
                   <div className="mt-3">
                     <StarRating rating={review.rating} />
                   </div>
-                  <p className="mt-2 text-gray-700">{review.comment}</p>
+                  {review.comment && (
+                    <p className="mt-2 text-gray-700">{review.comment}</p>
+                  )}
 
                   {/* Owner Response */}
                   {review.owner_response && (
