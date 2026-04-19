@@ -129,7 +129,7 @@ function InviteForm() {
             role: 'owner',
             owner_type: invitation?.owner_type,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
         },
       });
 

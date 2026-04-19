@@ -109,7 +109,7 @@ function RegisterForm() {
             phone: phone.trim(),
             role,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
         },
       });
 
