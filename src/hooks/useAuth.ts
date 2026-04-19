@@ -1,134 +1,93 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
-import type { Profile, UserRole } from '@/lib/types';
+import type { Profile } from '@/lib/types';
 
-interface AuthState {
-  user: User | null;
-  profile: Profile | null;
-  loading: boolean;
-  isAdmin: boolean;
-  isOwner: boolean;
-  isGuest: boolean;
-}
+// Create supabase client once at module level — not inside the hook
+const supabase = createClient();
 
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    profile: null,
-    loading: true,
-    isAdmin: false,
-    isOwner: false,
-    isGuest: false,
-  });
-
-  const supabase = createClient();
-
-  const fetchProfile = useCallback(
-    async (userId: string) => {
-      const { data } = await supabase
-        .from('wb_profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      return (data as Profile) ?? null;
-    },
-    [supabase],
-  );
-
-  const deriveRoles = (role?: UserRole) => ({
-    isAdmin: role === 'admin',
-    isOwner: role === 'owner',
-    isGuest: role === 'guest' || !role,
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    mounted.current = true;
+
+    // 1. Read the session from cookies — fast, no network call
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted.current) return;
 
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setState({
-          user: session.user,
-          profile,
-          loading: false,
-          ...deriveRoles(profile?.role),
-        });
+        setUser(session.user);
+        setLoading(false); // Unblock UI immediately
+
+        // 2. Fetch profile in background — non-blocking
+        supabase
+          .from('wb_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (mounted.current && data) {
+              setProfile(data as Profile);
+            }
+          });
       } else {
-        setState((prev) => ({ ...prev, loading: false }));
+        setLoading(false);
       }
-    };
+    });
 
-    init();
-
+    // 3. Listen for auth state changes (login, logout, token refresh)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted.current) return;
+
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        setState({
-          user: session.user,
-          profile,
-          loading: false,
-          ...deriveRoles(profile?.role),
-        });
+        setUser(session.user);
+        setLoading(false);
+
+        // Refresh profile on auth change
+        supabase
+          .from('wb_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (mounted.current) {
+              setProfile(data ? (data as Profile) : null);
+            }
+          });
       } else {
-        setState({
-          user: null,
-          profile: null,
-          loading: false,
-          isAdmin: false,
-          isOwner: false,
-          isGuest: false,
-        });
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
       }
     });
 
     return () => {
+      mounted.current = false;
       subscription.unsubscribe();
     };
-  }, [supabase, fetchProfile]);
+  }, []); // No dependencies — supabase is module-level, runs once
 
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-      return data;
-    },
-    [supabase],
-  );
-
-  const signUp = useCallback(
-    async (email: string, password: string, fullName: string) => {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-        },
-      });
-      if (error) throw error;
-      return data;
-    },
-    [supabase],
-  );
-
-  const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  }, [supabase]);
+  // Derive role from profile first, fall back to JWT user_metadata
+  const role = profile?.role || (user?.user_metadata?.role as string | undefined);
 
   return {
-    ...state,
-    signIn,
-    signUp,
-    signOut,
+    user,
+    profile,
+    loading,
+    isAdmin: role === 'admin',
+    isOwner: role === 'owner',
+    isGuest: role === 'guest',
+    signOut: async () => {
+      // Fire the signOut — don't throw, don't block
+      await supabase.auth.signOut().catch(() => {});
+    },
   };
 }

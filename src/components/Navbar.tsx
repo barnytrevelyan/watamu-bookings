@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Waves,
   Menu,
@@ -17,7 +16,6 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
   const { user, profile, loading, signOut } = useAuth();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -35,16 +33,10 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSignOut = async () => {
-    setDropdownOpen(false);
-    setMobileOpen(false);
-    try {
-      await signOut();
-    } catch (err) {
-      console.error('Sign out error:', err);
-    }
-    // Always hard-redirect to clear all cached auth state,
-    // whether signOut succeeded or not
+  const handleSignOut = () => {
+    // Fire signOut in background — don't wait for it
+    signOut();
+    // Hard redirect immediately to clear all state
     window.location.href = '/';
   };
 
@@ -57,7 +49,12 @@ export default function Navbar() {
     { href: '/about', label: 'About' },
   ];
 
-  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
+  // Use JWT metadata for instant display, profile as upgrade
+  const displayName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split('@')[0] ||
+    'User';
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100">

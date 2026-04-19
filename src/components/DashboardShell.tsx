@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import DashboardSidebar from '@/components/DashboardSidebar';
 
@@ -10,35 +9,31 @@ export default function DashboardShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile, loading, isGuest } = useAuth();
-  const router = useRouter();
+  const { user, profile, loading } = useAuth();
 
   useEffect(() => {
+    // Only redirect once we know for sure there's no user
     if (!loading && !user) {
-      router.replace('/auth/login');
+      window.location.href = '/auth/login';
     }
-    if (!loading && user && isGuest) {
-      router.replace('/');
-    }
-  }, [loading, user, isGuest, router]);
+  }, [loading, user]);
 
-  // Loading state
+  // Still checking auth
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
-          <p className="text-sm text-gray-500">Loading dashboard...</p>
-        </div>
+        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
       </div>
     );
   }
 
-  // Not authenticated or guest — redirect is happening via useEffect
-  if (!user || isGuest) {
+  // Not logged in — redirect is happening via useEffect
+  if (!user) {
     return null;
   }
 
+  // User is authenticated — show dashboard immediately.
+  // Use JWT metadata for name (instant), profile name as upgrade when it loads.
   const userName =
     profile?.full_name ||
     user.user_metadata?.full_name ||
