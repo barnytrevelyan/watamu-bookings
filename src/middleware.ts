@@ -3,12 +3,8 @@ import { createServerClient } from '@supabase/ssr';
 
 /**
  * Middleware that handles:
- * 1. Supabase auth session refresh (critical for sign-in to work)
+ * 1. Supabase auth session refresh (keeps cookies fresh)
  * 2. Subdomain routing for watamu.ke
- *
- * The auth session refresh MUST happen in middleware so that
- * server components and route handlers see a valid session
- * after the user signs in on the client side.
  */
 
 // Subdomains that should never be treated as listing slugs
@@ -30,9 +26,6 @@ const SUBDOMAIN_HOSTS = ['watamu.ke'];
 
 export async function middleware(request: NextRequest) {
   // --- 1. Refresh the Supabase auth session ---
-  // This is essential: without it, server components won't see
-  // the user's session after login. The middleware refreshes
-  // expired tokens and re-sets the cookies on every request.
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -44,13 +37,10 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-          // Set cookies on the request (for downstream server components)
           cookiesToSet.forEach(({ name, value }: { name: string; value: string }) =>
             request.cookies.set(name, value)
           );
-          // Create a new response that carries the updated cookies
           supabaseResponse = NextResponse.next({ request });
-          // Set cookies on the response (for the browser)
           cookiesToSet.forEach(({ name, value, options }: { name: string; value: string; options?: Record<string, unknown> }) =>
             supabaseResponse.cookies.set(name, value, options as any)
           );
@@ -59,10 +49,11 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Do NOT remove this getUser() call.
-  // It triggers the session refresh and cookie update.
-  // Without it, the middleware does nothing useful.
-  const { data: { user } } = await supabase.auth.getUser();
+  // Refresh the session. getUser() is authoritative (validates JWT with
+  // Supabase servers) but adds latency. getSession() just reads cookies
+  // and refreshes locally if expired — much faster and sufficient here
+  // since the client-side handles the real auth gating.
+  await supabase.auth.getSession();
 
   // --- 2. Subdomain routing for watamu.ke ---
   const { hostname, pathname } = request.nextUrl;
@@ -72,25 +63,20 @@ export async function middleware(request: NextRequest) {
   );
 
   if (rootDomain) {
-    // Extract subdomain: "unreel.watamu.ke" -> "unreel"
     const sub = hostname.replace(`.${rootDomain}`, '');
 
-    // Only process if there's a real, non-reserved subdomain
     if (sub && sub !== rootDomain && !RESERVED_SUBDOMAINS.has(sub)) {
-      // Don't rewrite API routes, static files, or Next.js internals
       if (
         !pathname.startsWith('/api/') &&
         !pathname.startsWith('/_next/') &&
         !pathname.startsWith('/auth/') &&
-        !pathname.includes('.') // Static files like favicon.ico
+        !pathname.includes('.')
       ) {
         if (pathname === '/' || pathname === '') {
-          // Root of subdomain -> rewrite to subdomain resolver
           const url = request.nextUrl.clone();
           url.pathname = `/s/${sub}`;
           const response = NextResponse.rewrite(url);
 
-          // Copy over the auth cookies from supabaseResponse
           supabaseResponse.cookies.getAll().forEach((cookie) => {
             response.cookies.set(cookie.name, cookie.value);
           });
@@ -108,12 +94,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

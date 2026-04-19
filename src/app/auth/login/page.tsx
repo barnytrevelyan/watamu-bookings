@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
@@ -14,7 +14,6 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const urlError = searchParams.get('error');
@@ -47,28 +46,8 @@ function LoginForm() {
         return;
       }
 
-      // Check user role to decide where to redirect
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        // Use maybeSingle() to avoid throwing when no profile exists
-        const { data: profile } = await supabase
-          .from('wb_profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profile?.role === 'owner' && redirectTo === '/dashboard') {
-          router.push('/dashboard');
-        } else {
-          router.push(redirectTo);
-        }
-      } else {
-        router.push(redirectTo);
-      }
-
+      // Hard redirect so the page fully reloads with fresh auth state
+      window.location.href = redirectTo;
     } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
@@ -79,7 +58,6 @@ function LoginForm() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo / Brand */}
         <Link href="/" className="flex justify-center">
           <h1 className="text-3xl font-bold text-blue-600">
             Watamu Bookings

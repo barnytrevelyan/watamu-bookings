@@ -36,15 +36,16 @@ export default function Navbar() {
   }, []);
 
   const handleSignOut = async () => {
+    setDropdownOpen(false);
+    setMobileOpen(false);
     try {
       await signOut();
-      // Hard redirect to clear all cached auth state
-      window.location.href = '/';
     } catch (err) {
       console.error('Sign out error:', err);
-      // Force redirect even if signOut throws
-      window.location.href = '/';
     }
+    // Always hard-redirect to clear all cached auth state,
+    // whether signOut succeeded or not
+    window.location.href = '/';
   };
 
   const navLinks = [
