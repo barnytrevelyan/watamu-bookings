@@ -22,6 +22,8 @@ const PROPERTY_TYPES = [
   'apartment',
   'cottage',
   'house',
+  'hotel',
+  'banda',
   'bungalow',
   'studio',
   'penthouse',

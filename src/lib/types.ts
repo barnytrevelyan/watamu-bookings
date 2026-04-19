@@ -14,7 +14,10 @@ export type PropertyType =
   | 'house'
   | 'hotel'
   | 'banda'
-  | 'penthouse';
+  | 'penthouse'
+  | 'bungalow'
+  | 'studio'
+  | 'beach_house';
 
 export type BoatType =
   | 'deep_sea'
@@ -23,7 +26,8 @@ export type BoatType =
   | 'catamaran'
   | 'speedboat'
   | 'glass_bottom'
-  | 'kayak';
+  | 'kayak'
+  | 'sailboat';
 
 export type TripType =
   | 'half_day'

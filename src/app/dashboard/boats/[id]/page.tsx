@@ -31,7 +31,7 @@ interface TripPackage {
   includes: string;
 }
 
-const BOAT_TYPES = ['sportfisher', 'deep_sea', 'catamaran', 'dhow', 'speedboat', 'sailboat', 'pontoon'];
+const BOAT_TYPES = ['sport_fisher', 'deep_sea', 'dhow', 'catamaran', 'speedboat', 'glass_bottom', 'kayak', 'sailboat'];
 const TRIP_TYPES = [
   'half_day_morning',
   'half_day_afternoon',
@@ -164,7 +164,7 @@ export default function EditBoatPage() {
   }
 
   function addTrip() {
-    setTrips((p) => [...p, { name: '', trip_type: 'deep_sea_fishing', duration_hours: 4, price_total: 0, currency: 'KES', departure_time: '06:00', includes: '' }]);
+    setTrips((p) => [...p, { name: '', trip_type: 'half_day_morning', duration_hours: 4, price_total: 0, currency: 'KES', departure_time: '06:00', includes: '' }]);
   }
 
   function updateTrip(index: number, field: keyof TripPackage, value: any) {

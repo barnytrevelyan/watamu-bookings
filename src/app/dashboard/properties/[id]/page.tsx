@@ -20,7 +20,7 @@ interface Amenity {
 }
 
 const PROPERTY_TYPES = [
-  'villa', 'apartment', 'cottage', 'house', 'bungalow', 'studio', 'penthouse', 'beach_house',
+  'villa', 'apartment', 'cottage', 'house', 'hotel', 'banda', 'bungalow', 'studio', 'penthouse', 'beach_house',
 ];
 const CANCELLATION_POLICIES = ['flexible', 'moderate', 'strict'];
 

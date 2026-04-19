@@ -20,17 +20,26 @@ const propertyTypes = [
   { value: '', label: 'All Types' },
   { value: 'villa', label: 'Villa' },
   { value: 'apartment', label: 'Apartment' },
-  { value: 'beach-house', label: 'Beach House' },
   { value: 'cottage', label: 'Cottage' },
+  { value: 'house', label: 'House' },
+  { value: 'hotel', label: 'Hotel' },
+  { value: 'banda', label: 'Banda' },
   { value: 'bungalow', label: 'Bungalow' },
+  { value: 'studio', label: 'Studio' },
+  { value: 'penthouse', label: 'Penthouse' },
+  { value: 'beach_house', label: 'Beach House' },
 ];
 
 const boatTypes = [
   { value: '', label: 'All Boats' },
-  { value: 'sport-fisher', label: 'Sport Fisher' },
+  { value: 'deep_sea', label: 'Deep Sea' },
+  { value: 'sport_fisher', label: 'Sport Fisher' },
   { value: 'dhow', label: 'Dhow' },
   { value: 'catamaran', label: 'Catamaran' },
   { value: 'speedboat', label: 'Speedboat' },
+  { value: 'glass_bottom', label: 'Glass Bottom' },
+  { value: 'kayak', label: 'Kayak' },
+  { value: 'sailboat', label: 'Sailboat' },
 ];
 
 const tripTypes = [
