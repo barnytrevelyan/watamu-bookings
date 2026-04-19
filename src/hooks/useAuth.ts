@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '@/lib/types';
 
-// Create supabase client once at module level — not inside the hook
-const supabase = createClient();
-
 export function useAuth() {
+  // useMemo ensures we get the same client instance across re-renders
+  // but only creates it in the browser (not during SSR)
+  const supabase = useMemo(() => createClient(), []);
+
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,7 @@ export function useAuth() {
       mounted.current = false;
       subscription.unsubscribe();
     };
-  }, []); // No dependencies — supabase is module-level, runs once
+  }, [supabase]);
 
   // Derive role from profile first, fall back to JWT user_metadata
   const role = profile?.role || (user?.user_metadata?.role as string | undefined);
@@ -86,7 +87,6 @@ export function useAuth() {
     isOwner: role === 'owner',
     isGuest: role === 'guest',
     signOut: async () => {
-      // Fire the signOut — don't throw, don't block
       await supabase.auth.signOut().catch(() => {});
     },
   };
