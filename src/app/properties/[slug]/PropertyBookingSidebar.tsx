@@ -279,7 +279,12 @@ export default function PropertyBookingSidebar({
             </span>
           </div>
           <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-100">
-            <span>Total</span>
+            <div>
+              <div>Total before taxes</div>
+              <div className="text-xs text-gray-400 font-normal">
+                for {nights} night{nights !== 1 ? "s" : ""}
+              </div>
+            </div>
             <span>KES {totalPrice.toLocaleString()}</span>
           </div>
         </div>
@@ -296,6 +301,37 @@ export default function PropertyBookingSidebar({
       </Button>
 
       <p className="text-xs text-gray-400 text-center mt-3">You won&apos;t be charged yet</p>
+
+      {/* Check-in / check-out + cancellation */}
+      <div className="mt-4 pt-4 border-t border-gray-100 space-y-3 text-xs text-gray-600">
+        <div className="flex items-start gap-2">
+          <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <div className="flex-1">
+            <div className="flex justify-between">
+              <span>Check-in</span>
+              <span className="text-gray-900 font-medium">After 3:00 PM</span>
+            </div>
+            <div className="flex justify-between mt-0.5">
+              <span>Check-out</span>
+              <span className="text-gray-900 font-medium">Before 11:00 AM</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-gray-900 font-medium">Free cancellation for 48 hours</p>
+            <p className="text-gray-500 mt-0.5">
+              After that, cancel before check-in for a partial refund.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
