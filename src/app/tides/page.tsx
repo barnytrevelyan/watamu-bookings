@@ -211,8 +211,9 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
   const yTicks: number[] = [];
   for (let v = 0; v <= yMax; v += 1) yTicks.push(v);
 
-  // Day separators
+  // Day separators and noon markers
   const daySeps: { x: number; label: string }[] = [];
+  const noonMarkers: { x: number }[] = [];
   const startDate = new Date(points[0].time);
   for (let d = 0; d < days; d++) {
     const dayStart = new Date(startDate);
@@ -220,6 +221,12 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
     dayStart.setHours(0, 0, 0, 0);
     if (dayStart.getTime() >= startMs && dayStart.getTime() <= endMs) {
       daySeps.push({ x: xOf(dayStart), label: getShortWeekday(dayStart) });
+    }
+    // Noon marker (12:00)
+    const noon = new Date(dayStart);
+    noon.setHours(12, 0, 0, 0);
+    if (noon.getTime() >= startMs && noon.getTime() <= endMs) {
+      noonMarkers.push({ x: xOf(noon) });
     }
   }
 
@@ -274,6 +281,14 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
           <g key={i}>
             <line x1={sep.x} y1={padTop} x2={sep.x} y2={padTop + plotH} stroke="#d1d5db" strokeWidth="1" />
             <text x={sep.x + (plotW / days) / 2} y={chartH - 8} textAnchor="middle" fontSize="12" fontWeight="500" fill="#6b7280">{sep.label}</text>
+          </g>
+        ))}
+
+        {/* Noon markers */}
+        {noonMarkers.map((nm, i) => (
+          <g key={`noon-${i}`}>
+            <line x1={nm.x} y1={padTop} x2={nm.x} y2={padTop + plotH} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="2,4" />
+            <text x={nm.x} y={padTop - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">12:00</text>
           </g>
         ))}
 
@@ -343,8 +358,8 @@ export default function TidesPage() {
   const moonPhase = getMoonPhase(now);
   const moonIllum = getMoonIllumination(moonPhase);
 
-  // Generate 14-day tide prediction
-  const FORECAST_DAYS = 14;
+  // Generate 5-day tide prediction
+  const FORECAST_DAYS = 5;
   const tideStart = useMemo(() => {
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
