@@ -15,8 +15,9 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+  const user = session.user;
 
   const listingType = request.nextUrl.searchParams.get('listing_type');
   const listingId = request.nextUrl.searchParams.get('listing_id');
@@ -49,8 +50,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+  const user = session.user;
 
   const { listing_type, listing_id, external_url } = await request.json();
 
@@ -133,8 +135,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+  const user = session.user;
 
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });

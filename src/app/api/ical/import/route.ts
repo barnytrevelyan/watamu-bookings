@@ -175,10 +175,11 @@ export async function POST(request: NextRequest) {
     const adminClient = createAdminClient();
 
     // Verify auth
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const user = session.user;
 
     const body = await request.json();
 

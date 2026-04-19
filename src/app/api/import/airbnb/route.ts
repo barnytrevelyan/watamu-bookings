@@ -211,11 +211,13 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
-    // Verify user is authenticated
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // Verify user is authenticated — use getSession() to read from cookies
+    // (getUser() makes a network call that can fail if the token needs refreshing)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const user = session.user;
 
     const { url } = await request.json();
 
