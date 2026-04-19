@@ -50,6 +50,9 @@ export default function DashboardPage() {
   });
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
+  const [revenueByMonth, setRevenueByMonth] = useState<
+    Array<{ label: string; amount: number }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,6 +130,28 @@ export default function DashboardPage() {
           revenueThisMonth,
           averageRating: Math.round(averageRating * 10) / 10,
         });
+
+        // Revenue by month (last 6 months including current)
+        const monthBuckets: Array<{ label: string; amount: number }> = [];
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          monthBuckets.push({
+            label: d.toLocaleDateString('en-GB', { month: 'short' }),
+            amount: 0,
+          });
+        }
+        uniqueBookings.forEach((b) => {
+          if (b.status !== 'completed' && b.status !== 'confirmed') return;
+          const d = new Date(b.check_in);
+          const monthsAgo =
+            (now.getFullYear() - d.getFullYear()) * 12 +
+            (now.getMonth() - d.getMonth());
+          if (monthsAgo >= 0 && monthsAgo < 6) {
+            monthBuckets[5 - monthsAgo].amount += b.total_price || 0;
+          }
+        });
+        setRevenueByMonth(monthBuckets);
 
         // Recent bookings (top 5)
         const formattedBookings: RecentBooking[] = uniqueBookings.slice(0, 5).map(
@@ -296,27 +321,43 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Occupancy Mini Chart Placeholder */}
+      {/* Revenue last 6 months */}
       <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          Occupancy Overview
-        </h2>
-        <div className="flex h-40 items-end gap-2">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
-            (day, i) => {
-              const heights = [40, 60, 55, 75, 80, 95, 90];
-              return (
-                <div key={day} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t bg-teal-500 transition-all"
-                    style={{ height: `${heights[i]}%` }}
-                  />
-                  <span className="text-xs text-gray-500">{day}</span>
-                </div>
-              );
-            }
-          )}
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Revenue — last 6 months
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Confirmed and completed bookings, check-in date
+            </p>
+          </div>
+          <p className="text-sm text-gray-500">
+            Total KES {revenueByMonth.reduce((s, m) => s + m.amount, 0).toLocaleString()}
+          </p>
         </div>
+        {(() => {
+          const max = Math.max(1, ...revenueByMonth.map((m) => m.amount));
+          return (
+            <div className="flex h-40 items-end gap-3">
+              {revenueByMonth.map((m, i) => {
+                const pct = Math.round((m.amount / max) * 100);
+                return (
+                  <div key={`${m.label}-${i}`} className="flex flex-1 flex-col items-center gap-1">
+                    <div className="w-full flex-1 flex items-end">
+                      <div
+                        className="w-full rounded-t bg-teal-500 transition-all"
+                        style={{ height: `${Math.max(pct, 2)}%` }}
+                        title={`${m.label}: KES ${m.amount.toLocaleString()}`}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500">{m.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </Card>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">

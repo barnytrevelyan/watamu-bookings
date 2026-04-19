@@ -194,7 +194,7 @@ export default async function HomePage() {
                   location={property.city || 'Watamu'}
                   type={property.property_type?.replace('_', ' ') || 'House'}
                   coverImage={property.images?.[0]?.url || getPropertyImage(index)}
-                  rating={property.avg_rating || 0}
+                  rating={Number(property.avg_rating ?? 0)}
                   reviewCount={property.review_count || 0}
                   pricePerNight={property.base_price_per_night}
                   currency={property.currency || 'KES'}
@@ -245,10 +245,10 @@ export default async function HomePage() {
                     name={boat.name}
                     type={boat.boat_type?.replace('_', ' ') || 'Sport Fisher'}
                     coverImage={boat.images?.[0]?.url || getBoatImage(index)}
-                    captainName={boat.captain_name || 'TBA'}
+                    captainName={boat.captain_name || 'Local skipper'}
                     capacity={boat.capacity}
                     lengthFt={boat.length_ft}
-                    rating={boat.avg_rating || 0}
+                    rating={Number(boat.avg_rating ?? 0)}
                     reviewCount={boat.review_count || 0}
                     startingPrice={lowestTrip?.price_total || 0}
                     currency={boat.currency || 'KES'}
