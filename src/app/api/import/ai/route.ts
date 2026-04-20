@@ -273,9 +273,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const url = typeof body.url === 'string' ? body.url.trim() : '';
-    const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
-    const provider: Provider =
-      body.provider === 'openai' ? 'openai' : 'anthropic';
+    const clientApiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+    const clientProvider: Provider | null =
+      body.provider === 'openai'
+        ? 'openai'
+        : body.provider === 'anthropic'
+          ? 'anthropic'
+          : null;
     const kind: ListingKind = body.kind === 'boat' ? 'boat' : 'property';
 
     if (!url || !isSafeExternalUrl(url)) {
@@ -284,14 +288,51 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Resolve the credentials: prefer the client-supplied key if present
+    // (so power-users can bring their own), otherwise fall back to the
+    // platform-provided key in env. WATAMU_AI_PROVIDER defaults to 'openai'
+    // (gpt-4o-mini is ~$0.0002 per import — the cheapest reliable option).
+    const serverApiKey = process.env.WATAMU_AI_API_KEY?.trim() || '';
+    const serverProvider: Provider =
+      process.env.WATAMU_AI_PROVIDER === 'anthropic' ? 'anthropic' : 'openai';
+
+    const apiKey = clientApiKey || serverApiKey;
+    const provider: Provider = clientApiKey
+      ? clientProvider ?? 'anthropic'
+      : serverProvider;
+    const usingPlatformKey = !clientApiKey && !!serverApiKey;
+
     if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            'An API key is required. Paste your own Anthropic or OpenAI key — it is used once for this import and never stored.',
+            'AI import is not configured. Ask the site admin to set WATAMU_AI_API_KEY, or paste your own Anthropic / OpenAI key.',
         },
         { status: 400 }
       );
+    }
+
+    // Light rate-limit when using the platform key so a rogue account can't
+    // spam the shared budget: cap at 15 platform-paid imports per user per
+    // 24h. Users who bring their own key are unrestricted.
+    if (usingPlatformKey) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('wb_import_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('owner_id', user.id)
+        .ilike('source', 'ai:%:platform')
+        .gte('created_at', since);
+      if ((count ?? 0) >= 15) {
+        return NextResponse.json(
+          {
+            error:
+              'You have hit the daily limit for free AI imports (15/day). Try again tomorrow, or paste your own Anthropic / OpenAI key.',
+          },
+          { status: 429 }
+        );
+      }
     }
 
     // 1. Fetch the page
@@ -384,9 +425,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the import attempt — we never persist the API key.
+    // Tag platform-paid runs separately so we can track cost later.
     await supabase.from('wb_import_logs').insert({
       owner_id: user.id,
-      source: `ai:${provider}`,
+      source: `ai:${provider}${usingPlatformKey ? ':platform' : ''}`,
       source_url: url,
       listing_type: kind,
       status: 'completed',

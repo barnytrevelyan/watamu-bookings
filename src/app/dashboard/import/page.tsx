@@ -39,9 +39,13 @@ export default function ImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   // AI importer fields — the API key is used once per request and never stored.
+  // By default, we use Watamu Bookings' own AI key (free, rate-limited) so
+  // hosts don't need to go get one. Advanced hosts can paste their own key
+  // for unlimited imports.
   const [aiProvider, setAiProvider] = useState<AiProvider>('anthropic');
   const [aiKind, setAiKind] = useState<AiKind>('property');
   const [aiKey, setAiKey] = useState('');
+  const [aiUsePlatformKey, setAiUsePlatformKey] = useState(true);
 
   // Gate the whole flow behind watamu-bookings auth. The /api/import/* endpoints
   // verify the Supabase session and return 401 "Authentication required" if the
@@ -95,7 +99,7 @@ export default function ImportPage() {
       setError('Please paste a listing URL');
       return;
     }
-    if (source === 'ai' && !aiKey.trim()) {
+    if (source === 'ai' && !aiUsePlatformKey && !aiKey.trim()) {
       setError('Please paste your AI provider API key');
       return;
     }
@@ -115,12 +119,18 @@ export default function ImportPage() {
 
       const body =
         source === 'ai'
-          ? {
-              url: url.trim(),
-              apiKey: aiKey.trim(),
-              provider: aiProvider,
-              kind: aiKind,
-            }
+          ? aiUsePlatformKey
+            ? {
+                // Let the server use its WATAMU_AI_API_KEY fallback.
+                url: url.trim(),
+                kind: aiKind,
+              }
+            : {
+                url: url.trim(),
+                apiKey: aiKey.trim(),
+                provider: aiProvider,
+                kind: aiKind,
+              }
           : { url: url.trim() };
 
       const res = await fetch(endpoint, {
@@ -181,7 +191,11 @@ export default function ImportPage() {
       // AI route we include the LLM provider so support can tell Anthropic vs
       // OpenAI imports apart.
       const importSourceTag =
-        source === 'ai' ? `ai:${aiProvider}` : source ?? 'manual';
+        source === 'ai'
+          ? aiUsePlatformKey
+            ? 'ai:platform'
+            : `ai:${aiProvider}`
+          : source ?? 'manual';
 
       if (kind === 'property') {
         // Create property from imported data (Airbnb, Booking.com, and AI
@@ -472,69 +486,107 @@ export default function ImportPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-900 mb-2">AI provider</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p className="text-sm font-medium text-gray-900 mb-2">Who pays for the AI?</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setAiProvider('anthropic')}
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                        aiProvider === 'anthropic'
+                      onClick={() => setAiUsePlatformKey(true)}
+                      className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
+                        aiUsePlatformKey
                           ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
                           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      Anthropic (Claude)
+                      <div className="font-semibold">Use Watamu Bookings&apos; AI</div>
+                      <div className="text-[11px] text-gray-500 mt-0.5">
+                        Free for hosts · up to 15 imports / day
+                      </div>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAiProvider('openai')}
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                        aiProvider === 'openai'
+                      onClick={() => setAiUsePlatformKey(false)}
+                      className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
+                        !aiUsePlatformKey
                           ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
                           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      OpenAI (GPT)
+                      <div className="font-semibold">Use my own key</div>
+                      <div className="text-[11px] text-gray-500 mt-0.5">
+                        Unlimited · you pay the AI provider directly
+                      </div>
                     </button>
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-sm font-medium text-gray-900 mb-2">
-                    {aiProvider === 'anthropic' ? 'Anthropic API key' : 'OpenAI API key'}
-                  </p>
-                  <Input
-                    type="password"
-                    value={aiKey}
-                    onChange={(e) => setAiKey(e.target.value)}
-                    placeholder={aiProvider === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
-                    autoComplete="off"
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-600 mt-2">
-                    Your key is sent once to {aiProvider === 'anthropic' ? 'Anthropic' : 'OpenAI'} to read this
-                    page and is never stored on our servers.{' '}
-                    {aiProvider === 'anthropic' ? (
-                      <a
-                        href="https://console.anthropic.com/settings/keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-teal-700 hover:underline"
-                      >
-                        Get an Anthropic key →
-                      </a>
-                    ) : (
-                      <a
-                        href="https://platform.openai.com/api-keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-teal-700 hover:underline"
-                      >
-                        Get an OpenAI key →
-                      </a>
-                    )}
-                  </p>
-                </div>
+                {!aiUsePlatformKey && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 mb-2">AI provider</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAiProvider('anthropic')}
+                          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                            aiProvider === 'anthropic'
+                              ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          Anthropic (Claude)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAiProvider('openai')}
+                          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                            aiProvider === 'openai'
+                              ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          OpenAI (GPT)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 mb-2">
+                        {aiProvider === 'anthropic' ? 'Anthropic API key' : 'OpenAI API key'}
+                      </p>
+                      <Input
+                        type="password"
+                        value={aiKey}
+                        onChange={(e) => setAiKey(e.target.value)}
+                        placeholder={aiProvider === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
+                        autoComplete="off"
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-gray-600 mt-2">
+                        Your key is sent once to {aiProvider === 'anthropic' ? 'Anthropic' : 'OpenAI'} to read this
+                        page and is never stored on our servers.{' '}
+                        {aiProvider === 'anthropic' ? (
+                          <a
+                            href="https://console.anthropic.com/settings/keys"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-teal-700 hover:underline"
+                          >
+                            Get an Anthropic key →
+                          </a>
+                        ) : (
+                          <a
+                            href="https://platform.openai.com/api-keys"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-teal-700 hover:underline"
+                          >
+                            Get an OpenAI key →
+                          </a>
+                        )}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -546,7 +598,11 @@ export default function ImportPage() {
 
             <Button
               onClick={handleImport}
-              disabled={loading || !url.trim() || (source === 'ai' && !aiKey.trim())}
+              disabled={
+                loading ||
+                !url.trim() ||
+                (source === 'ai' && !aiUsePlatformKey && !aiKey.trim())
+              }
               className="w-full"
             >
               {loading ? (
