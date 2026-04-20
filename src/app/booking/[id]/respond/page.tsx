@@ -23,7 +23,7 @@ export default async function EnquiryRespondPage({ params, searchParams }: PageP
     .from('wb_bookings')
     .select(`
       id, status, booking_mode, enquiry_token, listing_type,
-      check_in, check_out, trip_date, guests, total_price, deposit_amount,
+      check_in, check_out, trip_date, guests_count, total_price, deposit_amount,
       guest_contact_name, guest_contact_email, guest_contact_phone, special_requests,
       property:wb_properties(name, slug),
       boat:wb_boats(name, slug)
@@ -101,7 +101,7 @@ export default async function EnquiryRespondPage({ params, searchParams }: PageP
             </>
           )}
           <dt className="text-gray-500">Guests</dt>
-          <dd className="font-medium text-right">{booking.guests}</dd>
+          <dd className="font-medium text-right">{booking.guests_count}</dd>
           <dt className="text-gray-500">Total</dt>
           <dd className="font-medium text-right">KES {Number(booking.total_price).toLocaleString()}</dd>
           <dt className="text-gray-500">Deposit</dt>

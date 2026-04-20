@@ -21,7 +21,7 @@ export default async function BookingPage({
     .from('wb_bookings')
     .select(`
       id, listing_type, status, booking_mode, total_price, deposit_amount,
-      check_in, check_out, trip_date, guests, guest_id,
+      check_in, check_out, trip_date, guests_count, guest_id,
       guest_contact_name, guest_contact_email, guest_contact_phone, special_requests,
       host_decline_reason,
       property:wb_properties(id, name, slug, owner_id),
@@ -72,7 +72,7 @@ export default async function BookingPage({
           checkIn: booking.check_in,
           checkOut: booking.check_out,
           tripDate: booking.trip_date,
-          guests: booking.guests,
+          guests: booking.guests_count,
           specialRequests: booking.special_requests,
           hostDeclineReason: booking.host_decline_reason,
         }}

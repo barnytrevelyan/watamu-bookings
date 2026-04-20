@@ -13,7 +13,7 @@ interface BookingDetails {
   check_out: string | null;
   trip_date: string | null;
   total_price: number;
-  guests: number;
+  guests_count: number;
   status: string;
   created_at: string;
   property?: { name: string; location: string; image_url: string | null };
@@ -204,7 +204,7 @@ function BookingSuccessContent() {
           <div className="py-3 flex justify-between">
             <span className="text-gray-500 text-sm">Guests</span>
             <span className="text-gray-900 font-medium text-sm">
-              {booking.guests}
+              {booking.guests_count}
             </span>
           </div>
 

@@ -31,7 +31,7 @@ interface Booking {
   check_out: string | null;
   trip_date: string | null;
   total_price: number;
-  guests: number;
+  guests_count: number;
   status: string;
   created_at: string;
   property?: { name: string; location: string; image_url: string | null };
@@ -601,7 +601,7 @@ export default function BookingPaymentPage() {
 
                 <div className="flex justify-between">
                   <span className="text-gray-600">Guests</span>
-                  <span className="font-medium">{booking.guests}</span>
+                  <span className="font-medium">{booking.guests_count}</span>
                 </div>
               </div>
 

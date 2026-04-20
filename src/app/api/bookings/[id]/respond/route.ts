@@ -38,7 +38,7 @@ export async function POST(
   const admin = createAdminClient();
   const { data: booking, error: bookingErr } = await admin
     .from('wb_bookings')
-    .select('id, status, booking_mode, enquiry_token, listing_type, property_id, boat_id, trip_id, check_in, check_out, trip_date, guests, total_price, deposit_amount, guest_id, guest_contact_name, guest_contact_email, guest_contact_phone, special_requests')
+    .select('id, status, booking_mode, enquiry_token, listing_type, property_id, boat_id, trip_id, check_in, check_out, trip_date, guests_count, total_price, deposit_amount, guest_id, guest_contact_name, guest_contact_email, guest_contact_phone, special_requests')
     .eq('id', id)
     .single();
 
@@ -165,7 +165,7 @@ export async function POST(
         checkOut: booking.check_out,
         tripDate: booking.trip_date,
         tripName: null,
-        guests: booking.guests,
+        guests: booking.guests_count,
         totalPrice: Number(booking.total_price),
         depositAmount: Number(booking.deposit_amount ?? 0),
         depositPercent: Number(listing.deposit_percent) || 25,
@@ -217,7 +217,7 @@ export async function POST(
       checkOut: booking.check_out,
       tripDate: booking.trip_date,
       tripName: null,
-      guests: booking.guests,
+      guests: booking.guests_count,
       totalPrice: Number(booking.total_price),
       depositAmount: Number(booking.deposit_amount ?? 0),
       depositPercent: Number(listing.deposit_percent) || 25,

@@ -135,10 +135,12 @@ export async function POST(request: NextRequest) {
         price: Number(property.base_price_per_night) || 0,
       };
     } else {
-      // Boat — optionally pull trip info
+      // Boat — require a trip to determine price (wb_boats has no price_from column;
+      // pricing lives on wb_boat_trips). Fall back to the cheapest trip if the
+      // client doesn't send a tripId, so the UI still functions.
       const { data: boat, error: boatError } = await supabase
         .from('wb_boats')
-        .select('id, name, slug, owner_id, billing_mode, deposit_percent, price_from')
+        .select('id, name, slug, owner_id, billing_mode, deposit_percent')
         .eq('id', boatId)
         .single();
 
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Boat not found.' }, { status: 404 });
       }
 
-      let price = Number(boat.price_from) || 0;
+      let price = 0;
       let tripName: string | null = null;
       if (tripId) {
         const { data: trip, error: tripError } = await supabase
@@ -159,6 +161,17 @@ export async function POST(request: NextRequest) {
         }
         price = Number(trip.price_total) || 0;
         tripName = trip.name ?? null;
+      } else {
+        // No trip selected — use the cheapest active trip as a reasonable default.
+        const { data: cheapest } = await supabase
+          .from('wb_boat_trips')
+          .select('price_total')
+          .eq('boat_id', boatId)
+          .eq('is_active', true)
+          .order('price_total', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        price = Number(cheapest?.price_total) || 0;
       }
 
       listing = {
@@ -204,7 +217,7 @@ export async function POST(request: NextRequest) {
     } else {
       const { data: available, error: rpcError } = await supabase.rpc(
         'wb_check_boat_availability',
-        { p_boat_id: boatId, p_trip_date: tripDate, ...(tripId ? { p_trip_id: tripId } : {}) }
+        { p_boat_id: boatId, p_trip_date: tripDate }
       );
       if (rpcError) {
         console.error('Availability check error:', rpcError);
@@ -272,7 +285,7 @@ export async function POST(request: NextRequest) {
         check_in: listingType === 'property' ? checkIn : null,
         check_out: listingType === 'property' ? checkOut : null,
         trip_date: listingType === 'boat' ? tripDate : null,
-        guests,
+        guests_count: guests,
         total_price: totalPrice,
         status,
         booking_mode: bookingMode,
