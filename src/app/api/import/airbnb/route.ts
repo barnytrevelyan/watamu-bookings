@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { resolveImportUser } from '@/lib/import/auth';
 
 /**
  * POST /api/import/airbnb
@@ -253,15 +254,15 @@ function extractMeta(html: string, name: string): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient();
-
-    // Verify user via getUser() (validates JWT with Supabase Auth server).
-    // getSession() only reads the cookie without verifying, which is unsafe for
-    // an endpoint that performs a write on the user's behalf.
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
+    // Resolve the acting user via SSR client first, with a manual JWT
+    // fallback for the chunked / base64- cookie shapes @supabase/ssr@0.3
+    // fails to decode. See src/lib/import/auth.ts.
+    const auth = await resolveImportUser(request);
+    if (!auth) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const { user } = auth;
+    const supabase = await createServerClient();
 
     const { url } = await request.json();
     const cleanUrl = typeof url === 'string' ? url.trim() : '';

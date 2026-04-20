@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { resolveImportUser } from '@/lib/import/auth';
 
 /**
  * POST /api/import/booking-com
@@ -303,12 +304,12 @@ async function scrapeBookingCom(url: string): Promise<ImportedProperty> {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient();
-
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
+    const auth = await resolveImportUser(request);
+    if (!auth) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const { user } = auth;
+    const supabase = await createServerClient();
 
     const { url } = await request.json();
     const cleanUrl = typeof url === 'string' ? url.trim() : '';

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { resolveImportUser } from '@/lib/import/auth';
 import {
   sanitiseUrl,
   fetchSafe,
@@ -475,11 +476,12 @@ function dedupe(listings: ImportedListing[]): ImportedListing[] {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient();
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
+    const auth = await resolveImportUser(request);
+    if (!auth) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const { user } = auth;
+    const supabase = await createServerClient();
 
     const body = await request.json();
     const cleanUrl = typeof body?.url === 'string' ? body.url.trim() : '';
