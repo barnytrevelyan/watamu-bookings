@@ -332,7 +332,7 @@ export default function ImportPage() {
             house_rules: houseRulesText || null,
             cleaning_fee: preview.cleaningFee,
             is_published: false,
-            status: 'draft',
+            status: 'pending_review',
             source_url: preview.sourceUrl,
             import_source: importSourceTag,
           })
@@ -376,7 +376,7 @@ export default function ImportPage() {
             currency: preview.currency || 'KES',
             cancellation_policy: preview.cancellationPolicy || 'moderate',
             is_published: false,
-            status: 'draft',
+            status: 'pending_review',
             source_url: preview.sourceUrl,
             import_source: importSourceTag,
           })
@@ -423,10 +423,11 @@ export default function ImportPage() {
         setCreatedId(boat.id);
       }
 
-      toast.success('Draft created — continue editing');
-      // Land the host straight on the normal listing edit page. The draft is
-      // saved with status='draft' and is_published=false so it's theirs to
-      // refine and publish whenever they're ready — no approval gate.
+      toast.success('Submitted for review — you can keep editing while we check it');
+      // Land the host straight on the listing edit page. Status is
+      // 'pending_review' and is_published=false — admin review gate applies
+      // before the listing goes live, but the host can keep refining in the
+      // meantime.
       if (newId) {
         router.push(listingType === 'property' ? `/dashboard/properties/${newId}` : `/dashboard/boats/${newId}`);
       }
@@ -1011,7 +1012,7 @@ export default function ImportPage() {
 
           <div className="flex gap-3 sticky bottom-4 bg-white/90 backdrop-blur rounded-lg p-3 shadow-sm border border-gray-200">
             <Button variant="outline" onClick={resetAll} className="flex-1">Start over</Button>
-            <Button onClick={handleSave} className="flex-1">Save & continue editing</Button>
+            <Button onClick={handleSave} className="flex-1">Submit for review</Button>
           </div>
         </div>
       )}
