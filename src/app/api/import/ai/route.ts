@@ -272,12 +272,33 @@ export async function POST(request: NextRequest) {
     // a safe trade-off for this endpoint.
     const {
       data: { session },
+      error: sessionErr,
     } = await supabase.auth.getSession();
+
+    // Count the sb-* cookies we actually received so we can tell auth
+    // problems (cookies arrived but couldn't be decoded) from cookie-
+    // delivery problems (none arrived at all — e.g. SameSite, subdomain,
+    // or middleware issue).
+    const sbCookieCount = request.cookies
+      .getAll()
+      .filter((c) => c.name.startsWith('sb-')).length;
+
     if (!session?.user) {
+      console.error('[import/ai] no session', {
+        sbCookieCount,
+        sessionErr: sessionErr?.message,
+        allCookieNames: request.cookies.getAll().map((c) => c.name),
+      });
       return NextResponse.json(
         {
           error:
-            'Your session has expired. Please sign out, sign back in, and try again.',
+            sbCookieCount === 0
+              ? 'No auth cookies reached the server. Try a hard refresh (Cmd+Shift+R), or sign out and back in.'
+              : 'Your session has expired. Please sign out, sign back in, and try again.',
+          debug: {
+            sbCookieCount,
+            sessionErr: sessionErr?.message ?? null,
+          },
         },
         { status: 401 }
       );

@@ -142,7 +142,16 @@ export default function ImportPage() {
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.error || 'Import failed');
+        // Log the server's debug payload if it sent one (helps triage
+        // cookie/auth issues that only show up in production).
+        if (result?.debug) {
+          // eslint-disable-next-line no-console
+          console.warn('[import] server debug:', result.debug);
+        }
+        const debugSuffix = result?.debug
+          ? ` [sbCookieCount=${result.debug.sbCookieCount ?? '?'}]`
+          : '';
+        throw new Error((result.error || 'Import failed') + debugSuffix);
       }
 
       setImportedData(result.data);
