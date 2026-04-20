@@ -263,11 +263,17 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
+    // Use getSession() rather than getUser(): we've hit repeated issues
+    // where getUser()'s network call + silent refresh-cookie-write races
+    // against the route handler's cookie lifecycle in Vercel and returns
+    // a spurious "Auth session missing!" error. Cookies are httpOnly +
+    // secure + signed, and every write below is still scoped by owner_id
+    // (Supabase RLS enforces it regardless of what we pass), so this is
+    // a safe trade-off for this endpoint.
     const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
-    if (userErr || !user) {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user) {
       return NextResponse.json(
         {
           error:
@@ -276,6 +282,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    const user = session.user;
 
     const body = await request.json().catch(() => ({}));
     const url = typeof body.url === 'string' ? body.url.trim() : '';

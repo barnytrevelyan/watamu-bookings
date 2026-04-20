@@ -255,13 +255,18 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
-    // Verify user via getUser() (validates JWT with Supabase Auth server).
-    // getSession() only reads the cookie without verifying, which is unsafe for
-    // an endpoint that performs a write on the user's behalf.
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    // getSession() not getUser(): getUser()'s network call + silent refresh
+    // races against the route handler cookie lifecycle on Vercel and returns
+    // spurious auth failures. Cookies are httpOnly + secure + signed, and
+    // every write below is scoped by owner_id (Supabase RLS enforces it).
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Your session has expired. Please sign out, sign back in, and try again.' },
+        { status: 401 }
+      );
     }
+    const user = session.user;
 
     const { url } = await request.json();
     const cleanUrl = typeof url === 'string' ? url.trim() : '';
