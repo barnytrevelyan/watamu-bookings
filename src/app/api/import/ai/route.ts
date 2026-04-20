@@ -1,5 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createPlainClient } from '@supabase/supabase-js';
+
+/**
+ * Reconstruct the Supabase auth cookie value from one or more sb-*-auth-token
+ * cookies. @supabase/ssr 0.3 stores it either as a single JSON cookie, a
+ * base64-prefixed JSON cookie, or split across `.0` / `.1` chunks. We try
+ * all three shapes and return the first one that parses into a usable
+ * { access_token } object.
+ */
+function extractAccessTokenFromCookies(req: NextRequest): string | null {
+  const all = req.cookies.getAll();
+  const sbCookies = all.filter((c) =>
+    /^sb-.*-auth-token(\.\d+)?$/.test(c.name)
+  );
+  if (sbCookies.length === 0) return null;
+
+  // Group cookies by their base name so chunked cookies reassemble in order.
+  const groups = new Map<string, { index: number; value: string }[]>();
+  for (const c of sbCookies) {
+    const m = c.name.match(/^(sb-.*-auth-token)(?:\.(\d+))?$/);
+    if (!m) continue;
+    const base = m[1];
+    const idx = m[2] ? parseInt(m[2], 10) : 0;
+    if (!groups.has(base)) groups.set(base, []);
+    groups.get(base)!.push({ index: idx, value: c.value });
+  }
+
+  for (const parts of Array.from(groups.values())) {
+    parts.sort((a, b) => a.index - b.index);
+    let raw = parts.map((p) => p.value).join('');
+    // URL-encoded wrappers
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {
+      /* ignore */
+    }
+    // base64- prefix used by newer ssr versions
+    if (raw.startsWith('base64-')) {
+      try {
+        raw = Buffer.from(raw.slice('base64-'.length), 'base64').toString(
+          'utf-8'
+        );
+      } catch {
+        continue;
+      }
+    }
+    // Try JSON
+    try {
+      const parsed = JSON.parse(raw);
+      const token =
+        parsed?.access_token ||
+        parsed?.currentSession?.access_token ||
+        (Array.isArray(parsed) ? parsed[0] : null);
+      if (typeof token === 'string' && token.length > 20) return token;
+    } catch {
+      // Maybe the raw value IS the token (rare but cheap to try)
+      if (/^eyJ/.test(raw)) return raw;
+    }
+  }
+  return null;
+}
 
 /**
  * POST /api/import/ai
@@ -270,20 +331,39 @@ export async function POST(request: NextRequest) {
     // secure + signed, and every write below is still scoped by owner_id
     // (Supabase RLS enforces it regardless of what we pass), so this is
     // a safe trade-off for this endpoint.
+    // Primary path: the SSR client reads the session from cookies.
     const {
       data: { session },
       error: sessionErr,
     } = await supabase.auth.getSession();
 
-    // Count the sb-* cookies we actually received so we can tell auth
-    // problems (cookies arrived but couldn't be decoded) from cookie-
-    // delivery problems (none arrived at all — e.g. SameSite, subdomain,
-    // or middleware issue).
+    let user = session?.user ?? null;
+    let authPath: 'ssr' | 'manual-jwt' = 'ssr';
+
+    // Fallback: some cookie encodings (chunked / base64-prefixed) aren't
+    // decoded cleanly by @supabase/ssr@0.3 inside the route handler even
+    // though the browser client can read them. Extract the access_token
+    // ourselves and validate it by calling Supabase directly.
+    if (!user) {
+      const accessToken = extractAccessTokenFromCookies(request);
+      if (accessToken) {
+        const admin = createPlainClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data: userData } = await admin.auth.getUser(accessToken);
+        if (userData?.user) {
+          user = userData.user;
+          authPath = 'manual-jwt';
+        }
+      }
+    }
+
     const sbCookieCount = request.cookies
       .getAll()
       .filter((c) => c.name.startsWith('sb-')).length;
 
-    if (!session?.user) {
+    if (!user) {
       console.error('[import/ai] no session', {
         sbCookieCount,
         sessionErr: sessionErr?.message,
@@ -303,7 +383,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    const user = session.user;
+    // Mark which auth path succeeded so we can watch logs and spot how
+    // often the SSR decoder is falling through to the manual fallback.
+    console.log('[import/ai] auth ok via', authPath);
 
     const body = await request.json().catch(() => ({}));
     const url = typeof body.url === 'string' ? body.url.trim() : '';
