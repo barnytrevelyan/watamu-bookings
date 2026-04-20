@@ -158,6 +158,7 @@ Boats:
 
 ## Commit history (master head)
 
+- `2063c99` — fix(demo-prep): wire up search + sort, unify contact details, add state docs. **Not yet pushed — awaiting PAT.**
 - `b95cb2c` — feat(seo+resilience): JSON-LD, llms.txt, error boundaries, regression guard.
 - `fbd8dd9` — feat(ui): Airbnb-grade polish for host dashboard + public listing headers.
 - `7a9d991` — fix(import): restore manual-JWT fallback on all 5 scraper routes.
