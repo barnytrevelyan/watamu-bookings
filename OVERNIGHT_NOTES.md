@@ -15,7 +15,7 @@ featured), and **/dashboard** (new real-revenue chart).
 
 ## What shipped tonight
 
-Five commits on top of `54e290a` (master at start of the night):
+Seven commits on top of `54e290a` (master at start of the night):
 
 | Commit     | Scope |
 |------------|-------|
@@ -24,6 +24,8 @@ Five commits on top of `54e290a` (master at start of the night):
 | `e572ab7`  | Phase 3 — Airbnb-style amenities icon grid (+ modal), real OpenStreetMap embed, "Show all photos" CTA on gallery |
 | `729971d`  | Phase 4 — "Meet your host" card (trust signals, years hosting, rating stats), FeeInfoTooltip for cleaning + service fee rows |
 | `f41dcd9`  | Site audit — fixed broken `average_rating` field (cards showed 0 stars!), wired SortSelect to actually sort, fixed footer filter URLs, replaced the hardcoded mock dashboard chart with real revenue |
+| `ae15883`  | Hero polish — stronger gradient + brand glow + text-shadow + frosted search card ring on the landing hero |
+| `f88d552`  | Phase 5 — hosts can review guests (double-blind), private host-notes, inline guest rating on bookings list |
 
 Demo data seeded tonight on Coral Breeze Villa: 12 photos, 22 amenities,
 4 rooms, 8 authentic-sounding reviews from 8 guests (trigger put the
@@ -45,6 +47,35 @@ on Barny is now verified + has a proper bio + business name.
 11. **Reviews** — 5-bar distribution + all 8 cards, including owner responses.
 12. **Sidebar** — price × nights, cleaning (hidden if 0), **Service fee (ℹ️ — tooltip)**, total, book button, check-in/out times, cancellation terms.
 
+## Phase 5 — Host-rates-guest (also shipped tonight)
+
+This was a mid-night user request: "would it be a good idea for hosts to be
+able to rate guests?" Yes. Shipped.
+
+- New tables: `wb_guest_reviews` (unique per booking) and `wb_host_notes`
+  (private per-booking notes only the host sees).
+- **Double-blind** like Airbnb: `published_at` stays NULL until the guest
+  submits their review (wb_reviews INSERT trigger flips both to published).
+  Nothing is visible to the reviewee until both sides are in — or a 14-day
+  scheduled reveal (not yet wired; see "next sprint" below).
+- RLS: reviewer can always see their own draft/published; reviewee sees only
+  published; the public sees only published. Hosts can only INSERT against
+  bookings on their own listings + with status=completed.
+- Aggregate cache on `wb_profiles`: `guest_avg_rating`, `guest_review_count`,
+  `guest_would_host_again_pct`, recomputed by trigger on INSERT/UPDATE/DELETE.
+
+UI surface:
+- `/dashboard/bookings` — completed rows get a **Review guest** button. Once
+  submitted: pill shows **Review pending** (locked, waiting for guest) or
+  **Review published**. Guest rows also now show inline `⭐ 4.9 · 3 hosts ·
+  100% re-host` when aggregate stats exist.
+- `/dashboard/bookings/[id]/review` — full form: overall + cleanliness +
+  communication + house-rules stars, thumbs-up/down "would host again",
+  public comment, optional private feedback (guest-only, never published),
+  edit-until-published behaviour.
+- Expanded row on bookings list has an inline **Private host note** editor
+  (stored in `wb_host_notes`, only the host ever sees).
+
 ## Known rough edges (call these out yourself if asked)
 
 - **"Contact host" button** is `mailto:` only — proper in-app messaging is not built. Deliberate.
@@ -63,12 +94,19 @@ on Barny is now verified + has a proper bio + business name.
 
 ## Suggested next sprint (in priority order)
 
-1. **Wishlists** — `wb_wishlists(user_id, property_id, created_at)` + wire the heart on both cards and the property header.
-2. **Second & third seed property** — copy the Coral Breeze pattern. Two more and the `/properties` grid looks populated.
-3. **Host response tracking** — add `response_rate_percent` + `avg_response_minutes` to `wb_profiles`, update on every `wb_messages` reply.
-4. **Activities page** — the footer links to `/activities`; stub it with 6 cards (dhow, deep-sea, snorkel, kite, Gede, Arabuko) reusing the card styling.
-5. **Calendar on the sidebar** — the Airbnb-style 2-month side-by-side picker is still the small custom one we had; replace with a proper two-month view.
-6. **Mobile nav** — the header works but the search affordance on mobile is thin; worth a pass.
+1. **14-day reveal job** — Phase 5 review pairing only reveals when the
+   counterpart submits. Add a cron/edge-function that runs nightly and flips
+   `wb_guest_reviews.published_at` on rows older than 14 days. Simple:
+   `UPDATE wb_guest_reviews SET published_at = now() WHERE published_at IS
+   NULL AND created_at < now() - interval '14 days';` (and the same for
+   wb_reviews if we want symmetric behaviour).
+2. **Wishlists** — `wb_wishlists(user_id, property_id, created_at)` + wire the heart on both cards and the property header.
+3. **Second & third seed property** — copy the Coral Breeze pattern. Two more and the `/properties` grid looks populated.
+4. **Host response tracking** — add `response_rate_percent` + `avg_response_minutes` to `wb_profiles`, update on every `wb_messages` reply.
+5. **Guest-side reviews of host** — not built yet. Should mirror Phase 5 but scoped to guests reviewing hosts/properties; `wb_reviews` covers the property side only.
+6. **Activities page** — the footer links to `/activities`; stub it with 6 cards (dhow, deep-sea, snorkel, kite, Gede, Arabuko) reusing the card styling.
+7. **Calendar on the sidebar** — the Airbnb-style 2-month side-by-side picker is still the small custom one we had; replace with a proper two-month view.
+8. **Mobile nav** — the header works but the search affordance on mobile is thin; worth a pass.
 
 ## How to run locally
 
