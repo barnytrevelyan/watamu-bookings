@@ -9,38 +9,101 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import toast from 'react-hot-toast';
 
-type ImportSource = 'airbnb' | 'fishingbooker' | null;
-type Step = 'choose' | 'url' | 'preview' | 'saving' | 'done';
+/**
+ * AI Import Wizard
+ *
+ * One box. Paste any listing URL — Airbnb, Booking.com, FishingBooker, Vrbo,
+ * your own Wix / Squarespace / WordPress site, or anything else with a
+ * reasonable OpenGraph + JSON-LD footprint — and we extract name, photos,
+ * description, pricing, amenities, location, and auto-detect whether it's a
+ * property or a boat listing.
+ *
+ * Frontend picks the right API endpoint based on the hostname:
+ *   airbnb.*          → /api/import/airbnb
+ *   fishingbooker.com → /api/import/fishingbooker
+ *   booking.com       → /api/import/booking-com
+ *   anything else     → /api/import/generic  (sends optional listing_type hint)
+ */
+
+type Step = 'url' | 'preview' | 'saving' | 'done';
+type DetectedSource = 'airbnb' | 'fishingbooker' | 'booking_com' | 'generic';
+type ListingType = 'property' | 'boat' | null;
+
+function detectSourceFromUrl(rawUrl: string): DetectedSource | null {
+  try {
+    const u = new URL(rawUrl.trim());
+    if (u.protocol !== 'https:') return null;
+    const host = u.hostname.toLowerCase();
+    if (/(^|\.)airbnb\.[a-z.]+$/.test(host)) return 'airbnb';
+    if (/(^|\.)fishingbooker\.com$/.test(host)) return 'fishingbooker';
+    if (/(^|\.)booking\.com$/.test(host)) return 'booking_com';
+    return 'generic';
+  } catch {
+    return null;
+  }
+}
+
+function endpointFor(source: DetectedSource): string {
+  switch (source) {
+    case 'airbnb': return '/api/import/airbnb';
+    case 'fishingbooker': return '/api/import/fishingbooker';
+    case 'booking_com': return '/api/import/booking-com';
+    case 'generic': return '/api/import/generic';
+  }
+}
+
+function sourceLabel(source: DetectedSource): string {
+  switch (source) {
+    case 'airbnb': return 'Airbnb';
+    case 'fishingbooker': return 'FishingBooker';
+    case 'booking_com': return 'Booking.com';
+    case 'generic': return 'that website';
+  }
+}
 
 export default function ImportPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [source, setSource] = useState<ImportSource>(null);
-  const [step, setStep] = useState<Step>('choose');
+  const [step, setStep] = useState<Step>('url');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [importedData, setImportedData] = useState<any>(null);
+  const [detectedSource, setDetectedSource] = useState<DetectedSource | null>(null);
+  const [listingType, setListingType] = useState<ListingType>(null);
+  // listingTypeHint is the user-forced type for generic imports — it tells the
+  // generic scraper not to auto-classify. Null = let the scraper decide.
+  const [listingTypeHint, setListingTypeHint] = useState<'property' | 'boat' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
 
   async function handleImport() {
-    if (!url.trim()) {
+    const cleanUrl = url.trim();
+    if (!cleanUrl) {
       setError('Please paste a listing URL');
+      return;
+    }
+
+    const source = detectSourceFromUrl(cleanUrl);
+    if (!source) {
+      setError('That doesn\u2019t look like a valid https:// URL. Double-check it and try again.');
       return;
     }
 
     setLoading(true);
     setError(null);
+    setDetectedSource(source);
 
     try {
-      const endpoint = source === 'airbnb'
-        ? '/api/import/airbnb'
-        : '/api/import/fishingbooker';
+      const endpoint = endpointFor(source);
+      const body: Record<string, any> = { url: cleanUrl };
+      if (source === 'generic' && listingTypeHint) {
+        body.listing_type = listingTypeHint;
+      }
 
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify(body),
       });
 
       const result = await res.json();
@@ -50,6 +113,15 @@ export default function ImportPage() {
       }
 
       setImportedData(result.data);
+      // Fixed-source endpoints return property/boat implicitly based on the
+      // endpoint; generic returns it explicitly. Default from the source.
+      const resolvedListingType: 'property' | 'boat' =
+        result.listing_type
+          ? result.listing_type
+          : source === 'fishingbooker'
+            ? 'boat'
+            : 'property';
+      setListingType(resolvedListingType);
       setStep('preview');
     } catch (err: any) {
       setError(err.message);
@@ -59,7 +131,7 @@ export default function ImportPage() {
   }
 
   async function handleSave() {
-    if (!user || !importedData) return;
+    if (!user || !importedData || !listingType || !detectedSource) return;
 
     // Guard against scraper failures that produced empty/404 garbage.
     const rawName = (importedData.name || '').trim();
@@ -80,12 +152,14 @@ export default function ImportPage() {
       .replace(/^-+|-+$/g, '');
     const slug = `${baseSlug || 'listing'}-${slugSuffix}`;
 
+    // import_source stamped on the listing row so the audit trail shows where
+    // the draft came from. Dashes → underscores for DB readability.
+    const importSourceTag = detectedSource.replace(/-/g, '_');
+
     try {
       const supabase = createClient();
 
-      if (source === 'airbnb') {
-        // Create property from imported data
-
+      if (listingType === 'property') {
         const { data: property, error: propError } = await supabase
           .from('wb_properties')
           .insert({
@@ -109,19 +183,18 @@ export default function ImportPage() {
             is_published: false,
             status: 'pending_review',
             source_url: importedData.source_url || url.trim(),
-            import_source: 'airbnb',
+            import_source: importSourceTag,
           })
           .select('id')
           .single();
 
         if (propError) throw propError;
 
-        // Insert images — surface errors instead of silently orphaning the property.
         if (importedData.images?.length > 0) {
-          const imageRows = importedData.images.map((url: string, i: number) => ({
+          const imageRows = importedData.images.map((imgUrl: string, i: number) => ({
             property_id: property.id,
             listing_type: 'property',
-            url,
+            url: imgUrl,
             alt_text: `${importedData.name} - Image ${i + 1}`,
             sort_order: i,
             is_cover: i === 0,
@@ -132,7 +205,7 @@ export default function ImportPage() {
 
         setCreatedId(property.id);
       } else {
-        // Create boat from imported data — reuse the slug computed above
+        // Boat — reuse the slug computed above.
         const { data: boat, error: boatError } = await supabase
           .from('wb_boats')
           .insert({
@@ -154,14 +227,13 @@ export default function ImportPage() {
             is_published: false,
             status: 'pending_review',
             source_url: importedData.source_url || url.trim(),
-            import_source: 'fishingbooker',
+            import_source: importSourceTag,
           })
           .select('id')
           .single();
 
         if (boatError) throw boatError;
 
-        // Insert trip packages
         if (importedData.trips?.length > 0) {
           const tripRows = importedData.trips
             .filter((t: any) => t.name)
@@ -182,12 +254,11 @@ export default function ImportPage() {
           if (tripErr) throw tripErr;
         }
 
-        // Insert images — surface errors instead of silently orphaning the boat.
         if (importedData.images?.length > 0) {
-          const imageRows = importedData.images.map((url: string, i: number) => ({
+          const imageRows = importedData.images.map((imgUrl: string, i: number) => ({
             boat_id: boat.id,
             listing_type: 'boat',
-            url,
+            url: imgUrl,
             alt_text: `${importedData.name} - Image ${i + 1}`,
             sort_order: i,
             is_cover: i === 0,
@@ -208,135 +279,126 @@ export default function ImportPage() {
     }
   }
 
+  function resetAll() {
+    setStep('url');
+    setUrl('');
+    setImportedData(null);
+    setDetectedSource(null);
+    setListingType(null);
+    setListingTypeHint(null);
+    setError(null);
+    setCreatedId(null);
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Import a Listing</h1>
+        <h1 className="text-2xl font-bold text-gray-900">AI Import Wizard</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Bring your existing listing from another platform. We&apos;ll import your photos, description, and pricing.
+          Paste any listing URL. We&apos;ll read the page and draft a new listing for you — photos, description, pricing, and location — which you can review and edit before publishing.
         </p>
       </div>
 
-      {/* Step 1: Choose source */}
-      {step === 'choose' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => { setSource('airbnb'); setStep('url'); }}
-            className="group text-left border-2 border-gray-200 rounded-2xl p-6 hover:border-[#FF5A5F] hover:bg-red-50/30 transition-all"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-xl bg-[#FF5A5F] flex items-center justify-center text-white font-bold text-lg">
-                A
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 group-hover:text-[#FF5A5F]">Airbnb</h3>
-                <p className="text-xs text-gray-500">Import a property listing</p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600">
-              We&apos;ll import your property name, photos, description, pricing, amenities, and location.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setSource('fishingbooker'); setStep('url'); }}
-            className="group text-left border-2 border-gray-200 rounded-2xl p-6 hover:border-blue-500 hover:bg-blue-50/30 transition-all"
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
-                FB
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 group-hover:text-blue-600">FishingBooker</h3>
-                <p className="text-xs text-gray-500">Import a boat charter</p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600">
-              We&apos;ll import your boat specs, trip packages, captain info, photos, and target species.
-            </p>
-          </button>
-        </div>
-      )}
-
-      {/* Step 2: Enter URL */}
+      {/* Step 1: URL entry */}
       {step === 'url' && (
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => { setStep('choose'); setSource(null); setUrl(''); setError(null); }}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              &larr; Back
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Paste your {source === 'airbnb' ? 'Airbnb' : 'FishingBooker'} listing URL
-            </h2>
+        <Card className="p-6 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-2">
+              Listing URL
+            </label>
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.airbnb.com/rooms/12345678  —  or any other URL"
+              className="text-base"
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Works best with Airbnb, Booking.com, FishingBooker, Vrbo, and well-built hotel / charter websites (OpenGraph + structured data). JavaScript-only sites may return incomplete results.
+            </p>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <Input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder={
-                  source === 'airbnb'
-                    ? 'https://www.airbnb.com/rooms/12345678'
-                    : 'https://www.fishingbooker.com/charter/12345'
-                }
-                className="text-base"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                {source === 'airbnb'
-                  ? 'Go to your Airbnb listing page and copy the URL from your browser.'
-                  : 'Go to your FishingBooker charter page and copy the URL from your browser.'}
-              </p>
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-2">Is this listing a property or a boat?</p>
+            <div className="inline-flex rounded-lg border border-gray-200 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setListingTypeHint(null)}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  listingTypeHint === null ? 'bg-teal-600 text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Auto-detect
+              </button>
+              <button
+                type="button"
+                onClick={() => setListingTypeHint('property')}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  listingTypeHint === 'property' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Property
+              </button>
+              <button
+                type="button"
+                onClick={() => setListingTypeHint('boat')}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  listingTypeHint === 'boat' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Boat charter
+              </button>
             </div>
-
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            <Button
-              onClick={handleImport}
-              disabled={loading || !url.trim()}
-              className="w-full"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Importing...
-                </span>
-              ) : (
-                'Import Listing'
-              )}
-            </Button>
+            <p className="text-xs text-gray-500 mt-2">
+              Auto-detect looks for fishing/charter keywords; override if it picks the wrong type.
+            </p>
           </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <Button
+            onClick={handleImport}
+            disabled={loading || !url.trim()}
+            className="w-full"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Reading the page...
+              </span>
+            ) : (
+              'Import Listing'
+            )}
+          </Button>
         </Card>
       )}
 
-      {/* Step 3: Preview imported data */}
-      {step === 'preview' && importedData && (
+      {/* Step 2: Preview */}
+      {step === 'preview' && importedData && detectedSource && listingType && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Review Imported Data</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Review imported data</h2>
+              <p className="text-xs text-gray-500">
+                Imported from {sourceLabel(detectedSource)} as a {listingType === 'boat' ? 'boat charter' : 'property'}.
+              </p>
+            </div>
             <button
               type="button"
-              onClick={() => { setStep('url'); setImportedData(null); }}
+              onClick={() => { setStep('url'); setImportedData(null); setDetectedSource(null); setListingType(null); }}
               className="text-sm text-gray-500 hover:text-gray-700"
             >
               &larr; Try another URL
             </button>
           </div>
 
-          {/* Image preview */}
           {importedData.images?.length > 0 && (
             <div className="grid grid-cols-4 gap-2 rounded-xl overflow-hidden">
               {importedData.images.slice(0, 4).map((img: string, i: number) => (
@@ -344,6 +406,7 @@ export default function ImportPage() {
                   key={i}
                   className={`relative aspect-video ${i === 0 ? 'col-span-2 row-span-2' : ''}`}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img}
                     alt={`Imported ${i + 1}`}
@@ -364,13 +427,12 @@ export default function ImportPage() {
             </p>
           )}
 
-          {/* Details */}
           <Card className="p-5">
             <h3 className="text-xl font-bold text-gray-900 mb-1">{importedData.name || 'Untitled'}</h3>
-            <p className="text-sm text-gray-600 mb-4 line-clamp-3">{importedData.description}</p>
+            <p className="text-sm text-gray-600 mb-4 line-clamp-3 whitespace-pre-wrap">{importedData.description}</p>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-              {source === 'airbnb' && (
+              {listingType === 'property' && (
                 <>
                   <div>
                     <p className="text-xs text-gray-500">Type</p>
@@ -405,10 +467,10 @@ export default function ImportPage() {
                 </>
               )}
 
-              {source === 'fishingbooker' && (
+              {listingType === 'boat' && (
                 <>
                   <div>
-                    <p className="text-xs text-gray-500">Boat Type</p>
+                    <p className="text-xs text-gray-500">Boat type</p>
                     <p className="font-medium text-gray-900 capitalize">{importedData.boat_type?.replace(/_/g, ' ')}</p>
                   </div>
                   <div>
@@ -430,17 +492,16 @@ export default function ImportPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Trip Packages</p>
+                    <p className="text-xs text-gray-500">Trip packages</p>
                     <p className="font-medium text-gray-900">{importedData.trips?.length || 0} found</p>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Trip packages for boats */}
-            {source === 'fishingbooker' && importedData.trips?.length > 0 && (
+            {listingType === 'boat' && importedData.trips?.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-500 mb-2">Trip Packages</p>
+                <p className="text-xs font-medium text-gray-500 mb-2">Trip packages</p>
                 <div className="space-y-2">
                   {importedData.trips.map((trip: any, i: number) => (
                     <div key={i} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg text-sm">
@@ -454,10 +515,9 @@ export default function ImportPage() {
               </div>
             )}
 
-            {/* Target species */}
             {importedData.target_species?.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-500 mb-2">Target Species Detected</p>
+                <p className="text-xs font-medium text-gray-500 mb-2">Target species detected</p>
                 <div className="flex flex-wrap gap-1.5">
                   {importedData.target_species.map((species: string) => (
                     <span key={species} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs">
@@ -495,13 +555,13 @@ export default function ImportPage() {
               Cancel
             </Button>
             <Button onClick={handleSave} className="flex-1">
-              Submit for Review
+              Submit for review
             </Button>
           </div>
         </div>
       )}
 
-      {/* Step 4: Saving */}
+      {/* Step 3: Saving */}
       {step === 'saving' && (
         <Card className="p-12 text-center">
           <svg className="animate-spin h-10 w-10 text-teal-600 mx-auto mb-4" viewBox="0 0 24 24">
@@ -513,7 +573,7 @@ export default function ImportPage() {
         </Card>
       )}
 
-      {/* Step 5: Done */}
+      {/* Step 4: Done */}
       {step === 'done' && (
         <Card className="p-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
@@ -521,33 +581,24 @@ export default function ImportPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Import Complete!</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Import complete!</h2>
           <p className="text-gray-600 mb-6">
             Your listing has been submitted for review. Our team will verify ownership and approve it shortly. You can edit details in the meantime.
           </p>
           <div className="flex gap-3 justify-center">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setStep('choose');
-                setSource(null);
-                setUrl('');
-                setImportedData(null);
-                setCreatedId(null);
-              }}
-            >
-              Import Another
+            <Button variant="outline" onClick={resetAll}>
+              Import another
             </Button>
             <Button
               onClick={() => {
-                if (source === 'airbnb') {
+                if (listingType === 'property') {
                   router.push(`/dashboard/properties/${createdId}`);
                 } else {
                   router.push(`/dashboard/boats/${createdId}`);
                 }
               }}
             >
-              Edit Listing
+              Edit listing
             </Button>
           </div>
         </Card>
