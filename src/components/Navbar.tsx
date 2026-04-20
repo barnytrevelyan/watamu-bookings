@@ -33,10 +33,34 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSignOut = () => {
-    // Fire signOut in background — don't wait for it
-    signOut();
-    // Hard redirect immediately to clear all state
+  const handleSignOut = async () => {
+    // Await signOut so Supabase has time to clear its cookies before we
+    // navigate — firing-and-forgetting used to leave half-cleared sessions
+    // that made every subsequent API call return 401 "Authentication required".
+    try {
+      await signOut();
+    } catch {
+      // swallow — we're about to nuke cookies below anyway
+    }
+
+    // Belt and braces: also clear any leftover sb-* cookies on the current
+    // host + apex domain. Some browsers don't always honour Supabase's own
+    // cookie clearing, which leaves stale refresh tokens behind.
+    if (typeof document !== 'undefined') {
+      const host = window.location.hostname;
+      const parts = host.split('.');
+      const apex =
+        parts.length > 2 ? '.' + parts.slice(-2).join('.') : host;
+      document.cookie.split(';').forEach((raw) => {
+        const name = raw.split('=')[0].trim();
+        if (!name.startsWith('sb-')) return;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${host};`;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${apex};`;
+      });
+    }
+
+    // Hard redirect to clear all React state
     window.location.href = '/';
   };
 

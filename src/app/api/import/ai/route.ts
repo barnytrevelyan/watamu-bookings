@@ -268,7 +268,13 @@ export async function POST(request: NextRequest) {
       error: userErr,
     } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        {
+          error:
+            'Your session has expired. Please sign out, sign back in, and try again.',
+        },
+        { status: 401 }
+      );
     }
 
     const body = await request.json().catch(() => ({}));
