@@ -302,6 +302,7 @@ export default function ImportPage() {
 
     try {
       const supabase = createClient();
+      let newId: string | null = null;
 
       if (listingType === 'property') {
         // Join house_rules back into a single text field (wb_properties.house_rules is TEXT, not array).
@@ -331,7 +332,7 @@ export default function ImportPage() {
             house_rules: houseRulesText || null,
             cleaning_fee: preview.cleaningFee,
             is_published: false,
-            status: 'pending_review',
+            status: 'draft',
             source_url: preview.sourceUrl,
             import_source: importSourceTag,
           })
@@ -352,6 +353,7 @@ export default function ImportPage() {
           if (imgErr) throw imgErr;
         }
 
+        newId = property.id;
         setCreatedId(property.id);
       } else {
         const { data: boat, error: boatError } = await supabase
@@ -374,7 +376,7 @@ export default function ImportPage() {
             currency: preview.currency || 'KES',
             cancellation_policy: preview.cancellationPolicy || 'moderate',
             is_published: false,
-            status: 'pending_review',
+            status: 'draft',
             source_url: preview.sourceUrl,
             import_source: importSourceTag,
           })
@@ -417,11 +419,17 @@ export default function ImportPage() {
           if (imgErr) throw imgErr;
         }
 
+        newId = boat.id;
         setCreatedId(boat.id);
       }
 
-      setStep('done');
-      toast.success('Listing imported successfully!');
+      toast.success('Draft created — continue editing');
+      // Land the host straight on the normal listing edit page. The draft is
+      // saved with status='draft' and is_published=false so it's theirs to
+      // refine and publish whenever they're ready — no approval gate.
+      if (newId) {
+        router.push(listingType === 'property' ? `/dashboard/properties/${newId}` : `/dashboard/boats/${newId}`);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to save listing');
       setStep('preview');
@@ -997,28 +1005,13 @@ export default function ImportPage() {
             </Card>
           )}
 
-          {/* Review gate */}
-          <Card className="border-amber-200 bg-amber-50 p-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-amber-900">Your listing will be submitted for review</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Imported listings are reviewed by our team to verify ownership before going live. You can keep editing while you wait.
-                </p>
-              </div>
-            </div>
-          </Card>
-
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
           )}
 
           <div className="flex gap-3 sticky bottom-4 bg-white/90 backdrop-blur rounded-lg p-3 shadow-sm border border-gray-200">
             <Button variant="outline" onClick={resetAll} className="flex-1">Start over</Button>
-            <Button onClick={handleSave} className="flex-1">Submit for review</Button>
+            <Button onClick={handleSave} className="flex-1">Save & continue editing</Button>
           </div>
         </div>
       )}
