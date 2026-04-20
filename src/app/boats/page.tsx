@@ -117,11 +117,16 @@ export default async function BoatsPage({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-gray-900">Fishing Boats &amp; Charters</h1>
-          <p className="mt-2 text-gray-600">
-            Deep-sea fishing, reef trips, and coastal excursions with experienced Watamu captains
+      <div className="relative overflow-hidden border-b border-[var(--color-primary-100)] bg-gradient-to-br from-[var(--color-primary-50)] via-white to-[var(--color-sandy-50)]">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--color-primary-200)] opacity-30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-[var(--color-sandy-200)] opacity-30 blur-3xl" />
+        <div className="relative max-w-7xl mx-auto px-4 py-10 sm:py-14">
+          <span className="inline-block rounded-full bg-white/80 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[var(--color-primary-700)]">
+            Fishing &amp; cruises
+          </span>
+          <h1 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl">Boats &amp; charters</h1>
+          <p className="mt-2 max-w-2xl text-gray-600">
+            Deep-sea fishing, reef trips, and coastal excursions with experienced Watamu captains.
           </p>
         </div>
       </div>

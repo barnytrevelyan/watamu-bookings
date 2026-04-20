@@ -12,6 +12,7 @@ import { TRIP_TYPE_LABELS } from '@/lib/types';
 import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import BillingModePicker from '@/components/BillingModePicker';
+import { ArrowLeft, Anchor, Ship, CheckCircle2, Fish, Package, Image as ImageIcon, MapPin, ClipboardCheck } from 'lucide-react';
 
 interface BoatFeature {
   id: string;
@@ -72,15 +73,15 @@ const DEFAULT_FEATURES: Record<string, string[]> = {
   Safety: ['Life Jackets', 'First Aid Kit', 'Fire Extinguisher', 'Radio', 'Flares', 'Safety Equipment'],
 };
 
-const TABS = [
-  { id: 'basic', label: 'Basic Info' },
-  { id: 'specs', label: 'Specifications' },
-  { id: 'features', label: 'Features' },
-  { id: 'fishing', label: 'Fishing Details' },
-  { id: 'trips', label: 'Trip Packages' },
-  { id: 'photos', label: 'Photos' },
-  { id: 'map', label: 'Map Pin' },
-  { id: 'review', label: 'Review & Submit' },
+const TABS: { id: string; label: string; icon: React.ComponentType<any> }[] = [
+  { id: 'basic', label: 'Basic', icon: Anchor },
+  { id: 'specs', label: 'Specs', icon: Ship },
+  { id: 'features', label: 'Features', icon: CheckCircle2 },
+  { id: 'fishing', label: 'Fishing', icon: Fish },
+  { id: 'trips', label: 'Trips', icon: Package },
+  { id: 'photos', label: 'Photos', icon: ImageIcon },
+  { id: 'map', label: 'Map', icon: MapPin },
+  { id: 'review', label: 'Review', icon: ClipboardCheck },
 ];
 
 // Leaflet map component for picking coordinates
@@ -487,52 +488,88 @@ export default function NewBoatPage() {
   if (successMessage) {
     return (
       <div className="mx-auto max-w-3xl">
-        <Card className="p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+        <Card className="overflow-hidden p-10 text-center animate-scale-in">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 shadow-inner">
+            <CheckCircle2 className="h-10 w-10 text-emerald-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Success!</h2>
-          <p className="text-gray-600">{successMessage}</p>
-          <p className="mt-4 text-sm text-gray-400">Redirecting to your boats...</p>
+          <h2 className="mb-2 text-2xl font-bold text-gray-900">You&apos;re all set</h2>
+          <p className="mx-auto max-w-md text-gray-600">{successMessage}</p>
+          <p className="mt-4 text-xs text-gray-400">Redirecting to your boats…</p>
         </Card>
       </div>
     );
   }
 
+  const currentTabIndex = TABS.findIndex((t) => t.id === activeTab);
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => router.back()}>
-          &larr; Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Add New Boat</h1>
-          <p className="text-sm text-gray-500">Create your boat listing step by step</p>
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-3xl border border-[var(--color-primary-100)] bg-gradient-to-br from-[var(--color-primary-50)] via-white to-[var(--color-sandy-50)] p-6 sm:p-8 animate-fade-in">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--color-primary-200)] opacity-30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-8 h-48 w-48 rounded-full bg-[var(--color-sandy-200)] opacity-30 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <button
+              onClick={() => router.back()}
+              className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-primary-100)] bg-white/80 text-gray-600 backdrop-blur transition-colors hover:border-[var(--color-primary-200)] hover:text-[var(--color-primary-700)]"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <span className="inline-block rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-[var(--color-primary-700)]">
+                New boat
+              </span>
+              <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
+                {name || 'Add a new boat'}
+              </h1>
+              <p className="mt-0.5 text-sm text-gray-600">
+                Step {currentTabIndex + 1} of {TABS.length} · {TABS[currentTabIndex]?.label}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Step Indicator */}
+      <div className="overflow-x-auto">
+        <div className="flex min-w-max items-center gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm">
+          {TABS.map((tab, i) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const isDone = i < currentTabIndex;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-600)] text-white shadow'
+                    : isDone
+                      ? 'text-[var(--color-primary-700)] hover:bg-[var(--color-primary-50)]'
+                      : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
+                  isActive
+                    ? 'bg-white/20'
+                    : isDone
+                      ? 'bg-[var(--color-primary-100)]'
+                      : 'bg-gray-100'
+                }`}>
+                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-primary-600)]" /> : <Icon className="h-3 w-3" />}
+                </span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex overflow-x-auto border-b border-gray-200 -mx-4 px-4 md:mx-0 md:px-0">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-teal-600 text-teal-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div className="animate-slide-up rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
 
       {/* Basic Info */}

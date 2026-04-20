@@ -8,6 +8,33 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import toast from 'react-hot-toast';
+import {
+  Sparkles,
+  Link as LinkIcon,
+  Home,
+  Anchor,
+  Images,
+  FileText,
+  MapPin,
+  Users,
+  Bed,
+  Bath,
+  Clock,
+  Wallet,
+  Fish,
+  Compass,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowLeft,
+  X,
+  Plus,
+  Wand2,
+  Check,
+  RefreshCcw,
+  Ship,
+  Shield,
+  ListChecks,
+} from 'lucide-react';
 
 /**
  * AI Import Wizard — `/dashboard/import`
@@ -202,6 +229,15 @@ function slugify(name: string): string {
   return `${base || 'listing'}-${suffix}`;
 }
 
+// Visual metadata for each source — drives the chips in the URL step and the
+// "Imported from" pill in preview. Keep the copy short; hosts scan these.
+const SOURCE_META: Record<DetectedSource, { label: string; tag: string; accent: string; bg: string; ring: string }> = {
+  airbnb:         { label: 'Airbnb',        tag: 'Direct scrape — no AI', accent: 'text-rose-700',   bg: 'bg-rose-50',   ring: 'ring-rose-200' },
+  booking_com:    { label: 'Booking.com',   tag: 'Direct scrape — no AI', accent: 'text-blue-700',   bg: 'bg-blue-50',   ring: 'ring-blue-200' },
+  fishingbooker:  { label: 'FishingBooker', tag: 'Direct scrape — no AI', accent: 'text-amber-700',  bg: 'bg-amber-50',  ring: 'ring-amber-200' },
+  generic:        { label: 'AI import',     tag: 'GPT-4o extraction',     accent: 'text-violet-700', bg: 'bg-violet-50', ring: 'ring-violet-200' },
+};
+
 export default function ImportPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -209,6 +245,7 @@ export default function ImportPage() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Reading the page…');
+  const [loadingStage, setLoadingStage] = useState(0);
   const [detectedSource, setDetectedSource] = useState<DetectedSource | null>(null);
   const [listingType, setListingType] = useState<ListingType | null>(null);
   const [listingTypeHint, setListingTypeHint] = useState<'property' | 'boat' | null>(null);
@@ -226,6 +263,14 @@ export default function ImportPage() {
   const [discovered, setDiscovered] = useState<any[] | null>(null);
   const [discoveredImportedSlugs, setDiscoveredImportedSlugs] = useState<Set<number>>(new Set());
 
+  // Live source detection on every keystroke — powers the detected-source chip
+  // next to the URL input so hosts know up-front whether we'll use a dedicated
+  // scraper or fall back to the AI extractor. Safe to recompute on every render.
+  const liveDetected = useMemo<DetectedSource | null>(() => {
+    if (!url.trim()) return null;
+    return detectSourceFromUrl(url);
+  }, [url]);
+
   // Rotating loading messages while the import runs. Short, truthful, and tied
   // to the actual stages (fetch → parse / LLM → return). For AI imports we tell
   // the user it's thinking, because gpt-4o on a big page can take 10–15s.
@@ -242,9 +287,11 @@ export default function ImportPage() {
       : ['Fetching the page…', 'Parsing listing data…', 'Picking photos…'];
     let i = 0;
     setLoadingMessage(seq[0]);
+    setLoadingStage(0);
     const id = setInterval(() => {
       i = Math.min(i + 1, seq.length - 1);
       setLoadingMessage(seq[i]);
+      setLoadingStage(i);
     }, 2500);
     return () => clearInterval(id);
   }, [loading, detectedSource]);
@@ -659,125 +706,223 @@ export default function ImportPage() {
     [preview]
   );
 
+  const liveMeta = liveDetected ? SOURCE_META[liveDetected] : null;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-2xl font-bold text-gray-900">AI Import Wizard</h1>
-          <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">Beta</span>
-        </div>
-        <p className="text-sm text-gray-500">
-          Paste any listing URL — Airbnb, Booking.com, FishingBooker, Vrbo, or your own site — and we’ll draft a listing for you with photos, description, pricing, amenities and location. Review and edit everything before it goes live.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8 pb-16">
+      {/* Page header — only shown on the URL step; once we're in the flow
+          the preview has its own breadcrumb and the hero would just take
+          vertical space away from actual content. */}
+      {step === 'url' && (
+        <section className="relative overflow-hidden rounded-3xl border border-[var(--color-primary-100,#bde0f6)] bg-gradient-to-br from-[var(--color-primary-50,#e8f4fb)] via-white to-[var(--color-sandy-50,#fdf6e3)] p-8 sm:p-10 animate-fade-in">
+          <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-gradient-to-br from-[var(--color-primary-200,#8bc8ea)]/40 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -left-16 -bottom-16 h-52 w-52 rounded-full bg-gradient-to-tr from-[var(--color-sandy-200,#f2d88f)]/40 to-transparent blur-3xl pointer-events-none" />
+          <div className="relative">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur px-3 py-1 text-xs font-semibold text-[var(--color-primary-700,#034078)] ring-1 ring-[var(--color-primary-200,#8bc8ea)]/60 shadow-sm">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Import Wizard
+              <span className="ml-1 rounded-full bg-[var(--color-primary-600,#0077b6)] text-white px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase">Beta</span>
+            </div>
+            <h1 className="mt-4 text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+              Paste a link. <span className="bg-gradient-to-r from-[var(--color-primary-600,#0077b6)] to-[var(--color-primary-800,#023e7d)] bg-clip-text text-transparent">We draft the listing.</span>
+            </h1>
+            <p className="mt-3 max-w-2xl text-[15px] text-gray-600 leading-relaxed">
+              Airbnb, Booking.com, FishingBooker — or your own website. We pull photos, descriptions, pricing, amenities and location, then let you review and polish every field before it goes live.
+            </p>
+
+            {/* Source badges — set expectations about which scraper will run. */}
+            <div className="mt-6 flex flex-wrap items-center gap-2">
+              <SourceChip label="Airbnb" meta={SOURCE_META.airbnb} />
+              <SourceChip label="Booking.com" meta={SOURCE_META.booking_com} />
+              <SourceChip label="FishingBooker" meta={SOURCE_META.fishingbooker} />
+              <SourceChip label="Any other site" meta={SOURCE_META.generic} />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Step 1: URL entry */}
       {step === 'url' && (
-        <Card className="p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">Listing URL</label>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.airbnb.com/rooms/12345678  —  or any other URL"
-              className="text-base"
-              autoFocus
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              Airbnb, Booking.com and FishingBooker use dedicated scrapers (no AI). Anything else is extracted with an AI model for best coverage of hotel and charter websites.
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-gray-700 mb-2">Is this a property or a boat?</p>
-            <div className="inline-flex rounded-lg border border-gray-200 p-1 text-sm">
-              {([
-                ['Auto-detect', null],
-                ['Property', 'property'],
-                ['Boat charter', 'boat'],
-              ] as const).map(([label, value]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setListingTypeHint(value)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    listingTypeHint === value ? 'bg-teal-600 text-white' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+        <div className="animate-slide-up">
+          <Card className="relative overflow-hidden p-6 sm:p-8 space-y-6 border-gray-200/80 shadow-sm">
+            {/* Big URL input with embedded source detection */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2.5">
+                <LinkIcon className="h-4 w-4 text-[var(--color-primary-600,#0077b6)]" />
+                Paste your listing URL
+              </label>
+              <div className="relative">
+                <div className="flex items-stretch gap-0 rounded-xl border-2 border-gray-200 bg-white focus-within:border-[var(--color-primary-500,#0a93db)] focus-within:ring-4 focus-within:ring-[var(--color-primary-500,#0a93db)]/10 transition-all">
+                  <div className="flex items-center pl-4 pr-3 text-gray-400 border-r border-gray-100">
+                    <LinkIcon className="h-4 w-4" />
+                  </div>
+                  <input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !loading && !authLoading && url.trim()) {
+                        e.preventDefault();
+                        handleImport();
+                      }
+                    }}
+                    placeholder="https://www.airbnb.com/rooms/12345678  or  villafoofoowatamu.com"
+                    className="flex-1 min-w-0 py-3.5 pr-3 text-[15px] outline-none placeholder:text-gray-400 bg-transparent"
+                    autoFocus
+                  />
+                  {url.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setUrl('')}
+                      className="px-3 text-gray-400 hover:text-gray-600"
+                      aria-label="Clear URL"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {/* Live source detection under the input */}
+                {liveMeta && !loading && (
+                  <div className={`mt-2.5 inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ${liveMeta.ring} ${liveMeta.bg} ${liveMeta.accent}`}>
+                    {liveDetected === 'generic' ? <Sparkles className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                    Detected: <span className="font-semibold">{liveMeta.label}</span>
+                    <span className="opacity-70">·</span>
+                    <span className="opacity-80">{liveMeta.tag}</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Only applies to generic URLs. Fixed-host scrapers already know the type.
-            </p>
-          </div>
 
-          {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
-          )}
+            {/* Listing type hint — only matters for generic URLs */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-gray-900">Property or boat?</p>
+                {liveDetected && liveDetected !== 'generic' && (
+                  <span className="text-[11px] text-gray-500 italic">
+                    Not needed for {SOURCE_META[liveDetected].label}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2.5">
+                <TypeHintCard
+                  icon={<Wand2 className="h-5 w-5" />}
+                  title="Auto-detect"
+                  description="Let the AI decide"
+                  selected={listingTypeHint === null}
+                  onClick={() => setListingTypeHint(null)}
+                />
+                <TypeHintCard
+                  icon={<Home className="h-5 w-5" />}
+                  title="Property"
+                  description="Villa, apartment, hotel"
+                  selected={listingTypeHint === 'property'}
+                  onClick={() => setListingTypeHint('property')}
+                />
+                <TypeHintCard
+                  icon={<Anchor className="h-5 w-5" />}
+                  title="Boat charter"
+                  description="Fishing, cruising, dhow"
+                  selected={listingTypeHint === 'boat'}
+                  onClick={() => setListingTypeHint('boat')}
+                />
+              </div>
+            </div>
 
-          <Button
-            onClick={handleImport}
-            disabled={authLoading || loading || !url.trim()}
-            className="w-full"
-          >
-            {authLoading ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Signing you in…
-              </span>
-            ) : loading ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                {loadingMessage}
-              </span>
-            ) : (
-              'Import Listing'
+            {error && (
+              <div className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-sm text-red-800 animate-fade-in">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
             )}
-          </Button>
-        </Card>
+
+            <Button
+              onClick={handleImport}
+              disabled={authLoading || loading || !url.trim()}
+              className="w-full py-3.5 text-[15px] font-semibold shadow-md hover:shadow-lg"
+            >
+              {authLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner />
+                  Signing you in…
+                </span>
+              ) : loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner />
+                  {loadingMessage}
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Draft my listing
+                </span>
+              )}
+            </Button>
+
+            {/* Progress strip — only visible while the import is running */}
+            {loading && detectedSource && (
+              <ProgressStrip source={detectedSource} stage={loadingStage} />
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-gray-100">
+              <Hint
+                icon={<Shield className="h-4 w-4" />}
+                title="Direct scrape"
+                body="Airbnb, Booking.com, FishingBooker — structured extraction, no AI tokens."
+              />
+              <Hint
+                icon={<Wand2 className="h-4 w-4" />}
+                title="AI extraction"
+                body="Any other site uses GPT-4o to understand the page, pull photos and parse details."
+              />
+              <Hint
+                icon={<ListChecks className="h-4 w-4" />}
+                title="Multi-listing"
+                body="If the site lists several villas or boats, we let you pick them one by one."
+              />
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Step 1b: multi-listing picker (only for generic URLs when 2+ listings
           are discovered on the site). */}
       {step === 'picker' && discovered && (
-        <div className="space-y-5">
-          <Card className="p-5 bg-teal-50 border-teal-100">
+        <div className="space-y-6 animate-fade-in">
+          <div className="relative overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-pink-50 p-5 sm:p-6">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900 mb-1">
-                  We found {discovered.length} listings on that site
-                </h2>
-                <p className="text-sm text-gray-700">
-                  Pick one to review and edit. You can come back here afterwards to import the others.
-                </p>
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center text-white shadow-sm">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    We spotted <span className="text-violet-700">{discovered.length} listings</span> on that site
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    Pick one to review and edit. You can come back here afterwards to import the others.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={resetAll}
-                className="text-sm text-gray-500 hover:text-gray-700 shrink-0"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 shrink-0 rounded-full px-3 py-1.5 hover:bg-white/60 transition-colors"
               >
-                ← Try another URL
+                <ArrowLeft className="h-4 w-4" />
+                Try another URL
               </button>
             </div>
-          </Card>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {discovered.map((item, idx) => {
               const imported = discoveredImportedSlugs.has(idx);
               const cover = Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : null;
-              const typeLabel = item.listing_type === 'boat' ? 'Boat charter' : 'Property';
-              const subTypeLabel = item.listing_type === 'boat'
+              const isBoat = item.listing_type === 'boat';
+              const typeLabel = isBoat ? 'Boat charter' : 'Property';
+              const subTypeLabel = isBoat
                 ? (item.boat_type ? String(item.boat_type).replace(/_/g, ' ') : 'boat')
                 : (item.property_type ? String(item.property_type) : 'property');
-              const price = item.listing_type === 'property'
+              const price = !isBoat
                 ? (typeof item.price_per_night === 'number' ? `${item.currency || 'KES'} ${item.price_per_night.toLocaleString()} / night` : null)
                 : (Array.isArray(item.trips) && item.trips.length > 0 && typeof item.trips[0]?.price_total === 'number'
                     ? `from ${item.currency || 'KES'} ${item.trips[0].price_total.toLocaleString()}`
@@ -787,53 +932,58 @@ export default function ImportPage() {
                   key={idx}
                   type="button"
                   onClick={() => pickDiscoveredListing(idx)}
-                  className={`text-left rounded-lg border transition overflow-hidden ${
+                  className={`text-left group rounded-2xl border bg-white overflow-hidden transition-all duration-300 shadow-sm ${
                     imported
-                      ? 'border-emerald-400 bg-emerald-50/60'
-                      : 'border-gray-200 bg-white hover:border-teal-400 hover:shadow-md'
+                      ? 'border-emerald-300 ring-1 ring-emerald-200'
+                      : 'border-gray-200 hover:border-[var(--color-primary-400,#4ab1dd)] hover:shadow-xl hover:-translate-y-0.5'
                   }`}
                 >
-                  {cover ? (
-                    <div className="aspect-video w-full overflow-hidden bg-gray-100 relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={cover} alt={item.name} className="w-full h-full object-cover" />
-                      {imported && (
-                        <div className="absolute inset-0 bg-emerald-900/40 flex items-center justify-center">
-                          <span className="bg-white rounded-full p-2 shadow">
-                            <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="aspect-video w-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
-                      No photos detected
-                    </div>
-                  )}
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                        item.listing_type === 'boat'
-                          ? 'bg-sky-100 text-sky-800'
-                          : 'bg-teal-100 text-teal-800'
+                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={cover}
+                        alt={item.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                        No photos detected
+                      </div>
+                    )}
+                    <div className="absolute top-3 left-3">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full backdrop-blur shadow-sm ${
+                        isBoat ? 'bg-sky-600/90 text-white' : 'bg-[var(--color-primary-600,#0077b6)]/90 text-white'
                       }`}>
+                        {isBoat ? <Anchor className="h-2.5 w-2.5" /> : <Home className="h-2.5 w-2.5" />}
                         {typeLabel}
                       </span>
-                      <span className="text-[11px] text-gray-500 capitalize">{subTypeLabel}</span>
+                    </div>
+                    {imported && (
+                      <div className="absolute inset-0 bg-emerald-900/50 backdrop-blur-[2px] flex items-center justify-center animate-fade-in">
+                        <span className="bg-white rounded-full p-2.5 shadow-lg">
+                          <Check className="h-7 w-7 text-emerald-600" strokeWidth={3} />
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-gray-500 capitalize font-medium">{subTypeLabel}</span>
                       {imported && (
-                        <span className="ml-auto text-[11px] font-medium text-emerald-700">Imported ✓</span>
+                        <span className="text-[11px] font-semibold text-emerald-700 inline-flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Imported
+                        </span>
                       )}
                     </div>
-                    <h3 className="text-base font-semibold text-gray-900 leading-snug">{item.name || 'Untitled listing'}</h3>
+                    <h3 className="text-base font-semibold text-gray-900 leading-snug line-clamp-1">{item.name || 'Untitled listing'}</h3>
                     {item.description && (
-                      <p className="text-sm text-gray-600 line-clamp-3">{item.description}</p>
+                      <p className="text-sm text-gray-600 line-clamp-2">{item.description}</p>
                     )}
                     {price && (
-                      <p className="text-sm font-medium text-gray-900">{price}</p>
+                      <p className="text-sm font-bold text-gray-900">{price}</p>
                     )}
-                    <p className="text-[11px] text-gray-400 truncate">{item.source_url}</p>
                   </div>
                 </button>
               );
@@ -844,57 +994,60 @@ export default function ImportPage() {
 
       {/* Step 2: editable preview */}
       {step === 'preview' && preview && detectedSource && listingType && (
-        <div className="space-y-5">
-          <Card className="p-4 bg-gray-50 flex items-center justify-between">
-            <div className="text-sm">
-              <span className="text-gray-500">Imported from</span>{' '}
-              <span className="font-medium text-gray-900">{sourceLabel(detectedSource)}</span>
-              <span className="text-gray-500"> as </span>
-              <span className="font-medium text-gray-900">{listingType === 'boat' ? 'a boat charter' : 'a property'}</span>
-              {sourceUsesAI(detectedSource) && (
-                <span className="ml-2 inline-flex items-center text-xs font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">AI-extracted</span>
-              )}
+        <div className="space-y-6 animate-fade-in">
+          {/* Breadcrumb/status bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ${SOURCE_META[detectedSource].ring} ${SOURCE_META[detectedSource].bg} ${SOURCE_META[detectedSource].accent}`}>
+                {sourceUsesAI(detectedSource) ? <Sparkles className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                From {sourceLabel(detectedSource)}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                {listingType === 'boat' ? <Anchor className="h-3 w-3" /> : <Home className="h-3 w-3" />}
+                {listingType === 'boat' ? 'Boat charter' : 'Property'}
+              </span>
+              <span className="hidden sm:inline text-xs text-gray-500">Review & edit before submitting</span>
             </div>
             {discovered && discovered.length > 1 ? (
               <button
                 type="button"
                 onClick={backToPicker}
-                className="text-sm text-teal-700 hover:text-teal-900"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary-700,#034078)] hover:text-[var(--color-primary-900,#002d5c)] rounded-full px-3 py-1.5 hover:bg-[var(--color-primary-50,#e8f4fb)]"
               >
-                ← Back to {discovered.length} listings
+                <ArrowLeft className="h-4 w-4" />
+                Back to {discovered.length} listings
               </button>
             ) : (
               <button
                 type="button"
                 onClick={resetAll}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 rounded-full px-3 py-1.5 hover:bg-gray-100"
               >
-                ← Try another URL
+                <RefreshCcw className="h-4 w-4" />
+                Try another URL
               </button>
             )}
-          </Card>
+          </div>
 
           {/* Image gallery — click to deselect; click again to re-select. */}
           {preview.allImages.length > 0 && (
-            <Card className="p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Photos</h2>
-                  <p className="text-xs text-gray-500">
-                    {preview.images.length} selected{unselectedCount > 0 ? ` · ${unselectedCount} hidden` : ''} · click a photo to toggle
-                  </p>
-                </div>
-                {unselectedCount > 0 && (
+            <SectionCard
+              icon={<Images className="h-4 w-4" />}
+              title="Photos"
+              subtitle={`${preview.images.length} selected${unselectedCount > 0 ? ` · ${unselectedCount} hidden` : ''} · click a photo to toggle`}
+              action={
+                unselectedCount > 0 ? (
                   <button
                     type="button"
                     onClick={() => updatePreview({ images: preview.allImages.slice() })}
-                    className="text-xs text-teal-700 hover:text-teal-900 font-medium"
+                    className="text-xs font-semibold text-[var(--color-primary-700,#034078)] hover:text-[var(--color-primary-900,#002d5c)]"
                   >
                     Restore all
                   </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                ) : null
+              }
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
                 {preview.allImages.map((img, i) => {
                   const selected = preview.images.includes(img);
                   const coverSelected = preview.images[0] === img;
@@ -903,19 +1056,26 @@ export default function ImportPage() {
                       key={img + i}
                       type="button"
                       onClick={() => toggleImage(img)}
-                      className={`relative aspect-video overflow-hidden rounded-lg border-2 transition ${
-                        selected ? 'border-teal-500' : 'border-transparent opacity-40 hover:opacity-70'
+                      className={`relative aspect-[4/3] overflow-hidden rounded-xl ring-2 transition-all ${
+                        selected
+                          ? 'ring-[var(--color-primary-500,#0a93db)] shadow-sm hover:shadow-md'
+                          : 'ring-transparent opacity-40 hover:opacity-80'
                       }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={img} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
                       {coverSelected && (
-                        <span className="absolute top-1.5 left-1.5 bg-white/95 px-1.5 py-0.5 rounded text-[10px] font-semibold text-gray-800 uppercase tracking-wide">
+                        <span className="absolute top-2 left-2 bg-white/95 px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-800 uppercase tracking-wider shadow-sm">
                           Cover
                         </span>
                       )}
+                      {selected && (
+                        <span className="absolute top-2 right-2 bg-[var(--color-primary-600,#0077b6)] text-white rounded-full h-6 w-6 flex items-center justify-center shadow-sm">
+                          <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                        </span>
+                      )}
                       {!selected && (
-                        <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-medium bg-black/30">
+                        <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-semibold bg-black/40">
                           Hidden
                         </span>
                       )}
@@ -923,40 +1083,51 @@ export default function ImportPage() {
                   );
                 })}
               </div>
-            </Card>
+            </SectionCard>
           )}
 
           {/* Core editable fields */}
-          <Card className="p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-gray-900">Listing details</h2>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
-              <Input
-                value={preview.name}
-                onChange={(e) => updatePreview({ name: e.target.value })}
-                className="text-base font-medium"
-              />
-            </div>
+          <SectionCard
+            icon={<FileText className="h-4 w-4" />}
+            title="Listing details"
+            subtitle="The story guests read before they book"
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Name</label>
+                <Input
+                  value={preview.name}
+                  onChange={(e) => updatePreview({ name: e.target.value })}
+                  className="text-base font-medium"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                value={preview.description}
-                onChange={(e) => updatePreview({ description: e.target.value })}
-                rows={8}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">{preview.description.length.toLocaleString()} characters</p>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Description</label>
+                <textarea
+                  value={preview.description}
+                  onChange={(e) => updatePreview({ description: e.target.value })}
+                  rows={8}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent leading-relaxed"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">{preview.description.length.toLocaleString()} characters</p>
+              </div>
             </div>
+          </SectionCard>
 
-            {listingType === 'property' ? (
-              <>
+          {listingType === 'property' ? (
+            <>
+              <SectionCard
+                icon={<Wallet className="h-4 w-4" />}
+                title="Pricing & stay rules"
+                subtitle="What guests pay and how long they can stay"
+              >
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <Field label="Type">
+                  <Field label="Property type">
                     <select
                       value={preview.propertyType}
                       onChange={(e) => updatePreview({ propertyType: e.target.value })}
-                      className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
                     >
                       {PROPERTY_TYPES.map((t) => (
                         <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
@@ -968,7 +1139,7 @@ export default function ImportPage() {
                       <select
                         value={preview.currency}
                         onChange={(e) => updatePreview({ currency: e.target.value })}
-                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm w-20"
+                        className="rounded-lg border border-gray-300 px-2 py-2 text-sm w-20 focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
                       >
                         {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
@@ -982,13 +1153,13 @@ export default function ImportPage() {
                   <Field label="Cleaning fee">
                     <NumberField value={preview.cleaningFee} onChange={(n) => updatePreview({ cleaningFee: n })} />
                   </Field>
-                  <Field label="Max guests">
+                  <Field label="Max guests" icon={<Users className="h-3.5 w-3.5" />}>
                     <NumberField value={preview.maxGuests} onChange={(n) => updatePreview({ maxGuests: n })} />
                   </Field>
-                  <Field label="Bedrooms">
+                  <Field label="Bedrooms" icon={<Bed className="h-3.5 w-3.5" />}>
                     <NumberField value={preview.bedrooms} onChange={(n) => updatePreview({ bedrooms: n })} />
                   </Field>
-                  <Field label="Bathrooms">
+                  <Field label="Bathrooms" icon={<Bath className="h-3.5 w-3.5" />}>
                     <NumberField value={preview.bathrooms} onChange={(n) => updatePreview({ bathrooms: n })} />
                   </Field>
                   <Field label="Beds">
@@ -1000,17 +1171,17 @@ export default function ImportPage() {
                   <Field label="Max nights">
                     <NumberField value={preview.maxNights} onChange={(n) => updatePreview({ maxNights: n })} />
                   </Field>
-                  <Field label="Check-in">
+                  <Field label="Check-in" icon={<Clock className="h-3.5 w-3.5" />}>
                     <Input value={preview.checkInTime || ''} onChange={(e) => updatePreview({ checkInTime: e.target.value || null })} placeholder="14:00" />
                   </Field>
-                  <Field label="Check-out">
+                  <Field label="Check-out" icon={<Clock className="h-3.5 w-3.5" />}>
                     <Input value={preview.checkOutTime || ''} onChange={(e) => updatePreview({ checkOutTime: e.target.value || null })} placeholder="11:00" />
                   </Field>
                   <Field label="Cancellation">
                     <select
                       value={preview.cancellationPolicy ?? ''}
                       onChange={(e) => updatePreview({ cancellationPolicy: e.target.value || null })}
-                      className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
                     >
                       <option value="">—</option>
                       {CANCELLATION_POLICIES.map((c) => (
@@ -1019,30 +1190,121 @@ export default function ImportPage() {
                     </select>
                   </Field>
                 </div>
+              </SectionCard>
 
-                <Field label="Address">
-                  <Input value={preview.address} onChange={(e) => updatePreview({ address: e.target.value })} placeholder="Street, area" />
-                </Field>
-                <div className="grid grid-cols-3 gap-3">
-                  <Field label="City">
-                    <Input value={preview.city} onChange={(e) => updatePreview({ city: e.target.value })} />
+              <SectionCard
+                icon={<MapPin className="h-4 w-4" />}
+                title="Location"
+                subtitle="Where guests will find you"
+              >
+                <div className="space-y-3">
+                  <Field label="Address">
+                    <Input value={preview.address} onChange={(e) => updatePreview({ address: e.target.value })} placeholder="Street, area" />
                   </Field>
-                  <Field label="Latitude">
-                    <NumberField value={preview.latitude} onChange={(n) => updatePreview({ latitude: n })} allowDecimals />
-                  </Field>
-                  <Field label="Longitude">
-                    <NumberField value={preview.longitude} onChange={(n) => updatePreview({ longitude: n })} allowDecimals />
-                  </Field>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Field label="City">
+                      <Input value={preview.city} onChange={(e) => updatePreview({ city: e.target.value })} />
+                    </Field>
+                    <Field label="Latitude">
+                      <NumberField value={preview.latitude} onChange={(n) => updatePreview({ latitude: n })} allowDecimals />
+                    </Field>
+                    <Field label="Longitude">
+                      <NumberField value={preview.longitude} onChange={(n) => updatePreview({ longitude: n })} allowDecimals />
+                    </Field>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <>
+              </SectionCard>
+
+              <SectionCard
+                icon={<ListChecks className="h-4 w-4" />}
+                title="Amenities"
+                subtitle="Tag what sets your place apart"
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {preview.amenities.length === 0 && (
+                    <p className="text-xs text-gray-500 italic">No amenities detected yet. Add some below.</p>
+                  )}
+                  {preview.amenities.map((a) => (
+                    <span key={a} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[var(--color-primary-50,#e8f4fb)] text-[var(--color-primary-800,#023e7d)] text-xs font-medium ring-1 ring-[var(--color-primary-200,#8bc8ea)]/60">
+                      {a}
+                      <button
+                        type="button"
+                        onClick={() => removeAmenity(a)}
+                        className="text-[var(--color-primary-600,#0077b6)] hover:text-[var(--color-primary-900,#002d5c)] leading-none ml-0.5"
+                        aria-label={`Remove ${a}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Input
+                    value={amenityDraft}
+                    onChange={(e) => setAmenityDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); addAmenity(); }
+                    }}
+                    placeholder="Add amenity (e.g. wifi, pool, air conditioning)"
+                  />
+                  <Button variant="outline" onClick={addAmenity}>
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon={<Shield className="h-4 w-4" />}
+                title="House rules"
+                subtitle="Keep things clear for guests"
+              >
+                {preview.houseRules.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic">No house rules detected. Add any you want to publish.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {preview.houseRules.map((r) => (
+                      <li key={r} className="flex items-center justify-between text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2 ring-1 ring-gray-200/50">
+                        <span>{r}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeRule(r)}
+                          className="text-gray-400 hover:text-red-600 leading-none ml-2 p-1 rounded hover:bg-red-50"
+                          aria-label={`Remove rule ${r}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex gap-2 mt-3">
+                  <Input
+                    value={ruleDraft}
+                    onChange={(e) => setRuleDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); addRule(); }
+                    }}
+                    placeholder="Add rule (e.g. No smoking, No parties)"
+                  />
+                  <Button variant="outline" onClick={addRule}>
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+              </SectionCard>
+            </>
+          ) : (
+            <>
+              <SectionCard
+                icon={<Ship className="h-4 w-4" />}
+                title="Vessel & captain"
+                subtitle="Your boat's vitals and who's at the helm"
+              >
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <Field label="Boat type">
                     <select
                       value={preview.boatType}
                       onChange={(e) => updatePreview({ boatType: e.target.value })}
-                      className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
                     >
                       {BOAT_TYPES.map((t) => (
                         <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
@@ -1052,7 +1314,7 @@ export default function ImportPage() {
                   <Field label="Length (ft)">
                     <NumberField value={preview.lengthFt} onChange={(n) => updatePreview({ lengthFt: n })} />
                   </Field>
-                  <Field label="Capacity">
+                  <Field label="Capacity" icon={<Users className="h-3.5 w-3.5" />}>
                     <NumberField value={preview.capacity} onChange={(n) => updatePreview({ capacity: n })} />
                   </Field>
                   <Field label="Crew size">
@@ -1061,14 +1323,14 @@ export default function ImportPage() {
                   <Field label="Captain name">
                     <Input value={preview.captainName || ''} onChange={(e) => updatePreview({ captainName: e.target.value || null })} />
                   </Field>
-                  <Field label="Captain years">
+                  <Field label="Years experience">
                     <NumberField value={preview.captainExperienceYears} onChange={(n) => updatePreview({ captainExperienceYears: n })} />
                   </Field>
                   <Field label="Currency">
                     <select
                       value={preview.currency}
                       onChange={(e) => updatePreview({ currency: e.target.value })}
-                      className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
                     >
                       {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -1077,7 +1339,7 @@ export default function ImportPage() {
                     <select
                       value={preview.cancellationPolicy ?? ''}
                       onChange={(e) => updatePreview({ cancellationPolicy: e.target.value || null })}
-                      className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
                     >
                       <option value="">—</option>
                       {CANCELLATION_POLICIES.map((c) => (
@@ -1087,217 +1349,178 @@ export default function ImportPage() {
                   </Field>
                 </div>
 
-                <Field label="Departure point">
-                  <Input value={preview.departurePoint || ''} onChange={(e) => updatePreview({ departurePoint: e.target.value || null })} />
-                </Field>
-                <Field label="Captain bio">
-                  <textarea
-                    value={preview.captainBio || ''}
-                    onChange={(e) => updatePreview({ captainBio: e.target.value || null })}
-                    rows={3}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </Field>
-              </>
-            )}
-          </Card>
-
-          {/* Amenities (properties only — boats use techniques/species) */}
-          {listingType === 'property' && (
-            <Card className="p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-900">Amenities</h2>
-              <div className="flex flex-wrap gap-1.5">
-                {preview.amenities.length === 0 && (
-                  <p className="text-xs text-gray-500 italic">No amenities detected yet. Add some below.</p>
-                )}
-                {preview.amenities.map((a) => (
-                  <span key={a} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 text-xs font-medium">
-                    {a}
-                    <button
-                      type="button"
-                      onClick={() => removeAmenity(a)}
-                      className="text-teal-600 hover:text-teal-900 leading-none"
-                      aria-label={`Remove ${a}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={amenityDraft}
-                  onChange={(e) => setAmenityDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); addAmenity(); }
-                  }}
-                  placeholder="Add amenity (e.g. wifi, pool, air conditioning)"
-                />
-                <Button variant="outline" onClick={addAmenity}>Add</Button>
-              </div>
-            </Card>
-          )}
-
-          {/* House rules (properties only) */}
-          {listingType === 'property' && (
-            <Card className="p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-gray-900">House rules</h2>
-              {preview.houseRules.length === 0 ? (
-                <p className="text-xs text-gray-500 italic">No house rules detected. Add any you want to publish.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {preview.houseRules.map((r) => (
-                    <li key={r} className="flex items-center justify-between text-sm text-gray-800 bg-gray-50 rounded-md px-3 py-1.5">
-                      <span>{r}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeRule(r)}
-                        className="text-gray-400 hover:text-red-600 text-lg leading-none"
-                        aria-label={`Remove rule ${r}`}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="flex gap-2">
-                <Input
-                  value={ruleDraft}
-                  onChange={(e) => setRuleDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); addRule(); }
-                  }}
-                  placeholder="Add rule (e.g. No smoking, No parties)"
-                />
-                <Button variant="outline" onClick={addRule}>Add</Button>
-              </div>
-            </Card>
-          )}
-
-          {/* Trips (boats only) */}
-          {listingType === 'boat' && (
-            <Card className="p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-900">Trip packages</h2>
-                <Button variant="outline" onClick={addTrip}>+ Add trip</Button>
-              </div>
-              {preview.trips.length === 0 && (
-                <p className="text-xs text-gray-500 italic">No trips detected. Click “Add trip” to create one.</p>
-              )}
-              {preview.trips.map((trip, i) => (
-                <div key={i} className="rounded-lg border border-gray-200 p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <Input
-                      value={trip.name}
-                      onChange={(e) => updateTrip(i, { name: e.target.value })}
-                      className="font-medium"
-                      placeholder="Trip name"
+                <div className="mt-3 space-y-3">
+                  <Field label="Departure point" icon={<MapPin className="h-3.5 w-3.5" />}>
+                    <Input value={preview.departurePoint || ''} onChange={(e) => updatePreview({ departurePoint: e.target.value || null })} />
+                  </Field>
+                  <Field label="Captain bio">
+                    <textarea
+                      value={preview.captainBio || ''}
+                      onChange={(e) => updatePreview({ captainBio: e.target.value || null })}
+                      rows={3}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent leading-relaxed"
                     />
-                    <button
-                      type="button"
-                      onClick={() => removeTrip(i)}
-                      className="text-gray-400 hover:text-red-600 text-lg leading-none shrink-0 mt-1.5"
-                      aria-label="Remove trip"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <Field label="Type" compact>
-                      <select
-                        value={trip.trip_type}
-                        onChange={(e) => updateTrip(i, { trip_type: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                      >
-                        {TRIP_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Hours" compact>
-                      <NumberField value={trip.duration_hours} onChange={(n) => updateTrip(i, { duration_hours: n })} allowDecimals />
-                    </Field>
-                    <Field label="Price total" compact>
-                      <NumberField value={trip.price_total} onChange={(n) => updateTrip(i, { price_total: n })} />
-                    </Field>
-                    <Field label="Per person" compact>
-                      <NumberField value={trip.price_per_person} onChange={(n) => updateTrip(i, { price_per_person: n })} />
-                    </Field>
-                  </div>
+                  </Field>
                 </div>
-              ))}
-            </Card>
-          )}
+              </SectionCard>
 
-          {/* Boat: target species + techniques */}
-          {listingType === 'boat' && (preview.targetSpecies.length > 0 || preview.fishingTechniques.length > 0) && (
-            <Card className="p-5 space-y-3">
-              {preview.targetSpecies.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-700 mb-1.5">Target species</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {preview.targetSpecies.map((s) => (
-                      <span key={s} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs">{s}</span>
-                    ))}
+              <SectionCard
+                icon={<Compass className="h-4 w-4" />}
+                title="Trip packages"
+                subtitle="What guests can book"
+                action={
+                  <Button variant="outline" onClick={addTrip}>
+                    <Plus className="h-4 w-4 mr-1" /> Add trip
+                  </Button>
+                }
+              >
+                {preview.trips.length === 0 && (
+                  <div className="rounded-lg border-2 border-dashed border-gray-200 p-6 text-center">
+                    <Compass className="h-6 w-6 text-gray-400 mx-auto mb-1.5" />
+                    <p className="text-sm text-gray-600 font-medium">No trips yet</p>
+                    <p className="text-xs text-gray-500">Click "Add trip" to create one.</p>
                   </div>
+                )}
+                <div className="space-y-2.5">
+                  {preview.trips.map((trip, i) => (
+                    <div key={i} className="rounded-xl border border-gray-200 bg-white p-3.5 space-y-2.5 hover:border-gray-300 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <Input
+                          value={trip.name}
+                          onChange={(e) => updateTrip(i, { name: e.target.value })}
+                          className="font-semibold"
+                          placeholder="Trip name"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeTrip(i)}
+                          className="text-gray-400 hover:text-red-600 shrink-0 p-1.5 rounded hover:bg-red-50 mt-1"
+                          aria-label="Remove trip"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <Field label="Type" compact>
+                          <select
+                            value={trip.trip_type}
+                            onChange={(e) => updateTrip(i, { trip_type: e.target.value })}
+                            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                          >
+                            {TRIP_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+                          </select>
+                        </Field>
+                        <Field label="Hours" compact>
+                          <NumberField value={trip.duration_hours} onChange={(n) => updateTrip(i, { duration_hours: n })} allowDecimals />
+                        </Field>
+                        <Field label="Price total" compact>
+                          <NumberField value={trip.price_total} onChange={(n) => updateTrip(i, { price_total: n })} />
+                        </Field>
+                        <Field label="Per person" compact>
+                          <NumberField value={trip.price_per_person} onChange={(n) => updateTrip(i, { price_per_person: n })} />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              </SectionCard>
+
+              {(preview.targetSpecies.length > 0 || preview.fishingTechniques.length > 0) && (
+                <SectionCard
+                  icon={<Fish className="h-4 w-4" />}
+                  title="Fishing"
+                  subtitle="What's biting and how"
+                >
+                  {preview.targetSpecies.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-gray-700 mb-2">Target species</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {preview.targetSpecies.map((s) => (
+                          <span key={s} className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-medium ring-1 ring-emerald-200/60">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {preview.fishingTechniques.length > 0 && (
+                    <div className="mt-3">
+                      <h3 className="text-xs font-semibold text-gray-700 mb-2">Techniques</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {preview.fishingTechniques.map((t) => (
+                          <span key={t} className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 text-xs font-medium ring-1 ring-sky-200/60">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </SectionCard>
               )}
-              {preview.fishingTechniques.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-700 mb-1.5">Techniques</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {preview.fishingTechniques.map((t) => (
-                      <span key={t} className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-xs">{t}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
+            </>
           )}
 
           {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
+            <div className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-sm text-red-800 animate-fade-in">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
           )}
 
-          <div className="flex gap-3 sticky bottom-4 bg-white/90 backdrop-blur rounded-lg p-3 shadow-sm border border-gray-200">
-            <Button variant="outline" onClick={resetAll} className="flex-1">Start over</Button>
-            <Button onClick={handleSave} className="flex-1">Submit for review</Button>
+          {/* Sticky save bar */}
+          <div className="sticky bottom-4 z-10 flex items-center gap-3 rounded-2xl p-3 shadow-lg border border-gray-200 bg-white/95 backdrop-blur-xl">
+            <div className="hidden sm:flex items-center gap-2 pl-2 text-xs text-gray-500">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              Ready to submit for review
+            </div>
+            <div className="flex-1" />
+            <Button variant="outline" onClick={resetAll} className="">
+              Start over
+            </Button>
+            <Button onClick={handleSave} className="shadow-md hover:shadow-lg">
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Submit for review
+            </Button>
           </div>
         </div>
       )}
 
       {/* Step 3: saving */}
       {step === 'saving' && (
-        <Card className="p-12 text-center">
-          <svg className="animate-spin h-10 w-10 text-teal-600 mx-auto mb-4" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-gray-700 font-medium">Creating your listing…</p>
-          <p className="text-sm text-gray-500 mt-1">Saving photos and details</p>
+        <Card className="p-14 text-center animate-fade-in">
+          <div className="relative mx-auto mb-5 h-16 w-16">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[var(--color-primary-400,#4ab1dd)] to-[var(--color-primary-700,#034078)] animate-pulse" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Sparkles className="h-7 w-7 text-white animate-ping opacity-60" />
+              <Sparkles className="absolute h-7 w-7 text-white" />
+            </div>
+          </div>
+          <p className="text-gray-900 font-semibold text-lg">Creating your listing…</p>
+          <p className="text-sm text-gray-500 mt-1.5">Saving photos, details and pricing</p>
         </Card>
       )}
 
       {/* Step 4: done */}
       {step === 'done' && (
-        <Card className="p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+        <Card className="p-10 text-center animate-scale-in">
+          <div className="relative mx-auto mb-5 h-20 w-20">
+            <div className="absolute inset-0 rounded-full bg-emerald-100 animate-ping opacity-50" />
+            <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg">
+              <Check className="h-10 w-10 text-white" strokeWidth={3} />
+            </div>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Import complete!</h2>
-          <p className="text-gray-600 mb-6">
-            Your listing has been submitted for review. You can keep editing in the meantime.
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Listing submitted!</h2>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            Your listing is queued for review. You can keep editing in the meantime — we'll ping you once it's approved.
           </p>
-          <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={resetAll}>Import another</Button>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <Button variant="outline" onClick={resetAll}>
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Import another
+            </Button>
             <Button
               onClick={() => {
                 if (!createdId) return;
                 router.push(listingType === 'property' ? `/dashboard/properties/${createdId}` : `/dashboard/boats/${createdId}`);
               }}
             >
-              Edit listing
+              Edit listing →
             </Button>
           </div>
         </Card>
@@ -1308,10 +1531,13 @@ export default function ImportPage() {
 
 // ------------ small presentational helpers ------------
 
-function Field({ label, children, compact = false }: { label: string; children: React.ReactNode; compact?: boolean }) {
+function Field({ label, children, compact = false, icon }: { label: string; children: React.ReactNode; compact?: boolean; icon?: React.ReactNode }) {
   return (
     <div>
-      <label className={`block ${compact ? 'text-[10px]' : 'text-xs'} font-medium text-gray-600 mb-1`}>{label}</label>
+      <label className={`flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'} font-semibold text-gray-600 mb-1`}>
+        {icon && <span className="text-gray-400">{icon}</span>}
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -1340,7 +1566,147 @@ function NumberField({
         onChange(Number.isFinite(n) ? n : null);
       }}
       placeholder={placeholder}
-      className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+      className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500,#0a93db)] focus:border-transparent"
     />
+  );
+}
+
+function SourceChip({ label, meta }: { label: string; meta: (typeof SOURCE_META)[DetectedSource] }) {
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1 ${meta.ring} ${meta.bg} ${meta.accent}`}>
+      {meta === SOURCE_META.generic ? <Sparkles className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+      {label}
+    </div>
+  );
+}
+
+function TypeHintCard({
+  icon,
+  title,
+  description,
+  selected,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative text-left rounded-xl border-2 px-3 py-3 transition-all ${
+        selected
+          ? 'border-[var(--color-primary-500,#0a93db)] bg-[var(--color-primary-50,#e8f4fb)] shadow-sm'
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${
+        selected
+          ? 'bg-[var(--color-primary-600,#0077b6)] text-white'
+          : 'bg-gray-100 text-gray-500'
+      }`}>
+        {icon}
+      </div>
+      <p className={`text-sm font-semibold ${selected ? 'text-[var(--color-primary-800,#023e7d)]' : 'text-gray-900'}`}>{title}</p>
+      <p className="text-[11px] text-gray-500 mt-0.5">{description}</p>
+      {selected && (
+        <span className="absolute top-2 right-2 h-4 w-4 rounded-full bg-[var(--color-primary-600,#0077b6)] text-white flex items-center justify-center">
+          <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Hint({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <div className="h-7 w-7 rounded-lg bg-[var(--color-primary-50,#e8f4fb)] text-[var(--color-primary-700,#034078)] flex items-center justify-center flex-shrink-0">
+        {icon}
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-gray-900">{title}</p>
+        <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">{body}</p>
+      </div>
+    </div>
+  );
+}
+
+function SectionCard({
+  icon,
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="p-5 sm:p-6 border-gray-200/80 shadow-sm">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[var(--color-primary-50,#e8f4fb)] to-[var(--color-primary-100,#bde0f6)] text-[var(--color-primary-700,#034078)] flex items-center justify-center flex-shrink-0">
+            {icon}
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+            {subtitle && <p className="text-[11px] text-gray-500">{subtitle}</p>}
+          </div>
+        </div>
+        {action}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
+function ProgressStrip({ source, stage }: { source: DetectedSource; stage: number }) {
+  const stages = source === 'generic'
+    ? ['Fetching', 'Scanning', 'AI parsing', 'Photos']
+    : ['Fetching', 'Parsing', 'Photos'];
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        {stages.map((label, i) => {
+          const active = i <= stage;
+          const current = i === stage;
+          return (
+            <div key={label} className="flex-1 flex items-center gap-2">
+              <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                active
+                  ? 'bg-gradient-to-r from-[var(--color-primary-500,#0a93db)] to-[var(--color-primary-700,#034078)]'
+                  : 'bg-gray-200'
+              } ${current ? 'animate-pulse' : ''}`} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider">
+        {stages.map((label, i) => (
+          <span
+            key={label}
+            className={`${i <= stage ? 'text-[var(--color-primary-700,#034078)]' : 'text-gray-400'}`}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
