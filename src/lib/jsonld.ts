@@ -1,0 +1,247 @@
+/**
+ * JSON-LD helpers for SEO + AI search visibility.
+ * These produce schema.org structured-data blocks that Google, Bing,
+ * Perplexity, ChatGPT Search and friends read to populate rich cards.
+ *
+ * Usage in a page:
+ *   <JsonLd data={propertySchema(property)} />
+ */
+
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://watamubookings.com';
+
+interface PropertyLike {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  property_type?: string | null;
+  address?: string | null;
+  city?: string | null;
+  county?: string | null;
+  country?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  base_price_per_night?: number | string | null;
+  currency?: string | null;
+  max_guests?: number | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  avg_rating?: number | string | null;
+  review_count?: number | null;
+  images?: Array<{ url: string; alt_text?: string | null; sort_order?: number | null }> | null;
+}
+
+interface BoatLike {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  boat_type?: string | null;
+  length_ft?: number | string | null;
+  capacity?: number | null;
+  captain_name?: string | null;
+  home_port?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  currency?: string | null;
+  avg_rating?: number | string | null;
+  review_count?: number | null;
+  images?: Array<{ url: string; alt_text?: string | null; sort_order?: number | null }> | null;
+  trips?: Array<{ price_total?: number | string | null }> | null;
+}
+
+export function propertySchema(p: PropertyLike) {
+  const url = `${SITE}/properties/${p.slug}`;
+  const imgs = (p.images ?? [])
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((i) => i.url)
+    .filter(Boolean);
+
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'LodgingBusiness',
+    '@id': url,
+    name: p.name,
+    url,
+    description: p.description || undefined,
+    image: imgs.length ? imgs : undefined,
+    priceRange: p.base_price_per_night
+      ? `${p.currency || 'KES'} ${Number(p.base_price_per_night).toLocaleString()}`
+      : undefined,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: p.address || undefined,
+      addressLocality: p.city || 'Watamu',
+      addressRegion: p.county || 'Kilifi',
+      addressCountry: p.country || 'Kenya',
+    },
+    geo: p.latitude && p.longitude
+      ? {
+          '@type': 'GeoCoordinates',
+          latitude: Number(p.latitude),
+          longitude: Number(p.longitude),
+        }
+      : undefined,
+    numberOfRooms: p.bedrooms || undefined,
+    occupancy: p.max_guests
+      ? { '@type': 'QuantitativeValue', maxValue: p.max_guests }
+      : undefined,
+  };
+
+  const rating = Number(p.avg_rating);
+  if (rating > 0 && (p.review_count ?? 0) > 0) {
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: rating.toFixed(1),
+      reviewCount: p.review_count,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+
+  return schema;
+}
+
+export function boatSchema(b: BoatLike) {
+  const url = `${SITE}/boats/${b.slug}`;
+  const imgs = (b.images ?? [])
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((i) => i.url)
+    .filter(Boolean);
+
+  const minPrice =
+    Array.isArray(b.trips) && b.trips.length > 0
+      ? Math.min(
+          ...b.trips
+            .map((t) => Number(t.price_total))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        )
+      : undefined;
+
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    serviceType: 'Fishing charter',
+    '@id': url,
+    name: b.name,
+    url,
+    description: b.description || undefined,
+    image: imgs.length ? imgs : undefined,
+    provider: {
+      '@type': 'LocalBusiness',
+      name: b.captain_name ? `Captain ${b.captain_name.replace(/^captain\s+/i, '')}` : 'Watamu charter',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: b.home_port || 'Watamu',
+        addressCountry: 'Kenya',
+      },
+    },
+    areaServed: {
+      '@type': 'Place',
+      name: 'Watamu, Kenya',
+      geo: b.latitude && b.longitude
+        ? {
+            '@type': 'GeoCoordinates',
+            latitude: Number(b.latitude),
+            longitude: Number(b.longitude),
+          }
+        : undefined,
+    },
+    offers: minPrice && Number.isFinite(minPrice)
+      ? {
+          '@type': 'Offer',
+          price: minPrice,
+          priceCurrency: b.currency || 'KES',
+          availability: 'https://schema.org/InStock',
+        }
+      : undefined,
+  };
+
+  const rating = Number(b.avg_rating);
+  if (rating > 0 && (b.review_count ?? 0) > 0) {
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: rating.toFixed(1),
+      reviewCount: b.review_count,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+
+  return schema;
+}
+
+export function organizationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Watamu Bookings',
+    url: SITE,
+    logo: `${SITE}/icon-512.png`,
+    description:
+      'Local marketplace for beachfront accommodation and fishing charters in Watamu, Kenya.',
+    sameAs: [
+      // add when live
+    ],
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Watamu',
+      addressRegion: 'Kilifi',
+      addressCountry: 'Kenya',
+    },
+  };
+}
+
+export function websiteSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Watamu Bookings',
+    url: SITE,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${SITE}/properties?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
+}
+
+export function touristDestinationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'TouristDestination',
+    name: 'Watamu',
+    url: `${SITE}/`,
+    description:
+      'Watamu is a coastal village in Kilifi County on the Kenyan Indian Ocean coast, famous for the Watamu Marine National Park, deep-sea fishing, white-sand beaches and sea turtles.',
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: -3.354,
+      longitude: 40.019,
+    },
+    containsPlace: [
+      { '@type': 'TouristAttraction', name: 'Watamu Marine National Park' },
+      { '@type': 'TouristAttraction', name: 'Mida Creek' },
+      { '@type': 'TouristAttraction', name: 'Gede Ruins' },
+      { '@type': 'Beach', name: 'Watamu Beach' },
+      { '@type': 'Beach', name: 'Turtle Bay' },
+    ],
+  };
+}
+
+export function breadcrumbSchema(
+  items: Array<{ name: string; url: string }>
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      item: item.url.startsWith('http') ? item.url : `${SITE}${item.url}`,
+    })),
+  };
+}

@@ -6,6 +6,8 @@ import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
 import WeatherWidget from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/Button";
+import JsonLd from "@/components/JsonLd";
+import { organizationSchema, websiteSchema, touristDestinationSchema } from "@/lib/jsonld";
 import { STOCK_IMAGES, getPropertyImage, getBoatImage } from "@/lib/images";
 import type { Property, Boat } from "@/lib/types";
 
@@ -128,6 +130,10 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* SEO: Organization, WebSite + SearchAction, TouristDestination */}
+      <JsonLd id="ld-org" data={organizationSchema()} />
+      <JsonLd id="ld-website" data={websiteSchema()} />
+      <JsonLd id="ld-destination" data={touristDestinationSchema()} />
       {/* ===== HERO SECTION ===== */}
       <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center overflow-hidden">
         {/* Hero background image */}

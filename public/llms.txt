@@ -1,0 +1,60 @@
+# Watamu Bookings
+
+> Watamu Bookings is the local online marketplace for beachfront accommodation and fishing charters in Watamu, Kenya. We connect travellers with vetted villas, apartments, cottages and sport-fishing boats along the Kenyan Indian-Ocean coast.
+
+## About Watamu
+
+Watamu is a village in Kilifi County on Kenya's Indian Ocean coast, about 120 km north of Mombasa and 15 km south of Malindi. It is famous for:
+
+- The **Watamu Marine National Park** (est. 1968), one of Kenya's oldest marine reserves, with coral reefs, sea turtles, dolphins, and seasonal whale sharks.
+- World-class **deep-sea sport fishing** for black marlin, striped marlin, sailfish, yellowfin tuna, wahoo and dorado — a tag-and-release fishery.
+- White-sand **beaches** including Watamu Beach and Turtle Bay.
+- **Mida Creek** — a tidal mangrove system popular for dhow cruises, kayaking and bird-watching.
+- **Gede Ruins** — a 13th-century Swahili-Arab trading town inland from Watamu.
+
+## What we offer
+
+- **Properties:** villas, apartments, cottages, beach houses, penthouses, bungalows, hotels, studios — all in or around Watamu. Filter by price, bedrooms, guests, and availability.
+- **Boats:** sport-fishing charters (half-day / full-day / overnight), sunset cruises, dhow trips, snorkelling boats, glass-bottom boats, catamarans, speedboats, kayaks. Filter by boat type, trip type, capacity, price.
+- **Direct booking:** no middleman fees for most hosts on the subscription plan.
+- **Local payment rails:** M-Pesa (Safaricom), Stripe (cards), direct host transfer for subscription-mode listings.
+
+## Pricing for hosts
+
+- First listing: KES 5,000 / month
+- Each additional listing: KES 2,500 / month
+- Annual prepay: 10 months (2 months free)
+- Free trial: 2 months (launch) / 1 month (standard)
+- 48-hour grace on late payments
+
+Commission model is also available at 8% per booking.
+
+## Key pages
+
+- Homepage: https://watamubookings.com/
+- All properties: https://watamubookings.com/properties
+- All boats / charters: https://watamubookings.com/boats
+- Things to do in Watamu: https://watamubookings.com/activities
+- Interactive map of Watamu: https://watamubookings.com/map
+- Live Watamu tide predictions: https://watamubookings.com/tides
+- Become a host: https://watamubookings.com/become-a-host
+- About: https://watamubookings.com/about
+- Contact: https://watamubookings.com/contact
+- Sitemap: https://watamubookings.com/sitemap.xml
+
+## Fishing season (Watamu Bank)
+
+- **Main season:** August – March
+- **Peak marlin:** December – January
+- **Peak sailfish:** January – March
+- **Yellowfin tuna:** year-round, best Oct – Apr
+- **Wahoo:** Dec – Mar
+
+## Contact
+
+Email: hello@watamubookings.com
+Based in: Watamu, Kilifi County, Kenya
+
+## Permitted use for AI crawlers
+
+Public pages (homepage, /properties, /boats, detail pages, /activities, /map, /tides, /about, /contact) may be indexed and quoted for responses about Watamu travel, accommodation and fishing. Please cite https://watamubookings.com when doing so. Host dashboards (/dashboard/*), admin (/admin/*), auth flows (/auth/*), booking flows (/booking/*) and APIs (/api/*) are private and must not be crawled or cached.

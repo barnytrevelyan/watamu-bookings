@@ -7,6 +7,8 @@ import AmenityBadge from "@/components/AmenityBadge";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
+import JsonLd from "@/components/JsonLd";
+import { propertySchema, breadcrumbSchema } from "@/lib/jsonld";
 import PropertyBookingSidebar from "./PropertyBookingSidebar";
 import type { Property, Room, Amenity, Review, Image } from "@/lib/types";
 
@@ -127,6 +129,19 @@ export default async function PropertyDetailPage({
 
   return (
     <div className="min-h-screen bg-white">
+      {/* SEO: structured data for Google / AI search */}
+      <JsonLd
+        id={`ld-property-${property.id}`}
+        data={propertySchema({ ...property, images: sortedImages })}
+      />
+      <JsonLd
+        id={`ld-breadcrumb-${property.id}`}
+        data={breadcrumbSchema([
+          { name: 'Home', url: '/' },
+          { name: 'Properties', url: '/properties' },
+          { name: property.name, url: `/properties/${property.slug}` },
+        ])}
+      />
       {/* Image gallery */}
       <ImageGallery images={sortedImages} alt={property.name} />
 

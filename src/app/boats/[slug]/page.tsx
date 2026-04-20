@@ -5,6 +5,8 @@ import ImageGallery from "@/components/ImageGallery";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
+import JsonLd from "@/components/JsonLd";
+import { boatSchema, breadcrumbSchema } from "@/lib/jsonld";
 import BoatBookingSidebar from "./BoatBookingSidebar";
 import type { Boat, BoatTrip, Review, Image, TripType } from "@/lib/types";
 import { TRIP_TYPE_LABELS, MONTH_LABELS } from "@/lib/types";
@@ -160,6 +162,19 @@ export default async function BoatDetailPage({
 
   return (
     <div className="min-h-screen bg-white">
+      {/* SEO: structured data for Google / AI search */}
+      <JsonLd
+        id={`ld-boat-${boat.id}`}
+        data={boatSchema({ ...boat, images: sortedImages, trips: boat.trips })}
+      />
+      <JsonLd
+        id={`ld-breadcrumb-${boat.id}`}
+        data={breadcrumbSchema([
+          { name: 'Home', url: '/' },
+          { name: 'Boats', url: '/boats' },
+          { name: boat.name, url: `/boats/${boat.slug}` },
+        ])}
+      />
       {/* Image gallery */}
       <ImageGallery images={sortedImages} alt={boat.name} />
 

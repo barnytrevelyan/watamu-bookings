@@ -58,7 +58,29 @@ export const metadata: Metadata = {
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
+  manifest: "/site.webmanifest",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://watamubookings.com"),
+};
+
+export const viewport = {
+  themeColor: "#0f766e",
+  colorScheme: "light" as const,
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

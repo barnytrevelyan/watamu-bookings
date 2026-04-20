@@ -1,6 +1,28 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { STOCK_IMAGES } from '@/lib/images';
+
+export const metadata: Metadata = {
+  title: 'Things to do in Watamu — fishing, marine park, beaches',
+  description:
+    "Deep-sea fishing, snorkelling in Watamu Marine National Park, kite surfing, turtle conservation, Mida Creek boardwalk, Gede ruins and more — a local guide to the best activities in Watamu, Kenya.",
+  keywords: [
+    'Watamu activities',
+    'Watamu Marine National Park',
+    'Mida Creek',
+    'Gede ruins',
+    'kite surfing Kenya',
+    'snorkelling Watamu',
+    'turtle conservation Watamu',
+  ],
+  openGraph: {
+    title: 'Things to do in Watamu',
+    description:
+      'Deep-sea fishing, snorkelling, kite surfing, marine park visits and cultural tours on the Kenyan coast.',
+    type: 'website',
+  },
+};
 
 const ACTIVITIES = [
   {
