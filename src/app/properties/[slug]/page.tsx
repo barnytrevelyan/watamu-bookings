@@ -226,9 +226,9 @@ export default async function PropertyDetailPage({
                           <span>Sleeps {room.max_guests}</span>
                         )}
                       </div>
-                      {room.price_per_night && (
+                      {room.price_per_night != null && (
                         <p className="mt-2 text-teal-700 font-semibold">
-                          KES {room.price_per_night.toLocaleString()}{" "}
+                          KES {Number(room.price_per_night).toLocaleString()}{" "}
                           <span className="text-gray-400 font-normal text-sm">/ night</span>
                         </p>
                       )}
@@ -260,7 +260,7 @@ export default async function PropertyDetailPage({
                     </svg>
                     <p className="text-sm font-medium">{[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}</p>
                     <p className="text-xs text-gray-400 mt-1">
-                      {property.latitude?.toFixed(4)}, {property.longitude?.toFixed(4)}
+                      {property.latitude != null ? Number(property.latitude).toFixed(4) : '—'}, {property.longitude != null ? Number(property.longitude).toFixed(4) : '—'}
                     </p>
                   </div>
                 </div>
@@ -331,6 +331,8 @@ export default async function PropertyDetailPage({
                 availability={availability}
                 cleaningFee={(property as { cleaning_fee?: number | null }).cleaning_fee ?? 0}
                 serviceFeePercent={(property as { billing_mode?: string }).billing_mode === 'subscription' ? 0 : ((property as { service_fee_percent?: number | null }).service_fee_percent ?? 8)}
+                billingMode={((property as { billing_mode?: 'commission' | 'subscription' }).billing_mode) ?? 'commission'}
+                depositPercent={(property as { deposit_percent?: number | null }).deposit_percent ?? 25}
               />
 
               {/* Owner info */}

@@ -108,7 +108,7 @@ export default function BoatCard({
           <div className="flex items-center gap-1.5 mt-2">
             <Star className="h-4 w-4 fill-[var(--color-secondary-500)] text-[var(--color-secondary-500)]" />
             <span className="text-sm font-medium text-gray-900">
-              {rating.toFixed(1)}
+              {Number(rating || 0).toFixed(1)}
             </span>
             <span className="text-sm text-gray-500">
               ({reviewCount} review{reviewCount !== 1 ? 's' : ''})

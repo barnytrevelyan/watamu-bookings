@@ -162,9 +162,9 @@ export default async function PropertiesPage({
                 location={property.city || 'Watamu'}
                 type={property.property_type?.replace('_', ' ') || 'House'}
                 coverImage={property.images?.[0]?.url || getPropertyImage(index)}
-                rating={property.average_rating || 0}
+                rating={Number(property.avg_rating) || 0}
                 reviewCount={property.review_count || 0}
-                pricePerNight={property.base_price_per_night || 0}
+                pricePerNight={Number(property.base_price_per_night) || 0}
                 currency={property.currency || 'KES'}
                 bedrooms={property.bedrooms || 0}
                 bathrooms={property.bathrooms || 0}

@@ -143,6 +143,89 @@ function getWaveCondition(h: number): { label: string; color: string } {
   return { label: 'Very Rough', color: 'text-red-600' };
 }
 
+// ─── Weather data (Open-Meteo) ─────────────────────────────────────
+
+interface WeatherData {
+  current: {
+    temperature_2m: number;
+    apparent_temperature: number;
+    relative_humidity_2m: number;
+    precipitation: number;
+    weather_code: number;
+    cloud_cover: number;
+    wind_speed_10m: number;
+    wind_direction_10m: number;
+    wind_gusts_10m: number;
+    uv_index?: number;
+    is_day: number;
+  };
+  daily: {
+    time: string[];
+    weather_code: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+    precipitation_sum: number[];
+    precipitation_probability_max: number[];
+    wind_speed_10m_max: number[];
+    wind_direction_10m_dominant: number[];
+    uv_index_max: number[];
+  };
+}
+
+// WMO weather interpretation codes — https://open-meteo.com/en/docs
+function describeWeatherCode(code: number, isDay: boolean = true): { label: string; icon: string } {
+  // Emoji chosen to stay legible on both light and dark backgrounds.
+  switch (code) {
+    case 0:  return { label: 'Clear sky',          icon: isDay ? '\u2600\uFE0F' : '\uD83C\uDF19' };
+    case 1:  return { label: 'Mainly clear',       icon: isDay ? '\uD83C\uDF24\uFE0F' : '\uD83C\uDF19' };
+    case 2:  return { label: 'Partly cloudy',      icon: isDay ? '\u26C5' : '\u2601\uFE0F' };
+    case 3:  return { label: 'Overcast',           icon: '\u2601\uFE0F' };
+    case 45:
+    case 48: return { label: 'Fog',                icon: '\uD83C\uDF2B\uFE0F' };
+    case 51:
+    case 53:
+    case 55: return { label: 'Drizzle',            icon: '\uD83C\uDF26\uFE0F' };
+    case 56:
+    case 57: return { label: 'Freezing drizzle',   icon: '\uD83C\uDF27\uFE0F' };
+    case 61: return { label: 'Light rain',         icon: '\uD83C\uDF26\uFE0F' };
+    case 63: return { label: 'Rain',               icon: '\uD83C\uDF27\uFE0F' };
+    case 65: return { label: 'Heavy rain',         icon: '\uD83C\uDF27\uFE0F' };
+    case 66:
+    case 67: return { label: 'Freezing rain',      icon: '\uD83C\uDF27\uFE0F' };
+    case 71:
+    case 73:
+    case 75: return { label: 'Snow',               icon: '\u2744\uFE0F' };
+    case 77: return { label: 'Snow grains',        icon: '\u2744\uFE0F' };
+    case 80: return { label: 'Light showers',      icon: '\uD83C\uDF26\uFE0F' };
+    case 81: return { label: 'Showers',            icon: '\uD83C\uDF27\uFE0F' };
+    case 82: return { label: 'Heavy showers',      icon: '\u26C8\uFE0F' };
+    case 85:
+    case 86: return { label: 'Snow showers',       icon: '\uD83C\uDF28\uFE0F' };
+    case 95: return { label: 'Thunderstorm',       icon: '\u26C8\uFE0F' };
+    case 96:
+    case 99: return { label: 'Severe thunderstorm',icon: '\u26C8\uFE0F' };
+    default: return { label: 'Unknown',            icon: isDay ? '\u26C5' : '\u2601\uFE0F' };
+  }
+}
+
+function getUvLabel(uv: number): { label: string; color: string } {
+  if (uv < 3)  return { label: 'Low',       color: 'text-emerald-600' };
+  if (uv < 6)  return { label: 'Moderate',  color: 'text-yellow-600' };
+  if (uv < 8)  return { label: 'High',      color: 'text-orange-600' };
+  if (uv < 11) return { label: 'Very High', color: 'text-red-600' };
+  return { label: 'Extreme', color: 'text-fuchsia-700' };
+}
+
+function getWindDescription(kmh: number): string {
+  if (kmh < 6)  return 'Calm';
+  if (kmh < 12) return 'Light breeze';
+  if (kmh < 20) return 'Gentle breeze';
+  if (kmh < 29) return 'Moderate breeze';
+  if (kmh < 39) return 'Fresh breeze';
+  if (kmh < 50) return 'Strong breeze';
+  return 'Gale';
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function fmtTime(d: Date): string {
@@ -353,6 +436,8 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
 export default function TidesPage() {
   const [marine, setMarine] = useState<MarineData | null>(null);
   const [marineLoading, setMarineLoading] = useState(true);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
 
   const now = useMemo(() => new Date(), []);
   const moonPhase = getMoonPhase(now);
@@ -405,6 +490,14 @@ export default function TidesPage() {
       .catch(() => setMarineLoading(false));
   }, []);
 
+  // Fetch weather data
+  useEffect(() => {
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=-3.354&longitude=40.024&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max&timezone=Africa/Nairobi&forecast_days=7')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => { setWeather(d); setWeatherLoading(false); })
+      .catch(() => setWeatherLoading(false));
+  }, []);
+
   // Sunrise / sunset for Watamu (roughly constant near equator)
   const sunrise = '06:18';
   const sunset = '18:19';
@@ -415,16 +508,104 @@ export default function TidesPage() {
       <section className="relative bg-gradient-to-br from-teal-700 via-cyan-700 to-blue-800 py-16 sm:py-20 px-4">
         <div className="relative max-w-4xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Tide Times for Watamu
+            Tides &amp; Weather for Watamu
           </h1>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
-            {FORECAST_DAYS}-day tide forecast, wave conditions, and marine information for
-            Watamu, Kenya coast.
+            Live weather, {FORECAST_DAYS}-day tide forecast, 7-day outlook, and sea conditions
+            for the Watamu coast.
           </p>
         </div>
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-10 space-y-10">
+
+        {/* ── Current Weather ── */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Current Weather</h2>
+            <span className="text-xs text-gray-400">Watamu &middot; updated live</span>
+          </div>
+
+          {weatherLoading ? (
+            <div className="p-6 animate-pulse grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg" />
+              ))}
+            </div>
+          ) : weather ? (() => {
+            const w = weather.current;
+            const cond = describeWeatherCode(w.weather_code, w.is_day === 1);
+            const uvInfo = getUvLabel(w.uv_index ?? 0);
+            const windKmh = w.wind_speed_10m;
+            return (
+              <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+                {/* Hero condition */}
+                <div className="md:col-span-5 flex items-center gap-5">
+                  <div className="text-7xl leading-none" aria-hidden>{cond.icon}</div>
+                  <div>
+                    <p className="text-5xl font-bold text-gray-900">
+                      {Math.round(w.temperature_2m)}<span className="text-2xl align-top ml-0.5 text-gray-500">&deg;C</span>
+                    </p>
+                    <p className="text-base font-medium text-gray-700 mt-1">{cond.label}</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Feels like {Math.round(w.apparent_temperature)}&deg;C
+                    </p>
+                  </div>
+                </div>
+
+                {/* Details grid */}
+                <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Wind</p>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {Math.round(windKmh)} <span className="text-sm font-normal text-gray-500">km/h</span>
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {getDirectionLabel(w.wind_direction_10m)} &middot; {getWindDescription(windKmh)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Gusts</p>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">
+                      {Math.round(w.wind_gusts_10m)} <span className="text-sm font-normal text-gray-500">km/h</span>
+                    </p>
+                    <p className="text-xs text-gray-500">Peak gust</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Humidity</p>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">{Math.round(w.relative_humidity_2m)}%</p>
+                    <p className="text-xs text-gray-500">Relative</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Cloud cover</p>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">{Math.round(w.cloud_cover)}%</p>
+                    <p className="text-xs text-gray-500">
+                      {w.cloud_cover < 25 ? 'Mostly clear' : w.cloud_cover < 60 ? 'Partly cloudy' : 'Overcast'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Rain (now)</p>
+                    <p className="text-lg font-semibold text-gray-900 mt-1">{w.precipitation.toFixed(1)} <span className="text-sm font-normal text-gray-500">mm</span></p>
+                    <p className="text-xs text-gray-500">Past hour</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">UV index</p>
+                    <p className={`text-lg font-semibold mt-1 ${uvInfo.color}`}>
+                      {(w.uv_index ?? 0).toFixed(1)} <span className="text-xs font-medium">{uvInfo.label}</span>
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {(w.uv_index ?? 0) >= 6 ? 'Wear sunscreen' : 'Low risk'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="p-6 text-sm text-gray-500">
+              Weather data is temporarily unavailable. Please refresh the page in a moment.
+            </div>
+          )}
+        </section>
 
         {/* ── Current Snapshot Row ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -477,6 +658,69 @@ export default function TidesPage() {
             )}
           </div>
         </div>
+
+        {/* ── 7-Day Weather Forecast ── */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">7-Day Forecast</h2>
+            <span className="text-xs text-gray-400">High/low, rain &amp; wind</span>
+          </div>
+
+          {weatherLoading ? (
+            <div className="p-6 grid grid-cols-2 md:grid-cols-7 gap-3 animate-pulse">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="h-32 bg-gray-100 rounded-lg" />
+              ))}
+            </div>
+          ) : weather ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 divide-x divide-y sm:divide-y-0 divide-gray-100">
+              {weather.daily.time.map((iso, i) => {
+                const d = new Date(iso + 'T00:00:00');
+                const dayMoon = getMoonPhase(d);
+                const cond = describeWeatherCode(weather.daily.weather_code[i], true);
+                const tmax = Math.round(weather.daily.temperature_2m_max[i]);
+                const tmin = Math.round(weather.daily.temperature_2m_min[i]);
+                const pop = Math.round(weather.daily.precipitation_probability_max[i] ?? 0);
+                const rain = weather.daily.precipitation_sum[i] ?? 0;
+                const wind = Math.round(weather.daily.wind_speed_10m_max[i]);
+                const windDir = weather.daily.wind_direction_10m_dominant[i];
+                const label = i === 0
+                  ? 'Today'
+                  : i === 1
+                  ? 'Tomorrow'
+                  : d.toLocaleDateString('en-US', { weekday: 'short' });
+                return (
+                  <div key={iso} className="p-4 flex flex-col items-center text-center">
+                    <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                    </p>
+                    <div className="text-3xl my-2" aria-hidden>{cond.icon}</div>
+                    <p className="text-[11px] text-gray-500 leading-tight h-8 flex items-center">{cond.label}</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-1">
+                      {tmax}&deg; <span className="text-gray-400 font-normal">/ {tmin}&deg;</span>
+                    </p>
+                    <div className="flex items-center gap-1 text-xs text-blue-600 mt-1.5">
+                      <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3c-3 4-5 7-5 10a5 5 0 0 0 10 0c0-3-2-6-5-10z" /></svg>
+                      {pop}%
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{rain.toFixed(1)} mm</p>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1.5">
+                      <span>{'\u2248'} {wind} km/h</span>
+                      <span>&middot;</span>
+                      <span>{getDirectionLabel(windDir)}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-2" aria-label="moon phase">
+                      {getMoonEmoji(dayMoon)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-6 text-sm text-gray-500">7-day forecast is temporarily unavailable.</div>
+          )}
+        </section>
 
         {/* ── Tide Chart ── */}
         <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm border border-gray-100">

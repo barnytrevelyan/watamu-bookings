@@ -46,7 +46,7 @@ export default function BecomeAHostPage() {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="/auth/signup?role=host"
+                  href="/auth/register?role=owner"
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-700"
                 >
                   Start hosting — it&rsquo;s free
@@ -407,7 +407,7 @@ export default function BecomeAHostPage() {
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
-            href="/auth/signup?role=host"
+            href="/auth/register?role=owner"
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-teal-700"
           >
             Create your host account

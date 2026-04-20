@@ -25,6 +25,10 @@ interface Props {
   availability: AvailabilityDay[];
   cleaningFee?: number | null;
   serviceFeePercent?: number | null;
+  /** "subscription" → enquiry flow (no payment), "commission" (default) → payment flow. */
+  billingMode?: 'commission' | 'subscription';
+  /** Percentage of total the host expects as deposit in the enquiry flow. */
+  depositPercent?: number | null;
 }
 
 export default function PropertyBookingSidebar({
@@ -35,8 +39,16 @@ export default function PropertyBookingSidebar({
   rooms,
   availability,
   cleaningFee = 0,
-  serviceFeePercent = 10,
+  serviceFeePercent = 8,
+  billingMode = 'commission',
+  depositPercent = 25,
 }: Props) {
+  // Coerce numeric values that Supabase returns as strings from numeric columns.
+  const nightlyRateNumber = Number(pricePerNight) || 0;
+  const cleaningFeeNumber = cleaningFee == null ? 0 : Number(cleaningFee) || 0;
+  const serviceFeePercentNumber = serviceFeePercent == null ? 8 : Number(serviceFeePercent) || 0;
+  const depositPercentNumber = depositPercent == null ? 25 : Number(depositPercent) || 25;
+  const isEnquiryMode = billingMode === 'subscription';
   const router = useRouter();
 
   const [checkIn, setCheckIn] = useState<string>("");
@@ -44,6 +56,8 @@ export default function PropertyBookingSidebar({
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+  const [guestMessage, setGuestMessage] = useState<string>("");
+  const [guestPhone, setGuestPhone] = useState<string>("");
 
   const guests = adults + children;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,7 +85,7 @@ export default function PropertyBookingSidebar({
   }, [checkIn, checkOut]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
-  const nightlyRate = selectedRoom?.price_per_night ?? pricePerNight;
+  const nightlyRate = Number(selectedRoom?.price_per_night ?? nightlyRateNumber) || nightlyRateNumber;
 
   // Calculate total respecting per-night overrides
   const { accommodationTotal, totalPrice } = useMemo(() => {
@@ -83,16 +97,16 @@ export default function PropertyBookingSidebar({
       const d = new Date(start);
       d.setDate(d.getDate() + i);
       const dateStr = d.toISOString().split("T")[0];
-      total += priceOverrides.get(dateStr) ?? nightlyRate;
+      const override = priceOverrides.get(dateStr);
+      total += Number(override ?? nightlyRate) || nightlyRate;
     }
 
-    const cleaning = cleaningFee ?? 0;
-    const serviceFee = Math.round(total * ((serviceFeePercent ?? 10) / 100));
+    const serviceFee = Math.round(total * (serviceFeePercentNumber / 100));
     return {
       accommodationTotal: total,
-      totalPrice: total + cleaning + serviceFee,
+      totalPrice: total + cleaningFeeNumber + serviceFee,
     };
-  }, [nights, checkIn, nightlyRate, priceOverrides, cleaningFee, serviceFeePercent]);
+  }, [nights, checkIn, nightlyRate, priceOverrides, cleaningFeeNumber, serviceFeePercentNumber]);
 
   const handleDateSelect = useCallback(
     (dates: { checkIn: string; checkOut: string }) => {
@@ -116,40 +130,51 @@ export default function PropertyBookingSidebar({
     try {
       const supabase = createBrowserClient();
 
-      // Check auth
+      // Auth gate — booking requires a signed-in user either way so we have
+      // contact details and can attribute the booking record.
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        toast.error("Please sign in to book.");
+        toast.error("Please sign in to continue.");
         router.push(`/auth/login?redirect=/properties/${propertySlug}`);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("wb_bookings")
-        .insert({
-          property_id: propertyId,
-          room_id: selectedRoomId || null,
-          guest_id: user.id,
-          check_in: checkIn,
-          check_out: checkOut,
+      // POST to /api/bookings — the route decides between the enquiry flow
+      // (subscription listings) and the payment flow (commission listings)
+      // based on the listing's billing_mode. We don't want to reimplement that
+      // branching here.
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingType: "property",
+          propertyId,
+          checkIn,
+          checkOut,
           guests,
-          nights,
-          nightly_rate: nightlyRate,
-          cleaning_fee: cleaningFee ?? 0,
-          service_fee: Math.round(accommodationTotal * ((serviceFeePercent ?? 8) / 100)),
-          total_price: totalPrice,
-          status: "pending",
-          currency: "KES",
-        })
-        .select("id")
-        .single();
+          guestMessage: guestMessage.trim() || undefined,
+          guestPhone: guestPhone.trim() || undefined,
+        }),
+      });
 
-      if (error) throw error;
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "Couldn't create the booking — please try again.");
+        return;
+      }
 
-      toast.success("Booking created! Redirecting to payment...");
-      router.push(`/booking/${data.id}`);
+      if (json.availabilityWarning) {
+        toast(json.availabilityWarning, { icon: "⚠️", duration: 6000 });
+      } else {
+        toast.success(
+          isEnquiryMode
+            ? "Enquiry sent — your host will be in touch."
+            : "Booking created! Redirecting to payment…"
+        );
+      }
+      router.push(`/booking/${json.booking.id}`);
     } catch (err: unknown) {
       console.error("Booking error:", err);
       toast.error("Something went wrong. Please try again.");
@@ -263,19 +288,19 @@ export default function PropertyBookingSidebar({
             </span>
             <span>KES {accommodationTotal.toLocaleString()}</span>
           </div>
-          {(cleaningFee ?? 0) > 0 && (
+          {cleaningFeeNumber > 0 && (
             <div className="flex justify-between text-gray-700">
               <span>Cleaning fee</span>
-              <span>KES {(cleaningFee ?? 0).toLocaleString()}</span>
+              <span>KES {cleaningFeeNumber.toLocaleString()}</span>
             </div>
           )}
-          {(serviceFeePercent ?? 10) > 0 && (
+          {serviceFeePercentNumber > 0 && (
             <div className="flex justify-between text-gray-700">
               <span>Service fee</span>
               <span>
                 KES{" "}
                 {Math.round(
-                  accommodationTotal * ((serviceFeePercent ?? 10) / 100)
+                  accommodationTotal * (serviceFeePercentNumber / 100)
                 ).toLocaleString()}
               </span>
             </div>
@@ -284,20 +309,70 @@ export default function PropertyBookingSidebar({
             <span>Total</span>
             <span>KES {totalPrice.toLocaleString()}</span>
           </div>
+          {isEnquiryMode && (
+            <div className="flex justify-between text-teal-800 bg-teal-50 -mx-1 px-2 py-1 rounded">
+              <span>Deposit to host ({depositPercentNumber}%)</span>
+              <span className="font-semibold">
+                KES {Math.round(totalPrice * (depositPercentNumber / 100)).toLocaleString()}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Book button */}
+      {/* Enquiry-only fields: phone + message to host */}
+      {isEnquiryMode && (
+        <div className="space-y-3 mb-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Phone (optional, so your host can WhatsApp you)
+            </label>
+            <Input
+              type="tel"
+              value={guestPhone}
+              onChange={(e) => setGuestPhone(e.target.value)}
+              placeholder="+254 7XX XXX XXX"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Message to host (optional)
+            </label>
+            <textarea
+              value={guestMessage}
+              onChange={(e) => setGuestMessage(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="e.g. We're arriving late on the first night — is that OK?"
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Book / Enquire button */}
       <Button
         className="w-full bg-teal-600 hover:bg-teal-700 text-white"
         size="lg"
         onClick={handleBook}
         disabled={isSubmitting || nights < 1}
       >
-        {isSubmitting ? "Booking..." : nights > 0 ? `Book Now — KES ${totalPrice.toLocaleString()}` : "Select dates to book"}
+        {isSubmitting
+          ? isEnquiryMode ? "Sending enquiry…" : "Booking…"
+          : nights > 0
+          ? isEnquiryMode
+            ? `Send Enquiry — KES ${totalPrice.toLocaleString()}`
+            : `Book Now — KES ${totalPrice.toLocaleString()}`
+          : isEnquiryMode
+          ? "Select dates to enquire"
+          : "Select dates to book"}
       </Button>
 
-      <p className="text-xs text-gray-400 text-center mt-3">You won&apos;t be charged yet</p>
+      <p className="text-xs text-gray-400 text-center mt-3">
+        {isEnquiryMode
+          ? `No payment now — your host will ask for a ${depositPercentNumber}% deposit to confirm.`
+          : "You won't be charged yet"}
+      </p>
     </div>
   );
 }

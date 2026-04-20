@@ -29,7 +29,7 @@ const footerColumns = [
       { label: 'Activities', href: '/activities' },
       { label: 'Tides & Weather', href: '/tides' },
       { label: 'Map', href: '/map' },
-      { label: 'List Your Property', href: '/auth/register' },
+      { label: 'Become a Host', href: '/become-a-host' },
       { label: 'About Us', href: '/about' },
     ],
   },

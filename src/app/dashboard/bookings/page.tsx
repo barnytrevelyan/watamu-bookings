@@ -13,6 +13,7 @@ interface Booking {
   id: string;
   guest_name: string;
   guest_email: string;
+  guest_phone: string | null;
   listing_name: string;
   listing_type: 'property' | 'boat';
   check_in: string;
@@ -21,14 +22,18 @@ interface Booking {
   total_price: number;
   currency: string;
   status: string;
+  booking_mode: 'platform' | 'direct' | null;
+  deposit_amount: number | null;
   special_requests: string | null;
   created_at: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  enquiry: 'bg-amber-100 text-amber-800',
   pending_payment: 'bg-yellow-100 text-yellow-800',
   confirmed: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
+  declined: 'bg-gray-200 text-gray-700',
   cancelled: 'bg-red-100 text-red-800',
   refunded: 'bg-gray-100 text-gray-800',
 };
@@ -80,6 +85,7 @@ export default function BookingsPage() {
           .from('wb_bookings')
           .select(
             `id, check_in, check_out, guests_count, total_price, currency, status,
+            booking_mode, deposit_amount, guest_contact_name, guest_contact_email, guest_contact_phone,
             special_requests, created_at, property_id, boat_id,
             wb_profiles!guest_id(full_name, email),
             wb_properties!property_id(name)`
@@ -100,6 +106,7 @@ export default function BookingsPage() {
           .from('wb_bookings')
           .select(
             `id, check_in, check_out, guests_count, total_price, currency, status,
+            booking_mode, deposit_amount, guest_contact_name, guest_contact_email, guest_contact_phone,
             special_requests, created_at, property_id, boat_id,
             wb_profiles!guest_id(full_name, email),
             wb_boats!boat_id(name)`
@@ -126,16 +133,19 @@ export default function BookingsPage() {
 
       let formatted: Booking[] = unique.map((b: any) => ({
         id: b.id,
-        guest_name: b.wb_profiles?.full_name || 'Guest',
-        guest_email: b.wb_profiles?.email || '',
+        guest_name: b.guest_contact_name || b.wb_profiles?.full_name || 'Guest',
+        guest_email: b.guest_contact_email || b.wb_profiles?.email || '',
+        guest_phone: b.guest_contact_phone || null,
         listing_name: b.wb_properties?.name || b.wb_boats?.name || 'N/A',
         listing_type: b.property_id ? ('property' as const) : ('boat' as const),
         check_in: b.check_in,
         check_out: b.check_out,
         guests_count: b.guests_count,
-        total_price: b.total_price || 0,
+        total_price: Number(b.total_price) || 0,
         currency: b.currency || 'KES',
         status: b.status,
+        booking_mode: b.booking_mode ?? null,
+        deposit_amount: b.deposit_amount == null ? null : Number(b.deposit_amount),
         special_requests: b.special_requests,
         created_at: b.created_at,
       }));
@@ -169,6 +179,42 @@ export default function BookingsPage() {
       );
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  /**
+   * For enquiry bookings, route through the dedicated respond endpoint so
+   * the guest gets a confirmation email and the availability re-check runs
+   * server-side.
+   */
+  async function respondToEnquiry(bookingId: string, action: 'confirm' | 'decline') {
+    setUpdatingId(bookingId);
+    try {
+      const reason =
+        action === 'decline'
+          ? window.prompt('Optional message to the guest (leave blank to send a generic decline):') || undefined
+          : undefined;
+
+      const res = await fetch(`/api/bookings/${bookingId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || 'Could not update the enquiry.');
+        return;
+      }
+
+      const newStatus = json.status;
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Network error — please try again.');
     } finally {
       setUpdatingId(null);
     }
@@ -216,9 +262,11 @@ export default function BookingsPage() {
               className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Statuses</option>
+              <option value="enquiry">Enquiry — needs your reply</option>
               <option value="pending_payment">Pending Payment</option>
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
+              <option value="declined">Declined</option>
               <option value="cancelled">Cancelled</option>
               <option value="refunded">Refunded</option>
             </select>
@@ -312,6 +360,26 @@ export default function BookingsPage() {
                     </td>
                     <td className="py-3">
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        {booking.status === 'enquiry' && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="bg-teal-700 hover:bg-teal-800 text-white"
+                              disabled={updatingId === booking.id}
+                              onClick={() => respondToEnquiry(booking.id, 'confirm')}
+                            >
+                              Confirm deposit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={updatingId === booking.id}
+                              onClick={() => respondToEnquiry(booking.id, 'decline')}
+                            >
+                              Decline
+                            </Button>
+                          </>
+                        )}
                         {booking.status === 'pending_payment' && (
                           <Button
                             size="sm"
@@ -361,9 +429,27 @@ export default function BookingsPage() {
                               })}
                             </p>
                           </div>
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">Special Requests</p>
-                            <p className="text-gray-900">{booking.special_requests || 'None'}</p>
+                          {booking.guest_phone && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Guest Phone</p>
+                              <p className="text-gray-900">
+                                <a href={`tel:${booking.guest_phone}`} className="text-teal-700 hover:underline">
+                                  {booking.guest_phone}
+                                </a>
+                              </p>
+                            </div>
+                          )}
+                          {booking.booking_mode === 'direct' && booking.deposit_amount != null && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500">Expected Deposit</p>
+                              <p className="text-gray-900 font-semibold">
+                                {booking.currency} {booking.deposit_amount.toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          <div className="md:col-span-2">
+                            <p className="text-xs font-medium text-gray-500">Message from guest</p>
+                            <p className="text-gray-900 whitespace-pre-line">{booking.special_requests || 'None'}</p>
                           </div>
                         </div>
                       </td>

@@ -162,9 +162,9 @@ export default async function BoatsPage({
                 captainName={boat.captain_name || 'TBA'}
                 capacity={boat.capacity || 6}
                 lengthFt={boat.length_ft || null}
-                rating={boat.avg_rating || boat.avg_rating || 0}
+                rating={Number(boat.avg_rating) || 0}
                 reviewCount={boat.review_count || 0}
-                startingPrice={boat.price_from || (boat.trips?.[0]?.price_total) || 0}
+                startingPrice={Number(boat.price_from) || Number(boat.trips?.[0]?.price_total) || 0}
                 currency={boat.currency || 'KES'}
                 instantConfirmation={boat.instant_confirmation || false}
               />

@@ -47,6 +47,7 @@ export default function Navbar() {
     { href: '/map', label: 'Map' },
     { href: '/tides', label: 'Tides & Weather' },
     { href: '/about', label: 'About' },
+    { href: '/become-a-host', label: 'Become a Host' },
   ];
 
   // Use JWT metadata for instant display, profile as upgrade
