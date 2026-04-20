@@ -109,6 +109,9 @@ export default function ImageGallery({
           onKeyDown={handleKeyDown}
           tabIndex={0}
           ref={(el) => el?.focus()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image gallery"
         >
           {/* Close button */}
           <button

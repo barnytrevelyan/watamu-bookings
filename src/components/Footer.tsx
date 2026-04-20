@@ -6,20 +6,25 @@ const footerColumns = [
   {
     title: 'Properties',
     links: [
-      { label: 'Beach Houses', href: '/properties?type=beach-house' },
-      { label: 'Apartments', href: '/properties?type=apartment' },
-      { label: 'Villas', href: '/properties?type=villa' },
-      { label: 'Cottages', href: '/properties?type=cottage' },
+      // Query params must match what /properties/page.tsx reads: `property_type`
+      // plus the snake_case enum values used by SearchFilters + the DB.
+      { label: 'Beach Houses', href: '/properties?property_type=beach_house' },
+      { label: 'Apartments', href: '/properties?property_type=apartment' },
+      { label: 'Villas', href: '/properties?property_type=villa' },
+      { label: 'Cottages', href: '/properties?property_type=cottage' },
       { label: 'All Properties', href: '/properties' },
     ],
   },
   {
     title: 'Fishing Charters',
     links: [
-      { label: 'Sport Fishing', href: '/boats?type=sport-fisher' },
-      { label: 'Dhow Trips', href: '/boats?type=dhow' },
-      { label: 'Deep Sea Fishing', href: '/boats?trip=deep-sea' },
-      { label: 'Reef Fishing', href: '/boats?trip=reef' },
+      // `/boats` reads boat_type; trip_type doesn't include 'deep_sea' or 'reef'
+      // so those link to boat_type instead (deep_sea is a boat type, and
+      // glass_bottom boats are the Watamu reef-tour workhorse).
+      { label: 'Sport Fishing', href: '/boats?boat_type=sport_fisher' },
+      { label: 'Dhow Trips', href: '/boats?boat_type=dhow' },
+      { label: 'Deep Sea Fishing', href: '/boats?boat_type=deep_sea' },
+      { label: 'Reef Tours', href: '/boats?boat_type=glass_bottom' },
       { label: 'All Boats', href: '/boats' },
     ],
   },

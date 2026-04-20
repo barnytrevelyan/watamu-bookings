@@ -16,8 +16,9 @@ interface BookingDetails {
   guests_count: number;
   status: string;
   created_at: string;
-  property?: { name: string; location: string; image_url: string | null };
-  boat?: { name: string; image_url: string | null };
+  // Only columns that actually exist on the tables (verified against schema).
+  property?: { name: string; city: string | null };
+  boat?: { name: string; home_port: string | null };
   payment?: {
     payment_method: string;
     mpesa_receipt_number: string | null;
@@ -53,8 +54,8 @@ function BookingSuccessContent() {
           .select(
             `
             *,
-            property:wb_properties(name, location, image_url),
-            boat:wb_boats(name, image_url)
+            property:wb_properties(name, city),
+            boat:wb_boats(name, home_port)
           `
           )
           .eq('id', bookingId!)

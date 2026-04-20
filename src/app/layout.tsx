@@ -98,8 +98,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
+        {/* Visually-hidden skip link — becomes visible on keyboard focus. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:text-gray-900 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+        >
+          Skip to main content
+        </a>
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main id="main" className="flex-1">{children}</main>
         <Footer />
       </body>
     </html>

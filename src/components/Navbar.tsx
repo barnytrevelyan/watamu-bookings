@@ -147,11 +147,12 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu button — h-11 w-11 meets the 44×44 WCAG touch-target minimum */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+            className="md:hidden p-3 h-11 w-11 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? (
               <X className="h-6 w-6" />

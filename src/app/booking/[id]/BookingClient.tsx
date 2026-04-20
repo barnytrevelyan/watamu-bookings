@@ -34,8 +34,17 @@ interface Booking {
   guests_count: number;
   status: string;
   created_at: string;
-  property?: { name: string; location: string; image_url: string | null };
-  boat?: { name: string; image_url: string | null };
+  // Only columns that actually exist on the tables; images are joined via wb_images.
+  property?: {
+    name: string;
+    city: string | null;
+    images?: { url: string | null; sort_order: number | null }[];
+  };
+  boat?: {
+    name: string;
+    home_port: string | null;
+    images?: { url: string | null; sort_order: number | null }[];
+  };
 }
 
 interface PaymentRecord {
@@ -362,8 +371,8 @@ export default function BookingPaymentPage() {
           .select(
             `
             *,
-            property:wb_properties(name, location, image_url),
-            boat:wb_boats(name, image_url)
+            property:wb_properties(name, city, images:wb_images(url, sort_order)),
+            boat:wb_boats(name, home_port, images:wb_images(url, sort_order))
           `
           )
           .eq('id', bookingId)
@@ -516,10 +525,19 @@ export default function BookingPaymentPage() {
     booking.listing_type === 'property'
       ? booking.property?.name
       : booking.boat?.name;
-  const listingImage =
+  // Images live in wb_images; take the lowest sort_order as the cover.
+  const imagesArr =
     booking.listing_type === 'property'
-      ? booking.property?.image_url
-      : booking.boat?.image_url;
+      ? booking.property?.images
+      : booking.boat?.images;
+  const listingImage = Array.isArray(imagesArr) && imagesArr.length > 0
+    ? [...imagesArr]
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0].url ?? null
+    : null;
+  const listingLocation =
+    booking.listing_type === 'property'
+      ? booking.property?.city ?? null
+      : booking.boat?.home_port ?? null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -558,8 +576,8 @@ export default function BookingPaymentPage() {
                 {listingName}
               </h2>
 
-              {booking.listing_type === 'property' && booking.property?.location && (
-                <p className="text-sm text-gray-500">{booking.property.location}</p>
+              {listingLocation && (
+                <p className="text-sm text-gray-500">{listingLocation}</p>
               )}
 
               <div className="border-t pt-4 space-y-2 text-sm">
