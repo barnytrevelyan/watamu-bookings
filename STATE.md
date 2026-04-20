@@ -1,6 +1,6 @@
 # Watamu Bookings — Current State
 
-_Last updated: 2026-04-20, overnight demo-prep session._
+_Last updated: 2026-04-20, overnight demo-prep session (v2)._
 
 This document captures the repo's state so future sessions can pick up without
 archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
@@ -158,7 +158,8 @@ Boats:
 
 ## Commit history (master head)
 
-- `2063c99` — fix(demo-prep): wire up search + sort, unify contact details, add state docs. **Not yet pushed — awaiting PAT.**
+- `2767aaf` — fix(demo-prep-v2): V2 overnight re-audit. Broken Footer filter links (wrong query keys + hyphen → snake_case enum values); phantom `location`/`image_url` columns in `/booking/[id]` + `/booking/success` (→ `city`/`home_port` + `wb_images` join); prefers-reduced-motion block in globals.css; Navbar hamburger → 44×44 target; lightbox ARIA (role=dialog + aria-modal + aria-label); skip-to-content link + `id=main` landmark. Also re-unpublished 3 test-* properties + 1 test-* boat that leaked back. Pushed.
+- `c28af52` — fix(demo-prep): wire up search + sort, unify contact details, add state docs. Pushed.
 - `b95cb2c` — feat(seo+resilience): JSON-LD, llms.txt, error boundaries, regression guard.
 - `fbd8dd9` — feat(ui): Airbnb-grade polish for host dashboard + public listing headers.
 - `7a9d991` — fix(import): restore manual-JWT fallback on all 5 scraper routes.
