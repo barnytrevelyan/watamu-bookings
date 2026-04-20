@@ -1,18 +1,23 @@
 'use client';
 
 import { Fragment, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { CalendarCheck } from 'lucide-react';
+import { CalendarCheck, Star, PencilLine, Check, Lock } from 'lucide-react';
 
 interface Booking {
   id: string;
+  guest_id: string;
   guest_name: string;
   guest_email: string;
+  guest_avg_rating: number | null;
+  guest_review_count: number;
+  guest_would_host_again_pct: number | null;
   listing_name: string;
   listing_type: 'property' | 'boat';
   check_in: string;
@@ -23,6 +28,13 @@ interface Booking {
   status: string;
   special_requests: string | null;
   created_at: string;
+  my_review: {
+    id: string;
+    rating: number;
+    published_at: string | null;
+  } | null;
+  host_note: string | null;
+  host_note_id: string | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -40,6 +52,8 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
+  const [noteSaving, setNoteSaving] = useState<Record<string, boolean>>({});
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
@@ -50,6 +64,7 @@ export default function BookingsPage() {
   useEffect(() => {
     if (!user) return;
     fetchBookings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, statusFilter, typeFilter, dateFrom, dateTo]);
 
   async function fetchBookings() {
@@ -80,8 +95,8 @@ export default function BookingsPage() {
           .from('wb_bookings')
           .select(
             `id, check_in, check_out, guests_count, total_price, currency, status,
-            special_requests, created_at, property_id, boat_id,
-            wb_profiles!guest_id(full_name, email),
+            special_requests, created_at, guest_id, property_id, boat_id,
+            wb_profiles!guest_id(id, full_name, email, guest_avg_rating, guest_review_count, guest_would_host_again_pct),
             wb_properties!property_id(name)`
           )
           .in('property_id', propIds)
@@ -100,8 +115,8 @@ export default function BookingsPage() {
           .from('wb_bookings')
           .select(
             `id, check_in, check_out, guests_count, total_price, currency, status,
-            special_requests, created_at, property_id, boat_id,
-            wb_profiles!guest_id(full_name, email),
+            special_requests, created_at, guest_id, property_id, boat_id,
+            wb_profiles!guest_id(id, full_name, email, guest_avg_rating, guest_review_count, guest_would_host_again_pct),
             wb_boats!boat_id(name)`
           )
           .in('boat_id', boatIds)
@@ -122,29 +137,89 @@ export default function BookingsPage() {
         seen.add(b.id);
         return true;
       });
-      unique.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      unique.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
-      let formatted: Booking[] = unique.map((b: any) => ({
-        id: b.id,
-        guest_name: b.wb_profiles?.full_name || 'Guest',
-        guest_email: b.wb_profiles?.email || '',
-        listing_name: b.wb_properties?.name || b.wb_boats?.name || 'N/A',
-        listing_type: b.property_id ? ('property' as const) : ('boat' as const),
-        check_in: b.check_in,
-        check_out: b.check_out,
-        guests_count: b.guests_count,
-        total_price: b.total_price || 0,
-        currency: b.currency || 'KES',
-        status: b.status,
-        special_requests: b.special_requests,
-        created_at: b.created_at,
-      }));
+      // Pull guest reviews I've already submitted for these bookings
+      const bookingIds = unique.map((b) => b.id);
+      const [reviewsRes, notesRes] = await Promise.all([
+        bookingIds.length
+          ? supabase
+              .from('wb_guest_reviews')
+              .select('id, booking_id, rating, published_at')
+              .eq('reviewer_id', user!.id)
+              .in('booking_id', bookingIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        bookingIds.length
+          ? supabase
+              .from('wb_host_notes')
+              .select('id, booking_id, note')
+              .eq('host_id', user!.id)
+              .in('booking_id', bookingIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+      ]);
+
+      const reviewsByBooking = new Map<string, any>();
+      (reviewsRes.data || []).forEach((r: any) =>
+        reviewsByBooking.set(r.booking_id, r)
+      );
+
+      const notesByBooking = new Map<string, any>();
+      (notesRes.data || []).forEach((n: any) =>
+        notesByBooking.set(n.booking_id, n)
+      );
+
+      let formatted: Booking[] = unique.map((b: any) => {
+        const review = reviewsByBooking.get(b.id) || null;
+        const note = notesByBooking.get(b.id) || null;
+        return {
+          id: b.id,
+          guest_id: b.guest_id,
+          guest_name: b.wb_profiles?.full_name || 'Guest',
+          guest_email: b.wb_profiles?.email || '',
+          guest_avg_rating:
+            b.wb_profiles?.guest_avg_rating != null
+              ? Number(b.wb_profiles.guest_avg_rating)
+              : null,
+          guest_review_count: b.wb_profiles?.guest_review_count || 0,
+          guest_would_host_again_pct:
+            b.wb_profiles?.guest_would_host_again_pct ?? null,
+          listing_name: b.wb_properties?.name || b.wb_boats?.name || 'N/A',
+          listing_type: b.property_id ? ('property' as const) : ('boat' as const),
+          check_in: b.check_in,
+          check_out: b.check_out,
+          guests_count: b.guests_count,
+          total_price: b.total_price || 0,
+          currency: b.currency || 'KES',
+          status: b.status,
+          special_requests: b.special_requests,
+          created_at: b.created_at,
+          my_review: review
+            ? {
+                id: review.id,
+                rating: review.rating,
+                published_at: review.published_at,
+              }
+            : null,
+          host_note: note?.note ?? null,
+          host_note_id: note?.id ?? null,
+        };
+      });
 
       if (typeFilter !== 'all') {
         formatted = formatted.filter((b) => b.listing_type === typeFilter);
       }
 
       setBookings(formatted);
+
+      // Seed note drafts so the textarea shows the current value
+      const drafts: Record<string, string> = {};
+      formatted.forEach((b) => {
+        if (b.host_note) drafts[b.id] = b.host_note;
+      });
+      setNoteDraft(drafts);
     } catch (err) {
       console.error(err);
       setError('Failed to load bookings');
@@ -171,6 +246,64 @@ export default function BookingsPage() {
       console.error(err);
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function saveHostNote(booking: Booking) {
+    const text = (noteDraft[booking.id] ?? '').trim();
+    setNoteSaving((prev) => ({ ...prev, [booking.id]: true }));
+    try {
+      const supabase = createClient();
+
+      if (!text) {
+        // Empty string means "delete the note"
+        if (booking.host_note_id) {
+          await supabase
+            .from('wb_host_notes')
+            .delete()
+            .eq('id', booking.host_note_id);
+          setBookings((prev) =>
+            prev.map((b) =>
+              b.id === booking.id
+                ? { ...b, host_note: null, host_note_id: null }
+                : b
+            )
+          );
+        }
+      } else if (booking.host_note_id) {
+        const { error: upErr } = await supabase
+          .from('wb_host_notes')
+          .update({ note: text })
+          .eq('id', booking.host_note_id);
+        if (upErr) throw upErr;
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === booking.id ? { ...b, host_note: text } : b
+          )
+        );
+      } else {
+        const { data, error: insErr } = await supabase
+          .from('wb_host_notes')
+          .insert({
+            booking_id: booking.id,
+            host_id: user!.id,
+            note: text,
+          })
+          .select('id')
+          .single();
+        if (insErr) throw insErr;
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === booking.id
+              ? { ...b, host_note: text, host_note_id: data!.id }
+              : b
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setNoteSaving((prev) => ({ ...prev, [booking.id]: false }));
     }
   }
 
@@ -209,7 +342,9 @@ export default function BookingsPage() {
       <Card className="p-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Status
+            </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -224,7 +359,9 @@ export default function BookingsPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Type</label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Type
+            </label>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
@@ -237,11 +374,19 @@ export default function BookingsPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">From</label>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">To</label>
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
           </div>
         </div>
       </Card>
@@ -253,7 +398,10 @@ export default function BookingsPage() {
           </div>
           <h2 className="text-lg font-semibold text-gray-900">No bookings yet</h2>
           <p className="mt-2 text-center text-gray-500 max-w-md">
-            {statusFilter !== 'all' || typeFilter !== 'all' || dateFrom || dateTo
+            {statusFilter !== 'all' ||
+            typeFilter !== 'all' ||
+            dateFrom ||
+            dateTo
               ? 'No bookings match your filters. Try adjusting them.'
               : 'Bookings will appear here once guests start booking your properties or boats.'}
           </p>
@@ -277,13 +425,36 @@ export default function BookingsPage() {
                   <tr
                     className="cursor-pointer hover:bg-gray-50"
                     onClick={() =>
-                      setExpandedId(expandedId === booking.id ? null : booking.id)
+                      setExpandedId(
+                        expandedId === booking.id ? null : booking.id
+                      )
                     }
                   >
                     <td className="py-3">
                       <div>
-                        <p className="font-medium text-gray-900">{booking.guest_name}</p>
-                        <p className="text-xs text-gray-500">{booking.guest_email}</p>
+                        <p className="font-medium text-gray-900">
+                          {booking.guest_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {booking.guest_email}
+                        </p>
+                        {booking.guest_review_count > 0 && (
+                          <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-600">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                            <span className="font-medium text-gray-800">
+                              {booking.guest_avg_rating?.toFixed(1)}
+                            </span>
+                            <span className="text-gray-400">
+                              · {booking.guest_review_count} host
+                              {booking.guest_review_count === 1 ? '' : 's'}
+                            </span>
+                            {booking.guest_would_host_again_pct != null && (
+                              <span className="text-gray-400">
+                                · {booking.guest_would_host_again_pct}% re-host
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </td>
                     <td className="py-3">
@@ -295,39 +466,57 @@ export default function BookingsPage() {
                       </div>
                     </td>
                     <td className="py-3 whitespace-nowrap">
-                      {new Date(booking.check_in).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} —{' '}
-                      {new Date(booking.check_out).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(booking.check_in).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}{' '}
+                      —{' '}
+                      {new Date(booking.check_out).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
                     </td>
                     <td className="py-3 whitespace-nowrap font-medium">
-                      {booking.currency} {booking.total_price.toLocaleString()}
+                      {booking.currency}{' '}
+                      {booking.total_price.toLocaleString()}
                     </td>
                     <td className="py-3">
                       <span
                         className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                          STATUS_COLORS[booking.status] || 'bg-gray-100 text-gray-800'
+                          STATUS_COLORS[booking.status] ||
+                          'bg-gray-100 text-gray-800'
                         }`}
                       >
                         {booking.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="py-3">
-                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="flex flex-wrap gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {booking.status === 'pending_payment' && (
                           <Button
                             size="sm"
                             variant="outline"
                             disabled={updatingId === booking.id}
-                            onClick={() => updateBookingStatus(booking.id, 'confirmed')}
+                            onClick={() =>
+                              updateBookingStatus(booking.id, 'confirmed')
+                            }
                           >
                             Confirm
                           </Button>
                         )}
-                        {(booking.status === 'pending_payment' || booking.status === 'confirmed') && (
+                        {(booking.status === 'pending_payment' ||
+                          booking.status === 'confirmed') && (
                           <Button
                             size="sm"
                             variant="ghost"
                             disabled={updatingId === booking.id}
-                            onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                            onClick={() =>
+                              updateBookingStatus(booking.id, 'cancelled')
+                            }
                           >
                             Cancel
                           </Button>
@@ -337,11 +526,44 @@ export default function BookingsPage() {
                             size="sm"
                             variant="outline"
                             disabled={updatingId === booking.id}
-                            onClick={() => updateBookingStatus(booking.id, 'completed')}
+                            onClick={() =>
+                              updateBookingStatus(booking.id, 'completed')
+                            }
                           >
                             Complete
                           </Button>
                         )}
+                        {booking.status === 'completed' &&
+                          (booking.my_review ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                                booking.my_review.published_at
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                              title={
+                                booking.my_review.published_at
+                                  ? 'Published on both sides'
+                                  : 'Waiting for guest review — your review will publish when both are in or after 14 days'
+                              }
+                            >
+                              {booking.my_review.published_at ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : (
+                                <Lock className="h-3.5 w-3.5" />
+                              )}
+                              {booking.my_review.published_at
+                                ? 'Review published'
+                                : 'Review pending'}
+                            </span>
+                          ) : (
+                            <Link href={`/dashboard/bookings/${booking.id}/review`}>
+                              <Button size="sm" variant="outline">
+                                <Star className="h-3.5 w-3.5 mr-1" />
+                                Review guest
+                              </Button>
+                            </Link>
+                          ))}
                       </div>
                     </td>
                   </tr>
@@ -350,20 +572,69 @@ export default function BookingsPage() {
                       <td colSpan={6} className="bg-gray-50 px-6 py-4">
                         <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
                           <div>
-                            <p className="text-xs font-medium text-gray-500">Guests</p>
-                            <p className="text-gray-900">{booking.guests_count || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-gray-500">Booked On</p>
+                            <p className="text-xs font-medium text-gray-500">
+                              Guests
+                            </p>
                             <p className="text-gray-900">
-                              {new Date(booking.created_at).toLocaleDateString('en-GB', {
-                                day: 'numeric', month: 'short', year: 'numeric'
-                              })}
+                              {booking.guests_count || 'N/A'}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-gray-500">Special Requests</p>
-                            <p className="text-gray-900">{booking.special_requests || 'None'}</p>
+                            <p className="text-xs font-medium text-gray-500">
+                              Booked On
+                            </p>
+                            <p className="text-gray-900">
+                              {new Date(booking.created_at).toLocaleDateString(
+                                'en-GB',
+                                {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                }
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">
+                              Special Requests
+                            </p>
+                            <p className="text-gray-900">
+                              {booking.special_requests || 'None'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Private host note */}
+                        <div className="mt-5 border-t border-gray-200 pt-4">
+                          <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-2">
+                            <PencilLine className="h-3.5 w-3.5" />
+                            Private host note (only you see this)
+                          </label>
+                          <textarea
+                            value={noteDraft[booking.id] ?? ''}
+                            onChange={(e) =>
+                              setNoteDraft((prev) => ({
+                                ...prev,
+                                [booking.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Jot down a quick note for next time — e.g. preferred arrival time, quirks, things that went well…"
+                            rows={2}
+                            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          />
+                          <div className="mt-2 flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!!noteSaving[booking.id]}
+                              onClick={() => saveHostNote(booking)}
+                            >
+                              {noteSaving[booking.id]
+                                ? 'Saving…'
+                                : booking.host_note
+                                ? 'Update note'
+                                : 'Save note'}
+                            </Button>
                           </div>
                         </div>
                       </td>
