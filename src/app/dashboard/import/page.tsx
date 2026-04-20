@@ -192,7 +192,7 @@ function slugify(name: string): string {
 }
 
 export default function ImportPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState<Step>('url');
   const [url, setUrl] = useState('');
@@ -242,6 +242,13 @@ export default function ImportPage() {
     const cleanUrl = url.trim();
     if (!cleanUrl) {
       setError('Please paste a listing URL');
+      return;
+    }
+
+    // Wait for the auth session to finish loading before firing the request —
+    // otherwise the cookies can race and the server returns 401.
+    if (authLoading || !user) {
+      setError('Still signing you in — give it a second and try again.');
       return;
     }
 
@@ -699,8 +706,20 @@ export default function ImportPage() {
             <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
           )}
 
-          <Button onClick={handleImport} disabled={loading || !url.trim()} className="w-full">
-            {loading ? (
+          <Button
+            onClick={handleImport}
+            disabled={authLoading || loading || !url.trim()}
+            className="w-full"
+          >
+            {authLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Signing you in…
+              </span>
+            ) : loading ? (
               <span className="flex items-center gap-2">
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
