@@ -28,7 +28,7 @@ import toast from 'react-hot-toast';
  * produce compatible shapes so the preview treats them uniformly.
  */
 
-type Step = 'url' | 'preview' | 'saving' | 'done';
+type Step = 'url' | 'picker' | 'preview' | 'saving' | 'done';
 type DetectedSource = 'airbnb' | 'fishingbooker' | 'booking_com' | 'generic';
 type ListingType = 'property' | 'boat';
 
@@ -207,6 +207,14 @@ export default function ImportPage() {
   const [amenityDraft, setAmenityDraft] = useState('');
   const [ruleDraft, setRuleDraft] = useState('');
 
+  // Multi-listing discovery state — populated only for generic URLs when
+  // /api/import/discover finds 2+ distinct listings on the same site.
+  // Clicking a card in the picker step opens that listing in the preview
+  // step; "Back to picker" preserves the list so the host can come back and
+  // import a second (or third) listing from the same source.
+  const [discovered, setDiscovered] = useState<any[] | null>(null);
+  const [discoveredImportedSlugs, setDiscoveredImportedSlugs] = useState<Set<number>>(new Set());
+
   // Rotating loading messages while the import runs. Short, truthful, and tied
   // to the actual stages (fetch → parse / LLM → return). For AI imports we tell
   // the user it's thinking, because gpt-4o on a big page can take 10–15s.
@@ -214,7 +222,12 @@ export default function ImportPage() {
     if (!loading) return;
     const usesAi = detectedSource === 'generic';
     const seq = usesAi
-      ? ['Fetching the page…', 'Reading page contents…', 'Asking the AI to extract listing details…', 'Almost there — picking photos…']
+      ? [
+          'Fetching the page…',
+          'Looking for other listings on the site…',
+          'Asking the AI to separate each listing…',
+          'Almost there — picking photos…',
+        ]
       : ['Fetching the page…', 'Parsing listing data…', 'Picking photos…'];
     let i = 0;
     setLoadingMessage(seq[0]);
@@ -241,25 +254,62 @@ export default function ImportPage() {
     setLoading(true);
     setError(null);
     setDetectedSource(source);
+    setDiscovered(null);
+    setDiscoveredImportedSlugs(new Set());
 
     try {
-      const endpoint = endpointFor(source);
-      const body: Record<string, any> = { url: cleanUrl };
-      if (source === 'generic' && listingTypeHint) {
-        body.listing_type = listingTypeHint;
+      // Generic URLs go through multi-listing discovery — a lot of small
+      // operators advertise 2+ listings on one site (e.g. a lodge with
+      // cottages AND a fishing boat). The fixed-host scrapers always describe
+      // a single listing so they skip discovery entirely.
+      if (source === 'generic') {
+        const res = await fetch('/api/import/discover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: cleanUrl }),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Import failed');
+
+        let listings: any[] = Array.isArray(result.listings) ? result.listings : [];
+
+        // If the user hinted a type, filter down so we only show relevant
+        // matches — but keep the full list as a fallback if the filter empties it.
+        if (listingTypeHint) {
+          const filtered = listings.filter((l) => l.listing_type === listingTypeHint);
+          if (filtered.length > 0) listings = filtered;
+        }
+
+        if (listings.length === 0) {
+          throw new Error('Could not identify any listings on that page. It may be JavaScript-only or require login. Try pasting a specific listing URL instead.');
+        }
+
+        if (listings.length === 1) {
+          const only = listings[0];
+          const resolvedType: ListingType = only.listing_type === 'boat' ? 'boat' : 'property';
+          setListingType(resolvedType);
+          setPreview(buildPreview(only, resolvedType, only.source_url || cleanUrl));
+          setStep('preview');
+          return;
+        }
+
+        // 2+ listings — offer a picker.
+        setDiscovered(listings);
+        setStep('picker');
+        return;
       }
 
+      // Fixed-host scrapers — single listing assumed.
+      const endpoint = endpointFor(source);
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ url: cleanUrl }),
       });
 
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Import failed');
 
-      // Scrapers differ: generic returns an explicit `listing_type`; the
-      // fixed-host endpoints imply it from the endpoint itself.
       const resolvedListingType: ListingType =
         result.listing_type
           ? (result.listing_type === 'boat' ? 'boat' : 'property')
@@ -275,6 +325,25 @@ export default function ImportPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Move from picker → preview for one of the discovered listings.
+  function pickDiscoveredListing(idx: number) {
+    if (!discovered) return;
+    const item = discovered[idx];
+    if (!item) return;
+    const resolvedType: ListingType = item.listing_type === 'boat' ? 'boat' : 'property';
+    setListingType(resolvedType);
+    setPreview(buildPreview(item, resolvedType, item.source_url || url));
+    setError(null);
+    setStep('preview');
+  }
+
+  function backToPicker() {
+    setPreview(null);
+    setListingType(null);
+    setError(null);
+    setStep('picker');
   }
 
   async function handleSave() {
@@ -424,11 +493,28 @@ export default function ImportPage() {
       }
 
       toast.success('Submitted for review — you can keep editing while we check it');
-      // Land the host straight on the listing edit page. Status is
-      // 'pending_review' and is_published=false — admin review gate applies
-      // before the listing goes live, but the host can keep refining in the
-      // meantime.
-      if (newId) {
+
+      // If this import came from multi-listing discovery AND there are
+      // still unsaved listings on the source site, steer the host back to
+      // the picker so they can import the next one without re-scraping.
+      // Otherwise, land them on the listing edit page.
+      const importedIdx = discovered
+        ? discovered.findIndex(
+            (d) => d.listing_type === listingType && d.name?.trim() === preview.name.trim()
+          )
+        : -1;
+      const willHaveMore =
+        discovered !== null &&
+        discovered.length > 1 &&
+        discovered.some(
+          (_, i) =>
+            i !== importedIdx &&
+            !discoveredImportedSlugs.has(i)
+        );
+
+      if (willHaveMore) {
+        backToPickerAfterSave();
+      } else if (newId) {
         router.push(listingType === 'property' ? `/dashboard/properties/${newId}` : `/dashboard/boats/${newId}`);
       }
     } catch (err: any) {
@@ -447,6 +533,31 @@ export default function ImportPage() {
     setListingTypeHint(null);
     setError(null);
     setCreatedId(null);
+    setDiscovered(null);
+    setDiscoveredImportedSlugs(new Set());
+  }
+
+  // If a host just imported one listing from a multi-listing source, they
+  // usually want to grab another — so go back to the picker instead of
+  // navigating away. The imported one gets a green tick.
+  function backToPickerAfterSave() {
+    if (!discovered || !preview) return;
+    // Identify which discovered item was just saved by matching name + type.
+    const idx = discovered.findIndex(
+      (d) => d.listing_type === listingType && d.name?.trim() === preview.name.trim()
+    );
+    if (idx >= 0) {
+      setDiscoveredImportedSlugs((prev) => {
+        const next = new Set(prev);
+        next.add(idx);
+        return next;
+      });
+    }
+    setPreview(null);
+    setListingType(null);
+    setCreatedId(null);
+    setError(null);
+    setStep('picker');
   }
 
   // ---------- preview mutators ----------
@@ -604,6 +715,103 @@ export default function ImportPage() {
         </Card>
       )}
 
+      {/* Step 1b: multi-listing picker (only for generic URLs when 2+ listings
+          are discovered on the site). */}
+      {step === 'picker' && discovered && (
+        <div className="space-y-5">
+          <Card className="p-5 bg-teal-50 border-teal-100">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 mb-1">
+                  We found {discovered.length} listings on that site
+                </h2>
+                <p className="text-sm text-gray-700">
+                  Pick one to review and edit. You can come back here afterwards to import the others.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={resetAll}
+                className="text-sm text-gray-500 hover:text-gray-700 shrink-0"
+              >
+                ← Try another URL
+              </button>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {discovered.map((item, idx) => {
+              const imported = discoveredImportedSlugs.has(idx);
+              const cover = Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : null;
+              const typeLabel = item.listing_type === 'boat' ? 'Boat charter' : 'Property';
+              const subTypeLabel = item.listing_type === 'boat'
+                ? (item.boat_type ? String(item.boat_type).replace(/_/g, ' ') : 'boat')
+                : (item.property_type ? String(item.property_type) : 'property');
+              const price = item.listing_type === 'property'
+                ? (typeof item.price_per_night === 'number' ? `${item.currency || 'KES'} ${item.price_per_night.toLocaleString()} / night` : null)
+                : (Array.isArray(item.trips) && item.trips.length > 0 && typeof item.trips[0]?.price_total === 'number'
+                    ? `from ${item.currency || 'KES'} ${item.trips[0].price_total.toLocaleString()}`
+                    : null);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => pickDiscoveredListing(idx)}
+                  className={`text-left rounded-lg border transition overflow-hidden ${
+                    imported
+                      ? 'border-emerald-400 bg-emerald-50/60'
+                      : 'border-gray-200 bg-white hover:border-teal-400 hover:shadow-md'
+                  }`}
+                >
+                  {cover ? (
+                    <div className="aspect-video w-full overflow-hidden bg-gray-100 relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={cover} alt={item.name} className="w-full h-full object-cover" />
+                      {imported && (
+                        <div className="absolute inset-0 bg-emerald-900/40 flex items-center justify-center">
+                          <span className="bg-white rounded-full p-2 shadow">
+                            <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="aspect-video w-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+                      No photos detected
+                    </div>
+                  )}
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                        item.listing_type === 'boat'
+                          ? 'bg-sky-100 text-sky-800'
+                          : 'bg-teal-100 text-teal-800'
+                      }`}>
+                        {typeLabel}
+                      </span>
+                      <span className="text-[11px] text-gray-500 capitalize">{subTypeLabel}</span>
+                      {imported && (
+                        <span className="ml-auto text-[11px] font-medium text-emerald-700">Imported ✓</span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900 leading-snug">{item.name || 'Untitled listing'}</h3>
+                    {item.description && (
+                      <p className="text-sm text-gray-600 line-clamp-3">{item.description}</p>
+                    )}
+                    {price && (
+                      <p className="text-sm font-medium text-gray-900">{price}</p>
+                    )}
+                    <p className="text-[11px] text-gray-400 truncate">{item.source_url}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Step 2: editable preview */}
       {step === 'preview' && preview && detectedSource && listingType && (
         <div className="space-y-5">
@@ -617,13 +825,23 @@ export default function ImportPage() {
                 <span className="ml-2 inline-flex items-center text-xs font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">AI-extracted</span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={resetAll}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              ← Try another URL
-            </button>
+            {discovered && discovered.length > 1 ? (
+              <button
+                type="button"
+                onClick={backToPicker}
+                className="text-sm text-teal-700 hover:text-teal-900"
+              >
+                ← Back to {discovered.length} listings
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={resetAll}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ← Try another URL
+              </button>
+            )}
           </Card>
 
           {/* Image gallery — click to deselect; click again to re-select. */}

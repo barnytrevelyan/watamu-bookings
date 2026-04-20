@@ -130,10 +130,11 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Get boat/trip price
+      // Get boat + cheapest active trip price. wb_boats has no price_from column —
+      // pricing lives on wb_boat_trips.price_total.
       const { data: boat } = await supabase
         .from('wb_boats')
-        .select('price_from, capacity')
+        .select('capacity')
         .eq('id', boatId)
         .single();
 
@@ -144,12 +145,23 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      const { data: cheapest } = await supabase
+        .from('wb_boat_trips')
+        .select('price_total')
+        .eq('boat_id', boatId)
+        .eq('is_active', true)
+        .order('price_total', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      const priceFrom = Number(cheapest?.price_total) || 0;
+
       return NextResponse.json({
         available: !!available,
         priceBreakdown: {
-          pricePerTrip: boat.price_from,
+          pricePerTrip: priceFrom,
           maxPassengers: boat.capacity,
-          totalPrice: boat.price_from,
+          totalPrice: priceFrom,
           currency: 'KES',
         },
       });
