@@ -13,7 +13,7 @@ import {
   Menu,
   X,
   ChevronLeft,
-  Download,
+  Sparkles,
   Shield,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,14 +24,28 @@ interface DashboardSidebarProps {
   userAvatar?: string;
 }
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  badge?: string;
+  highlight?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/properties', label: 'My Properties', icon: Home },
   { href: '/dashboard/boats', label: 'My Boats', icon: Anchor },
   { href: '/dashboard/bookings', label: 'Bookings', icon: CalendarCheck },
   { href: '/dashboard/reviews', label: 'Reviews', icon: Star },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/dashboard/import', label: 'Import Listing', icon: Download },
+  {
+    href: '/dashboard/import',
+    label: 'AI Import',
+    icon: Sparkles,
+    badge: 'NEW',
+    highlight: true,
+  },
 ];
 
 const adminItems = [
@@ -89,20 +103,53 @@ export default function DashboardSidebar({
         <ul className="space-y-1">
           {navItems.map((item) => {
             const active = isActive(item.href);
+            const baseClasses =
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200';
+
+            if (item.highlight) {
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`${baseClasses} ring-1 ${
+                      active
+                        ? 'bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-500)] text-white ring-[var(--color-primary-600)] shadow-sm'
+                        : 'bg-gradient-to-r from-[var(--color-primary-50,#f0fdfa)] to-white text-[var(--color-primary-700)] ring-[var(--color-primary-200,#99f6e4)] hover:from-[var(--color-primary-100)] hover:to-white'
+                    }`}
+                  >
+                    <item.icon
+                      className={`h-5 w-5 shrink-0 ${
+                        active ? 'text-white' : 'text-[var(--color-primary-600)]'
+                      }`}
+                    />
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          active
+                            ? 'bg-white/25 text-white'
+                            : 'bg-[var(--color-primary-600)] text-white'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            }
+
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                    transition-colors duration-200
-                    ${
-                      active
-                        ? 'bg-[var(--color-primary-50)] text-[var(--color-primary-600)]'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }
-                  `}
+                  className={`${baseClasses} ${
+                    active
+                      ? 'bg-[var(--color-primary-50)] text-[var(--color-primary-600)]'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
                 >
                   <item.icon
                     className={`h-5 w-5 shrink-0 ${

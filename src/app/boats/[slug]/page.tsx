@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import ImageGallery from "@/components/ImageGallery";
+import VideoEmbed from "@/components/VideoEmbed";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
@@ -209,6 +210,14 @@ export default async function BoatDetailPage({
                 {boat.description}
               </div>
             </section>
+
+            {/* Video tour */}
+            {boat.video_url && (
+              <section className="mb-10">
+                <h2 className="text-xl font-semibold text-gray-900 mb-3">Video tour</h2>
+                <VideoEmbed url={boat.video_url} bare />
+              </section>
+            )}
 
             {/* Boat specs */}
             {specs.length > 0 && (

@@ -59,6 +59,7 @@ export default function EditPropertyPage() {
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
   const [houseRules, setHouseRules] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [isPublished, setIsPublished] = useState(false);
   const [existingImages, setExistingImages] = useState<
@@ -118,6 +119,7 @@ export default function EditPropertyPage() {
         setCurrency(property.currency || 'KES');
         setCancellationPolicy(property.cancellation_policy || 'moderate');
         setHouseRules(property.house_rules || '');
+        setVideoUrl(property.video_url || '');
         setIsPublished(property.is_published);
         setSelectedAmenities(
           (property.wb_property_amenities || []).map((pa: any) => pa.amenity_id)
@@ -192,6 +194,7 @@ export default function EditPropertyPage() {
           currency,
           cancellation_policy: cancellationPolicy,
           house_rules: houseRules.trim() || null,
+          video_url: videoUrl.trim() || null,
           is_published: isPublished,
         })
         .eq('id', propertyId)
@@ -367,6 +370,22 @@ export default function EditPropertyPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={5}
               />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Video tour URL{' '}
+                <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <Input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://youtu.be/... or https://vimeo.com/..."
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Paste a YouTube, Vimeo, or direct MP4 link to embed a walkthrough video
+                on your listing.
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <input

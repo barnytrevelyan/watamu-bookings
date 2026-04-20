@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import ImageGallery from "@/components/ImageGallery";
+import VideoEmbed from "@/components/VideoEmbed";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
@@ -268,6 +269,14 @@ export default async function PropertyDetailPage({
                 {property.description}
               </div>
             </section>
+
+            {/* Video tour */}
+            {property.video_url && (
+              <section className="mb-10">
+                <h2 className="text-xl font-semibold text-gray-900 mb-3">Video tour</h2>
+                <VideoEmbed url={property.video_url} bare />
+              </section>
+            )}
 
             {/* Amenities */}
             <PropertyAmenitiesSection amenities={amenities} />

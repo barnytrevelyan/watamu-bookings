@@ -190,6 +190,7 @@ export default function NewPropertyPage() {
   const [checkInTime, setCheckInTime] = useState('14:00');
   const [checkOutTime, setCheckOutTime] = useState('10:00');
   const [houseRules, setHouseRules] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
 
   // Map
   const [latitude, setLatitude] = useState(-3.354);
@@ -391,6 +392,7 @@ export default function NewPropertyPage() {
           currency,
           cancellation_policy: cancellationPolicy,
           house_rules: houseRules.trim() || null,
+          video_url: videoUrl.trim() || null,
           is_published: false,
           status,
           low_season_price: lowSeasonPrice ? parseFloat(lowSeasonPrice) : null,
@@ -585,6 +587,21 @@ export default function NewPropertyPage() {
                 rows={6}
               />
               <p className="mt-1 text-xs text-gray-500">{description.length} characters</p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Video tour URL <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <Input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://youtu.be/... or https://vimeo.com/..."
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Paste a YouTube, Vimeo, or direct MP4 link — we'll embed it on your listing.
+              </p>
             </div>
 
             <div className="border-t pt-4">

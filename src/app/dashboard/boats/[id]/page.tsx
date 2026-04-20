@@ -77,6 +77,7 @@ export default function EditBoatPage() {
   const [departurePoint, setDeparturePoint] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [isPublished, setIsPublished] = useState(false);
   const [existingImages, setExistingImages] = useState<{ id: string; url: string; is_cover: boolean }[]>([]);
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
@@ -123,6 +124,7 @@ export default function EditBoatPage() {
         setDeparturePoint(boat.departure_point || '');
         setLatitude(boat.latitude?.toString() || '');
         setLongitude(boat.longitude?.toString() || '');
+        setVideoUrl(boat.video_url || '');
         setIsPublished(boat.is_published);
         setSelectedFeatures((boat.wb_boat_feature_links || []).map((l: any) => l.feature_id));
         setTrips(
@@ -217,6 +219,7 @@ export default function EditBoatPage() {
           departure_point: departurePoint.trim(),
           latitude: latitude ? parseFloat(latitude) : null,
           longitude: longitude ? parseFloat(longitude) : null,
+          video_url: videoUrl.trim() || null,
           is_published: isPublished,
         })
         .eq('id', boatId)
@@ -347,6 +350,20 @@ export default function EditBoatPage() {
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Video tour URL <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <Input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://youtu.be/... or https://vimeo.com/..."
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                YouTube, Vimeo, or direct MP4 — embedded on your boat's detail page.
+              </p>
             </div>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-teal-600" />

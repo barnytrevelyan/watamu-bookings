@@ -1,66 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { createClient as createPlainClient } from '@supabase/supabase-js';
-
-/**
- * Reconstruct the Supabase auth cookie value from one or more sb-*-auth-token
- * cookies. @supabase/ssr 0.3 stores it either as a single JSON cookie, a
- * base64-prefixed JSON cookie, or split across `.0` / `.1` chunks. We try
- * all three shapes and return the first one that parses into a usable
- * { access_token } object.
- */
-function extractAccessTokenFromCookies(req: NextRequest): string | null {
-  const all = req.cookies.getAll();
-  const sbCookies = all.filter((c) =>
-    /^sb-.*-auth-token(\.\d+)?$/.test(c.name)
-  );
-  if (sbCookies.length === 0) return null;
-
-  // Group cookies by their base name so chunked cookies reassemble in order.
-  const groups = new Map<string, { index: number; value: string }[]>();
-  for (const c of sbCookies) {
-    const m = c.name.match(/^(sb-.*-auth-token)(?:\.(\d+))?$/);
-    if (!m) continue;
-    const base = m[1];
-    const idx = m[2] ? parseInt(m[2], 10) : 0;
-    if (!groups.has(base)) groups.set(base, []);
-    groups.get(base)!.push({ index: idx, value: c.value });
-  }
-
-  for (const parts of Array.from(groups.values())) {
-    parts.sort((a, b) => a.index - b.index);
-    let raw = parts.map((p) => p.value).join('');
-    // URL-encoded wrappers
-    try {
-      raw = decodeURIComponent(raw);
-    } catch {
-      /* ignore */
-    }
-    // base64- prefix used by newer ssr versions
-    if (raw.startsWith('base64-')) {
-      try {
-        raw = Buffer.from(raw.slice('base64-'.length), 'base64').toString(
-          'utf-8'
-        );
-      } catch {
-        continue;
-      }
-    }
-    // Try JSON
-    try {
-      const parsed = JSON.parse(raw);
-      const token =
-        parsed?.access_token ||
-        parsed?.currentSession?.access_token ||
-        (Array.isArray(parsed) ? parsed[0] : null);
-      if (typeof token === 'string' && token.length > 20) return token;
-    } catch {
-      // Maybe the raw value IS the token (rare but cheap to try)
-      if (/^eyJ/.test(raw)) return raw;
-    }
-  }
-  return null;
-}
+import { resolveImportUser } from '@/lib/import-auth';
 
 /**
  * POST /api/import/ai
@@ -78,7 +18,7 @@ function extractAccessTokenFromCookies(req: NextRequest): string | null {
  */
 
 type Provider = 'anthropic' | 'openai';
-type ListingKind = 'property' | 'boat';
+type ListingKind = 'property' | 'boat' | 'mixed';
 
 const MAX_HTML_BYTES = 750_000; // ~750KB cap before handing to LLM
 const LLM_TIMEOUT_MS = 45_000;
@@ -168,7 +108,162 @@ function extractImageUrls(html: string, baseUrl: string): string[] {
   );
 }
 
-const PROPERTY_SCHEMA = `{
+/**
+ * Extract any obvious video URLs embedded in the page so the LLM can preserve
+ * them. `htmlToText` strips tags, so without this the LLM never sees the
+ * iframe src. We look at <iframe>, <video>, <source>, and plain anchor hrefs.
+ */
+function extractVideoUrls(html: string, baseUrl: string): string[] {
+  const base = new URL(baseUrl);
+  const out: string[] = [];
+
+  function push(raw: string) {
+    if (!raw) return;
+    try {
+      const resolved = new URL(raw, base).toString();
+      const host = new URL(resolved).hostname.toLowerCase();
+      const isYouTube =
+        /(^|\.)youtube(-nocookie)?\.com$|(^|\.)youtu\.be$/.test(host);
+      const isVimeo = /(^|\.)vimeo\.com$|(^|\.)player\.vimeo\.com$/.test(host);
+      const isFile = /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(resolved);
+      if (!isYouTube && !isVimeo && !isFile) return;
+      if (!out.includes(resolved) && out.length < 5) out.push(resolved);
+    } catch {
+      /* noop */
+    }
+  }
+
+  for (const m of html.matchAll(/<iframe[^>]+src="([^"]+)"/gi)) push(m[1]);
+  for (const m of html.matchAll(/<video[^>]+src="([^"]+)"/gi)) push(m[1]);
+  for (const m of html.matchAll(/<source[^>]+src="([^"]+)"/gi)) push(m[1]);
+  for (const m of html.matchAll(/<a[^>]+href="([^"#]+)"/gi)) push(m[1]);
+
+  return out;
+}
+
+/**
+ * Scan the homepage HTML for links that look like individual property / charter
+ * detail pages (e.g. /villas/sunset, /deep-sea-charter, /boats/blue-marlin).
+ * Filter out the usual navigation chrome (about, contact, blog, etc.) and
+ * external domains, then rank the remaining URLs by how listing-like they look.
+ *
+ * Returns up to 8 internal URLs, sorted from most-likely to least.
+ *
+ * We intentionally cast a wide net — a property-only site may still have a
+ * /boats or /fishing page for a related charter, and a charter site may host
+ * on-land accommodation. The LLM decides per-page what it's looking at.
+ */
+function extractDetailLinks(html: string, baseUrl: string): string[] {
+  const base = new URL(baseUrl);
+  const basePath = base.pathname.replace(/\/$/, '') || '/';
+
+  // Property-side keywords.
+  const propertyKeywords =
+    /villa|propert|house|stay|listing|accommod|room|apartment|bungalow|cottage|cabin|penthouse|banda|beach[ -]?house|suite|rental|lodge|retreat|hideaway|guesthouse/i;
+  // Boat / charter / experience keywords — critical for mixed-use sites like
+  // fishing lodges that also run charters, or villa websites with "dhow sunset
+  // sails" pages.
+  const boatKeywords =
+    /boat|charter|fish(ing)?|deep[ -]?sea|creek|reef|trolling|marlin|sailfish|dhow|catamaran|yacht|sail(ing)?|cruise|dive|diving|snorkel|excursion|safari|tour|trip|experienc|adventur|expedition|day[ -]?out/i;
+  const rejectPath =
+    /\/(about|contact|blog|news|privacy|terms|faq|legal|login|sign[ -]?in|sign[ -]?up|register|auth|book(ing)?|checkout|cart|rss|sitemap|feed|tag|category|author|search|pricing|rates|gallery|reviews?|testimonials?|press|media|careers?|jobs|our[- ]story|partners?|affiliate)(\/|$|#|\?)/i;
+  const rejectFile =
+    /\.(pdf|jpe?g|png|gif|webp|svg|ico|mp4|mov|avi|mp3|zip|css|js|xml|txt|json)(\?|$)/i;
+
+  const candidates = new Map<string, number>(); // normalized URL -> best score
+
+  for (const m of html.matchAll(/<a[^>]+href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const rawHref = m[1];
+    const linkText = m[2]
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    let resolved: URL;
+    try {
+      resolved = new URL(rawHref, base);
+    } catch {
+      continue;
+    }
+
+    if (resolved.hostname !== base.hostname) continue;
+    if (resolved.protocol !== 'https:' && resolved.protocol !== 'http:') continue;
+    if (rejectFile.test(resolved.pathname)) continue;
+    if (rejectPath.test(resolved.pathname)) continue;
+
+    const normalizedPath = resolved.pathname.replace(/\/$/, '') || '/';
+    if (normalizedPath === basePath) continue; // skip the page we started on
+    const normalized = `${resolved.origin}${normalizedPath}`;
+
+    let score = 0;
+    if (propertyKeywords.test(resolved.pathname)) score += 3;
+    if (propertyKeywords.test(linkText)) score += 2;
+    if (boatKeywords.test(resolved.pathname)) score += 3;
+    if (boatKeywords.test(linkText)) score += 2;
+
+    // Detail pages are usually at depth 1+ from the site root. A pure top-level
+    // nav link (e.g. /accommodation, /charters) is still a likely hub page, so
+    // any depth ≥ 1 gets credit; deeper pages get a small additional bonus.
+    const depth = normalizedPath.split('/').filter(Boolean).length;
+    if (depth >= 1) score += 1;
+    if (depth >= 3) score += 1;
+
+    // Penalise obviously generic "home", "index", "/all", "/list" landing pages.
+    if (/\/(home|index|all|list)(\/|$)/i.test(normalizedPath)) score -= 2;
+
+    if (score <= 0) continue;
+
+    const prev = candidates.get(normalized) ?? -Infinity;
+    if (score > prev) candidates.set(normalized, score);
+  }
+
+  return Array.from(candidates.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([url]) => url);
+}
+
+/** Fetch a single page with a 15s timeout and return cleaned text + images. */
+async function fetchPage(url: string): Promise<{
+  html: string;
+  text: string;
+  images: string[];
+  videos: string[];
+} | null> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    const resp = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WatamuBookingsImport/1.0',
+        Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    if (!resp.ok) return null;
+    const buf = await resp.arrayBuffer();
+    const html =
+      buf.byteLength > MAX_HTML_BYTES
+        ? new TextDecoder().decode(buf.slice(0, MAX_HTML_BYTES))
+        : new TextDecoder().decode(buf);
+    return {
+      html,
+      text: htmlToText(html),
+      images: extractImageUrls(html, url),
+      videos: extractVideoUrls(html, url),
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+const PROPERTY_FIELDS = `{
+  "kind": "property",
   "name": "string — title of the property (required)",
   "description": "string — 2-5 sentence description",
   "property_type": "villa | apartment | cottage | house | hotel | banda | bungalow | studio | penthouse | beach_house",
@@ -182,11 +277,13 @@ const PROPERTY_SCHEMA = `{
   "bedrooms": "number or null",
   "bathrooms": "number or null",
   "amenities": "string[] — short names like 'WiFi', 'Pool'",
+  "video_url": "string or null — first YouTube, Vimeo, or direct MP4 URL shown on the page (look in <iframe src>, <video src>, <source src>, or prominent links). Return null if none is present — do not guess.",
   "rating": "number or null — 0-5",
   "review_count": "number or null"
 }`;
 
-const BOAT_SCHEMA = `{
+const BOAT_FIELDS = `{
+  "kind": "boat",
   "name": "string — boat / charter name (required)",
   "description": "string — 2-5 sentence description",
   "boat_type": "sport_fisher | dhow | catamaran | speedboat | sailing_yacht | fishing_boat",
@@ -198,43 +295,117 @@ const BOAT_SCHEMA = `{
   "target_species": "string[] — e.g. ['marlin','sailfish']",
   "fishing_techniques": "string[] — e.g. ['trolling','popping']",
   "trips": "Array<{ name: string, trip_type: 'half_day' | 'full_day' | 'multi_day', duration_hours: number, price_total: number, price_per_person: number | null, departure_time: string | null, includes: string[], target_species: string[] }>",
+  "video_url": "string or null — first YouTube, Vimeo, or direct MP4 URL shown on the page (look in <iframe src>, <video src>, <source src>, or prominent links). Return null if none is present — do not guess.",
   "rating": "number or null — 0-5",
   "review_count": "number or null"
 }`;
 
-function buildPrompt(kind: ListingKind, pageText: string, url: string): string {
-  const schema = kind === 'boat' ? BOAT_SCHEMA : PROPERTY_SCHEMA;
+function buildPrompt(
+  kind: ListingKind,
+  pageText: string,
+  url: string,
+  videoUrls: string[] = []
+): string {
+  // Hint to the LLM about what the host thinks is on this site. 'mixed' lets
+  // the model decide per-listing — required for sites like UnReel that have
+  // cottages AND fishing boats on the same domain.
+  const focusHint =
+    kind === 'property'
+      ? 'The host says this site is mostly about properties / stays. Bias toward property listings, but if you see a boat charter on the page too, still return it.'
+      : kind === 'boat'
+        ? 'The host says this site is mostly about boat charters. Bias toward boat listings, but if you see an accommodation on the page too, still return it.'
+        : 'The site may contain properties, boat charters, or both. Detect what each listing is.';
+
   return `You are extracting structured listing data from a web page for a Kenyan
 vacation-rental / charter marketplace called Watamu Bookings.
 
-The host has pasted their own ${kind === 'boat' ? 'boat charter' : 'property'} page:
-${url}
+${focusHint}
 
-Below is the page text content. Read it carefully and return a SINGLE JSON
-object that matches this schema — no prose, no code fences, just JSON:
+Page URL: ${url}
 
-${schema}
+A single page may describe ONE listing (a single villa) OR MULTIPLE listings
+(e.g. an accommodation page that shows two side-by-side cottages with
+separate names and room counts, or a charters page listing a deep-sea boat
+and a creek boat). You MUST return every distinct listing as its own element
+in the "listings" array. Never merge two named units (e.g. "Utulivu" and
+"Urumwe") into one entry.
+
+Return ONLY valid JSON — no prose, no code fences — matching this shape:
+
+{
+  "listings": [
+    // zero or more items; each item is EITHER this property shape:
+    ${PROPERTY_FIELDS}
+    // OR this boat shape:
+    ${BOAT_FIELDS}
+  ]
+}
 
 Rules:
-- If a field is not clearly stated, use null for numbers or "" for strings,
-  and [] for arrays. Do not guess.
+- Use "kind": "property" for villas, cottages, rooms, apartments, houses,
+  hotels, bandas, bungalows, lodges, retreats — anywhere a guest sleeps.
+- Use "kind": "boat" for fishing charters, dhow cruises, catamarans,
+  snorkel / dive boats, sunset cruises — anything with a captain.
+- If a page is a site-wide landing page with only teaser cards that link off
+  to detail pages, return an empty listings array — do NOT invent details.
+- If a field is not clearly stated, use null for numbers, "" for strings, and
+  [] for arrays. Do not guess. Do not hallucinate amenities or target species.
 - Currency: if you see prices in KES / Ksh / KSh / Kenya shilling, use "KES".
-  USD is "USD". EUR is "EUR". If unclear, default "KES".
-- Price should be per night (properties) or total trip price (boats).
-- Keep the description faithful to the source, 2-5 sentences max.
-
+  USD = "USD". EUR = "EUR". If unclear, default "KES".
+- Price: per-night for properties; total trip price for boats.
+- Keep descriptions faithful to the source, 2-5 sentences each.
+${
+  videoUrls.length > 0
+    ? `
+Videos detected on this page (pass the most listing-relevant one back as
+"video_url"; leave null if none are specifically about the listing):
+${videoUrls.slice(0, 5).map((v) => `  - ${v}`).join('\n')}
+`
+    : ''
+}
 Page content:
 ${pageText.slice(0, 80_000)}
 `;
 }
 
+/** Return shape from an LLM call. The `usage` fields feed our spend tracker
+ *  so we can alert when the platform key is getting close to its monthly
+ *  budget (see /api/cron/check-ai-budget). */
+interface LlmResponse {
+  text: string;
+  input_tokens: number;
+  output_tokens: number;
+  model: string;
+  provider: Provider;
+}
+
+// Haiku 4.5 public pricing as of April 2026: $1/MTok in, $5/MTok out.
+// gpt-4o-mini: $0.15/MTok in, $0.60/MTok out. Keep these in sync with the
+// pricing page when models are swapped — the budget alert uses them to
+// estimate spend.
+const PRICING_USD_PER_MTOK: Record<string, { in: number; out: number }> = {
+  'claude-haiku-4-5-20251001': { in: 1.0, out: 5.0 },
+  'gpt-4o-mini': { in: 0.15, out: 0.6 },
+};
+
+function estimateCostUsd(
+  model: string,
+  input_tokens: number,
+  output_tokens: number
+): number {
+  const p = PRICING_USD_PER_MTOK[model];
+  if (!p) return 0;
+  return (input_tokens / 1_000_000) * p.in + (output_tokens / 1_000_000) * p.out;
+}
+
 async function callAnthropic(
   apiKey: string,
   prompt: string
-): Promise<string> {
+): Promise<LlmResponse> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
   try {
+    const model = 'claude-haiku-4-5-20251001';
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: ctrl.signal,
@@ -244,7 +415,7 @@ async function callAnthropic(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model,
         max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -258,16 +429,23 @@ async function callAnthropic(
     const json: any = await resp.json();
     const text = json?.content?.[0]?.text;
     if (!text) throw new Error('Anthropic returned an empty response');
-    return text;
+    return {
+      text,
+      input_tokens: json?.usage?.input_tokens ?? 0,
+      output_tokens: json?.usage?.output_tokens ?? 0,
+      model,
+      provider: 'anthropic',
+    };
   } finally {
     clearTimeout(t);
   }
 }
 
-async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
+async function callOpenAI(apiKey: string, prompt: string): Promise<LlmResponse> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
   try {
+    const model = 'gpt-4o-mini';
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       signal: ctrl.signal,
@@ -276,7 +454,7 @@ async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -297,7 +475,13 @@ async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
     const json: any = await resp.json();
     const text = json?.choices?.[0]?.message?.content;
     if (!text) throw new Error('OpenAI returned an empty response');
-    return text;
+    return {
+      text,
+      input_tokens: json?.usage?.prompt_tokens ?? 0,
+      output_tokens: json?.usage?.completion_tokens ?? 0,
+      model,
+      provider: 'openai',
+    };
   } finally {
     clearTimeout(t);
   }
@@ -322,70 +506,15 @@ function parseJsonLoose(raw: string): any {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient();
-
-    // Use getSession() rather than getUser(): we've hit repeated issues
-    // where getUser()'s network call + silent refresh-cookie-write races
-    // against the route handler's cookie lifecycle in Vercel and returns
-    // a spurious "Auth session missing!" error. Cookies are httpOnly +
-    // secure + signed, and every write below is still scoped by owner_id
-    // (Supabase RLS enforces it regardless of what we pass), so this is
-    // a safe trade-off for this endpoint.
-    // Primary path: the SSR client reads the session from cookies.
-    const {
-      data: { session },
-      error: sessionErr,
-    } = await supabase.auth.getSession();
-
-    let user = session?.user ?? null;
-    let authPath: 'ssr' | 'manual-jwt' = 'ssr';
-
-    // Fallback: some cookie encodings (chunked / base64-prefixed) aren't
-    // decoded cleanly by @supabase/ssr@0.3 inside the route handler even
-    // though the browser client can read them. Extract the access_token
-    // ourselves and validate it by calling Supabase directly.
-    if (!user) {
-      const accessToken = extractAccessTokenFromCookies(request);
-      if (accessToken) {
-        const admin = createPlainClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        const { data: userData } = await admin.auth.getUser(accessToken);
-        if (userData?.user) {
-          user = userData.user;
-          authPath = 'manual-jwt';
-        }
-      }
-    }
-
-    const sbCookieCount = request.cookies
-      .getAll()
-      .filter((c) => c.name.startsWith('sb-')).length;
-
-    if (!user) {
-      console.error('[import/ai] no session', {
-        sbCookieCount,
-        sessionErr: sessionErr?.message,
-        allCookieNames: request.cookies.getAll().map((c) => c.name),
-      });
-      return NextResponse.json(
-        {
-          error:
-            sbCookieCount === 0
-              ? 'No auth cookies reached the server. Try a hard refresh (Cmd+Shift+R), or sign out and back in.'
-              : 'Your session has expired. Please sign out, sign back in, and try again.',
-          debug: {
-            sbCookieCount,
-            sessionErr: sessionErr?.message ?? null,
-          },
-        },
-        { status: 401 }
-      );
-    }
-    // Mark which auth path succeeded so we can watch logs and spot how
-    // often the SSR decoder is falling through to the manual fallback.
+    // Resolve the caller. See lib/import-auth.ts for the cookie decoding
+    // fallback we rely on when @supabase/ssr 0.3 can't decode chunked /
+    // base64-prefixed auth cookies in the route-handler cookie lifecycle.
+    const auth = await resolveImportUser(request);
+    if (!auth.ok) return auth.response;
+    const { user, authPath } = auth.result;
     console.log('[import/ai] auth ok via', authPath);
+
+    const supabase = await createServerClient();
 
     const body = await request.json().catch(() => ({}));
     const url = typeof body.url === 'string' ? body.url.trim() : '';
@@ -396,7 +525,12 @@ export async function POST(request: NextRequest) {
         : body.provider === 'anthropic'
           ? 'anthropic'
           : null;
-    const kind: ListingKind = body.kind === 'boat' ? 'boat' : 'property';
+    const kind: ListingKind =
+      body.kind === 'boat'
+        ? 'boat'
+        : body.kind === 'mixed'
+          ? 'mixed'
+          : 'property';
 
     if (!url || !isSafeExternalUrl(url)) {
       return NextResponse.json(
@@ -451,107 +585,198 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 1. Fetch the page
-    const fetchCtrl = new AbortController();
-    const fetchTimer = setTimeout(() => fetchCtrl.abort(), 15_000);
-    let html = '';
-    try {
-      const resp = await fetch(url, {
-        signal: fetchCtrl.signal,
-        redirect: 'follow',
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WatamuBookingsImport/1.0',
-          Accept: 'text/html,application/xhtml+xml',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-      });
-      if (!resp.ok) {
-        return NextResponse.json(
-          { error: `That page returned ${resp.status}. Check the URL and try again.` },
-          { status: 400 }
-        );
-      }
-      const buf = await resp.arrayBuffer();
-      if (buf.byteLength > MAX_HTML_BYTES) {
-        html = new TextDecoder().decode(buf.slice(0, MAX_HTML_BYTES));
-      } else {
-        html = new TextDecoder().decode(buf);
-      }
-    } catch (e: any) {
+    // 1. Fetch the entry page (usually the homepage).
+    const home = await fetchPage(url);
+    if (!home) {
       return NextResponse.json(
-        { error: `Could not fetch that URL: ${e?.message || 'unknown error'}` },
+        { error: 'Could not fetch that URL. Check the link and try again.' },
         { status: 400 }
       );
-    } finally {
-      clearTimeout(fetchTimer);
     }
 
-    const pageText = htmlToText(html);
-    const imageCandidates = extractImageUrls(html, url);
+    // 2. Detect property-detail links on the entry page and fetch up to 4 of
+    //    them in parallel. Multi-property sites (e.g. a single agency hosting
+    //    several villas) surface one listing per detail page; single-property
+    //    sites usually have no such links, in which case we just process the
+    //    entry page itself.
+    const detailUrls = extractDetailLinks(home.html, url);
+    const detailPages = await Promise.all(detailUrls.map((u) => fetchPage(u)));
 
-    // 2. Ask the LLM for structured JSON
-    const prompt = buildPrompt(kind, pageText, url);
-    let rawLlm = '';
-    try {
-      rawLlm =
-        provider === 'openai'
-          ? await callOpenAI(apiKey, prompt)
-          : await callAnthropic(apiKey, prompt);
-    } catch (e: any) {
-      return NextResponse.json(
-        { error: e?.message || `LLM request to ${provider} failed` },
-        { status: 502 }
-      );
+    type PageSource = {
+      url: string;
+      text: string;
+      images: string[];
+      videos: string[];
+    };
+    const sources: PageSource[] = [];
+    for (let i = 0; i < detailPages.length; i++) {
+      const p = detailPages[i];
+      if (p)
+        sources.push({
+          url: detailUrls[i],
+          text: p.text,
+          images: p.images,
+          videos: p.videos,
+        });
     }
 
-    let parsed: any;
-    try {
-      parsed = parseJsonLoose(rawLlm);
-    } catch (e: any) {
+    // If no per-listing pages were found, treat the entry page itself as the
+    // (likely single) listing so we still return something useful.
+    if (sources.length === 0) {
+      sources.push({
+        url,
+        text: home.text,
+        images: home.images,
+        videos: home.videos,
+      });
+    }
+
+    // 3. Run the LLM in parallel on each page. Each page may yield 0, 1, or
+    //    many listings (a single /accommodation page can describe two
+    //    side-by-side cottages). A failure on one page shouldn't sink the
+    //    whole import — we filter out nulls below.
+    const llmResults = await Promise.allSettled(
+      sources.map(async (s) => {
+        const prompt = buildPrompt(kind, s.text, s.url, s.videos);
+        const resp =
+          provider === 'openai'
+            ? await callOpenAI(apiKey, prompt)
+            : await callAnthropic(apiKey, prompt);
+        return { ...resp, parsed: parseJsonLoose(resp.text) };
+      })
+    );
+
+    // Aggregate token usage across all LLM calls. When this request used the
+    // platform key the spend feeds the "AI credits running low" email alert
+    // (see /api/cron/check-ai-budget).
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let modelUsed = '';
+    for (const r of llmResults) {
+      if (r.status === 'fulfilled') {
+        totalInputTokens += r.value.input_tokens || 0;
+        totalOutputTokens += r.value.output_tokens || 0;
+        modelUsed = r.value.model;
+      }
+    }
+    const costUsd = estimateCostUsd(modelUsed, totalInputTokens, totalOutputTokens);
+
+    // 4. Flatten every page's listings[] into one array, coerce defaults, and
+    //    dedupe by "{kind}:{name}" so a nav-linked page that accidentally
+    //    restates a listing from the homepage doesn't show up twice.
+    const listings: any[] = [];
+    const seenKeys = new Set<string>();
+    for (let i = 0; i < llmResults.length; i++) {
+      const r = llmResults[i];
+      if (r.status !== 'fulfilled' || !r.value) continue;
+
+      const parsed = r.value.parsed;
+      const s = sources[i];
+
+      // Accept both shapes: new { listings: [...] } and legacy single-object
+      // (in case the LLM drifts). Tolerate older responses so we never 500.
+      const raw: any[] = Array.isArray(parsed?.listings)
+        ? parsed.listings
+        : parsed && typeof parsed === 'object' && parsed.name
+          ? [parsed]
+          : [];
+
+      for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+
+        const rawName = typeof item.name === 'string' ? item.name.trim() : '';
+        if (!rawName) continue;
+        if (/^(404|not found|page not found|access denied)$/i.test(rawName)) continue;
+
+        // Resolve per-listing kind. The LLM sometimes omits the kind field;
+        // fall back to the host's hint, or to 'boat' if obvious boat fields
+        // are present.
+        const explicitKind =
+          item.kind === 'boat' ? 'boat' : item.kind === 'property' ? 'property' : null;
+        const hasBoatShape =
+          item.boat_type || (Array.isArray(item.trips) && item.trips.length > 0);
+        const hasPropertyShape =
+          item.property_type || item.bedrooms != null || item.max_guests != null;
+        const resolvedKind: 'property' | 'boat' =
+          explicitKind ??
+          (hasBoatShape
+            ? 'boat'
+            : hasPropertyShape
+              ? 'property'
+              : kind === 'boat'
+                ? 'boat'
+                : 'property');
+
+        const key = `${resolvedKind}:${rawName.toLowerCase()}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+
+        // If the LLM didn't return a video URL but we scraped one off the page,
+        // fall back to the first detected video so we don't silently lose it.
+        const rawVideo = typeof item.video_url === 'string' ? item.video_url.trim() : '';
+        const videoUrl = rawVideo || (s.videos?.[0] ?? null);
+
+        const data: any = {
+          ...item,
+          kind: resolvedKind,
+          name: rawName,
+          images: s.images,
+          video_url: videoUrl || null,
+          source_url: s.url,
+          source: 'ai',
+        };
+        if (resolvedKind === 'property') {
+          data.property_type = data.property_type || 'house';
+          data.city = data.city || 'Watamu';
+          data.currency = data.currency || 'KES';
+        } else {
+          data.boat_type = data.boat_type || 'sport_fisher';
+          data.trips = Array.isArray(data.trips) ? data.trips : [];
+          data.target_species = Array.isArray(data.target_species) ? data.target_species : [];
+          data.fishing_techniques = Array.isArray(data.fishing_techniques)
+            ? data.fishing_techniques
+            : [];
+        }
+        listings.push(data);
+      }
+    }
+
+    if (listings.length === 0) {
       return NextResponse.json(
         {
           error:
-            'Could not parse the LLM response as JSON. Try another URL or switch AI provider.',
+            'AI could not extract any listings from that URL. Try a more specific page, or switch AI provider.',
         },
         { status: 502 }
       );
-    }
-
-    // 3. Coerce into the existing importer payload shape and attach images.
-    const data: any = {
-      ...parsed,
-      images: imageCandidates,
-      source_url: url,
-      source: 'ai',
-    };
-    if (kind === 'property') {
-      data.property_type = data.property_type || 'house';
-      data.city = data.city || 'Watamu';
-      data.currency = data.currency || 'KES';
-    } else {
-      data.boat_type = data.boat_type || 'sport_fisher';
-      data.trips = Array.isArray(data.trips) ? data.trips : [];
-      data.target_species = Array.isArray(data.target_species)
-        ? data.target_species
-        : [];
-      data.fishing_techniques = Array.isArray(data.fishing_techniques)
-        ? data.fishing_techniques
-        : [];
     }
 
     // Log the import attempt — we never persist the API key.
     // Tag platform-paid runs separately so we can track cost later.
+    // `usage` is what the budget alert cron sums across recent logs.
     await supabase.from('wb_import_logs').insert({
       owner_id: user.id,
       source: `ai:${provider}${usingPlatformKey ? ':platform' : ''}`,
       source_url: url,
-      listing_type: kind,
+      listing_type: kind === 'mixed' ? 'mixed' : kind,
       status: 'completed',
-      imported_data: data as any,
+      imported_data: {
+        listings,
+        crawled_pages: sources.length,
+        usage: {
+          provider,
+          model: modelUsed,
+          input_tokens: totalInputTokens,
+          output_tokens: totalOutputTokens,
+          cost_usd: costUsd,
+          platform_paid: usingPlatformKey,
+        },
+      } as any,
     });
 
-    return NextResponse.json({ data });
+    // New multi-listing response shape. The preview UI lets the host approve,
+    // edit, or exclude each listing (and each image) before save.
+    return NextResponse.json({ data: { listings } });
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || 'Import failed' },

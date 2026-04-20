@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 type ImportSource = 'airbnb' | 'fishingbooker' | 'booking' | 'ai' | null;
 type Step = 'choose' | 'url' | 'preview' | 'saving' | 'done';
 type AiProvider = 'anthropic' | 'openai';
-type AiKind = 'property' | 'boat';
+type AiKind = 'property' | 'boat' | 'mixed';
 
 /**
  * One scraped listing in the review step. `include` controls whether this
@@ -71,7 +71,9 @@ export default function ImportPage() {
   const [loading, setLoading] = useState(false);
   const [listings, setListings] = useState<EditableListing[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [createdIds, setCreatedIds] = useState<string[]>([]);
+  const [createdItems, setCreatedItems] = useState<
+    Array<{ id: string; kind: 'property' | 'boat' }>
+  >([]);
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
   // AI importer fields — the API key is used once per request and never stored.
   // By default, we use Watamu Bookings' own AI key (free, rate-limited) so
@@ -202,11 +204,21 @@ export default function ImportPage() {
     }
   }
 
-  // Resolves whether the imported data should become a property or a boat.
-  function resolveKind(): 'property' | 'boat' {
+  // Global default when a listing doesn't carry its own `kind` tag (used by
+  // the non-AI importers, which return a single listing typed by source).
+  function defaultKind(): 'property' | 'boat' {
     if (source === 'fishingbooker') return 'boat';
-    if (source === 'ai') return aiKind;
+    if (source === 'ai') return aiKind === 'boat' ? 'boat' : 'property';
     return 'property'; // airbnb, booking
+  }
+
+  // Per-listing kind: AI may return cottages and boats from the same site, so
+  // every listing carries its own `data.kind`. Older shapes (single-source
+  // importers) don't, so we fall back to the global default.
+  function kindOf(listing: EditableListing): 'property' | 'boat' {
+    const k = listing?.data?.kind;
+    if (k === 'boat' || k === 'property') return k;
+    return defaultKind();
   }
 
   async function handleSave() {
@@ -232,7 +244,6 @@ export default function ImportPage() {
     setStep('saving');
     setSaveProgress({ current: 0, total: approved.length });
 
-    const kind = resolveKind();
     const importSourceTag =
       source === 'ai'
         ? aiUsePlatformKey
@@ -241,13 +252,16 @@ export default function ImportPage() {
         : source ?? 'manual';
 
     const supabase = createClient();
-    const createdIds: string[] = [];
+    const createdItemsLocal: Array<{ id: string; kind: 'property' | 'boat' }> = [];
 
     try {
       for (let i = 0; i < approved.length; i++) {
         const listing = approved[i];
         setSaveProgress({ current: i, total: approved.length });
 
+        // Resolve kind PER-LISTING. AI imports may return cottages and boats
+        // from the same domain, so each listing carries its own kind tag.
+        const kind = kindOf(listing);
         const d = listing.data;
         const rawName = (d.name || '').trim();
         const baseSlug = rawName
@@ -311,6 +325,7 @@ export default function ImportPage() {
               status: 'pending_review',
               source_url: d.source_url || url.trim(),
               import_source: importSourceTag,
+              video_url: (d.video_url || '').trim() || null,
             })
             .select('id')
             .single();
@@ -330,7 +345,7 @@ export default function ImportPage() {
             if (imgErr) throw imgErr;
           }
 
-          createdIds.push(property.id);
+          createdItemsLocal.push({ id: property.id, kind: 'property' });
         } else {
           const { data: boat, error: boatError } = await supabase
             .from('wb_boats')
@@ -354,6 +369,7 @@ export default function ImportPage() {
               status: 'pending_review',
               source_url: d.source_url || url.trim(),
               import_source: importSourceTag,
+              video_url: (d.video_url || '').trim() || null,
             })
             .select('id')
             .single();
@@ -393,11 +409,11 @@ export default function ImportPage() {
             if (imgErr) throw imgErr;
           }
 
-          createdIds.push(boat.id);
+          createdItemsLocal.push({ id: boat.id, kind: 'boat' });
         }
       }
 
-      setCreatedIds(createdIds);
+      setCreatedItems(createdItemsLocal);
       setSaveProgress({ current: approved.length, total: approved.length });
       setStep('done');
       toast.success(
@@ -580,8 +596,8 @@ export default function ImportPage() {
             {source === 'ai' && (
               <div className="space-y-4 rounded-xl border border-teal-200 bg-teal-50/40 p-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 mb-2">What is this listing?</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p className="text-sm font-medium text-gray-900 mb-2">What&apos;s on this site?</p>
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => setAiKind('property')}
@@ -591,7 +607,7 @@ export default function ImportPage() {
                           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      Property / stay
+                      Stays only
                     </button>
                     <button
                       type="button"
@@ -602,9 +618,23 @@ export default function ImportPage() {
                           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      Boat charter
+                      Charters only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiKind('mixed')}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        aiKind === 'mixed'
+                          ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Both / not sure
                     </button>
                   </div>
+                  <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                    Our AI crawls up to 8 pages of your site and detects each listing separately — cottages, villas, fishing boats, dhows, and more. Pick &ldquo;Both&rdquo; if your site has stays <em>and</em> charters.
+                  </p>
                 </div>
 
                 <div>
@@ -747,7 +777,6 @@ export default function ImportPage() {
 
       {/* Step 3: Preview — one editable card per listing, with include toggles. */}
       {step === 'preview' && listings && listings.length > 0 && (() => {
-        const kind = resolveKind();
         const includedCount = listings.filter((l) => l.include).length;
         return (
           <div className="space-y-4">
@@ -775,6 +804,7 @@ export default function ImportPage() {
 
             {listings.map((listing, lIdx) => {
               const d = listing.data;
+              const kind = kindOf(listing);
               const includedImages = listing.images.filter((img) => img.include).length;
               return (
                 <Card
@@ -793,12 +823,30 @@ export default function ImportPage() {
                         className="mt-1 w-5 h-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                       />
                       <div className="min-w-0 flex-1">
-                        <input
-                          value={d.name || ''}
-                          onChange={(e) => updateListingData(lIdx, { name: e.target.value })}
-                          placeholder="Listing name"
-                          className="text-xl font-bold text-gray-900 bg-transparent w-full border-0 border-b border-transparent hover:border-gray-200 focus:border-teal-500 focus:outline-none focus:ring-0 px-0 py-0.5"
-                        />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <input
+                            value={d.name || ''}
+                            onChange={(e) => updateListingData(lIdx, { name: e.target.value })}
+                            placeholder="Listing name"
+                            className="text-xl font-bold text-gray-900 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-teal-500 focus:outline-none focus:ring-0 px-0 py-0.5 flex-1 min-w-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const next = kind === 'property' ? 'boat' : 'property';
+                              updateListingData(lIdx, { kind: next });
+                            }}
+                            title="Tap to switch between Property and Boat — use this if the AI mis-classified the listing"
+                            className={`shrink-0 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
+                              kind === 'boat'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                : 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100'
+                            }`}
+                          >
+                            {kind === 'boat' ? '⚓ Boat' : '🏠 Property'}
+                          </button>
+                        </div>
                         {d.source_url && (
                           <p className="text-[11px] text-gray-400 mt-1 truncate">
                             Source: {d.source_url}
@@ -949,6 +997,21 @@ export default function ImportPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Video tour URL — optional, shared by properties and boats */}
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-500 block mb-1">
+                      Video tour URL{' '}
+                      <span className="text-gray-400">(optional — YouTube, Vimeo, or MP4)</span>
+                    </label>
+                    <input
+                      type="url"
+                      value={d.video_url || ''}
+                      onChange={(e) => updateListingData(lIdx, { video_url: e.target.value })}
+                      placeholder="https://youtu.be/... or https://vimeo.com/..."
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                    />
+                  </div>
 
                   {/* Trip packages (boats only, read-only view) */}
                   {kind === 'boat' && d.trips?.length > 0 && (
@@ -1126,10 +1189,10 @@ export default function ImportPage() {
             </svg>
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {createdIds.length === 1 ? 'Import Complete!' : `${createdIds.length} Listings Imported!`}
+            {createdItems.length === 1 ? 'Import Complete!' : `${createdItems.length} Listings Imported!`}
           </h2>
           <p className="text-gray-600 mb-6">
-            {createdIds.length === 1
+            {createdItems.length === 1
               ? 'Your listing has been submitted for review. Our team will verify ownership and approve it shortly. You can edit details in the meantime.'
               : 'Your listings have been submitted for review. Our team will verify ownership and approve them shortly. You can edit details in the meantime.'}
           </p>
@@ -1142,22 +1205,22 @@ export default function ImportPage() {
                 setUrl('');
                 setAiKey('');
                 setListings(null);
-                setCreatedIds([]);
+                setCreatedItems([]);
                 setSaveProgress(null);
                 setError(null);
               }}
             >
               Import Another
             </Button>
-            {createdIds.length === 1 ? (
+            {createdItems.length === 1 ? (
               <Button
                 onClick={() => {
-                  const kind = resolveKind();
-                  if (kind === 'property') {
-                    router.push(`/dashboard/properties/${createdIds[0]}`);
-                  } else {
-                    router.push(`/dashboard/boats/${createdIds[0]}`);
-                  }
+                  const { id, kind } = createdItems[0];
+                  router.push(
+                    kind === 'boat'
+                      ? `/dashboard/boats/${id}`
+                      : `/dashboard/properties/${id}`
+                  );
                 }}
               >
                 Edit Listing

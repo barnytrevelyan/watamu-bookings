@@ -46,6 +46,11 @@ export const metadata: Metadata = {
 
 const HEADLINE_REASONS = [
   {
+    icon: Sparkles,
+    title: "Migrate in under two minutes",
+    body: "Paste any URL — Airbnb, Booking.com, FishingBooker, or your own website — and our AI imports the whole listing. Multi-property sites? We crawl every page. Every photo is mirrored to our storage so your listing survives even if the source goes down.",
+  },
+  {
     icon: PiggyBank,
     title: "Keep more of what you earn",
     body: "We charge a flat 8% host service fee — a fraction of Airbnb's blended 14–16% and Booking.com's 15–18% commission. That difference goes straight back to you.",
@@ -66,7 +71,7 @@ const SUPPORT_POINTS = [
   {
     icon: Sparkles,
     title: "Free AI-assisted import",
-    body: "Paste a link to your existing Airbnb, Booking.com, FishingBooker, or your own website and we'll pre-fill your whole listing in under a minute.",
+    body: "Paste any link — Airbnb, Booking.com, FishingBooker, or your own site. Our AI reads the page, detects every property on multi-listing sites, and mirrors every photo into Watamu Bookings storage so your listing stays intact even if the source disappears.",
   },
   {
     icon: ShieldCheck,
@@ -98,8 +103,8 @@ const SUPPORT_POINTS = [
 const STEPS = [
   {
     n: "01",
-    title: "Import or build your listing",
-    body: "Bring your photos and description from Airbnb, Booking.com or FishingBooker with one click, or build from scratch with our guided editor.",
+    title: "Paste a URL — we do the rest",
+    body: "Drop in any listing link. Our AI reads the page, pulls every detail and photo, and lets you approve each field before it's saved. Under two minutes for most listings. Or build from scratch with our guided editor.",
   },
   {
     n: "02",
@@ -122,6 +127,14 @@ const FAQS = [
   {
     q: "What does it cost to list?",
     a: "Listing is free. We take a flat 8% host service fee on confirmed bookings — no monthly subscription, no sign-up charges, no cost to import your existing listing.",
+  },
+  {
+    q: "How does the AI import actually work?",
+    a: "Paste the URL of your existing listing — Airbnb, Booking.com, Vrbo, FishingBooker, Google Sites, Wix, Squarespace, WordPress, anything. Our AI fetches the page, reads the content, and generates a draft listing with description, amenities, pricing hints, location, and all the photos. If your site has multiple properties (e.g. a villa-collection page with 12 villas), we detect and import each one separately. For mixed sites with both villas and boats, we sort them out. Every photo is downloaded and mirrored to our storage so your listing keeps working even if the source goes offline. Nothing publishes without you reviewing and approving it field by field.",
+  },
+  {
+    q: "What if the AI gets something wrong?",
+    a: "Every AI-imported listing lands in a review screen where you can edit the name, description, photos, amenities, pricing, and trip packages before it goes live. Think of the AI as a very fast first draft — it saves you an hour of typing, not your final judgment. Most hosts spend 5 minutes polishing and then hit publish.",
   },
   {
     q: "How does this compare to Airbnb or Booking.com?",
@@ -235,15 +248,30 @@ export default function BecomeAHostPage() {
             </h2>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
-            {HEADLINE_REASONS.map((r) => (
+          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {HEADLINE_REASONS.map((r, i) => (
               <div
                 key={r.title}
-                className="rounded-2xl border border-gray-100 bg-white p-7 shadow-sm hover:shadow-md transition-shadow"
+                className={`rounded-2xl border p-7 shadow-sm hover:shadow-md transition-shadow ${
+                  i === 0
+                    ? "border-[var(--color-primary-200,#99f6e4)] bg-gradient-to-br from-[var(--color-primary-50,#f0fdfa)] to-white ring-1 ring-[var(--color-primary-200,#99f6e4)]/50"
+                    : "border-gray-100 bg-white"
+                }`}
               >
-                <div className="h-12 w-12 rounded-xl bg-[var(--color-primary-50)] text-[var(--color-primary-600)] flex items-center justify-center mb-5">
+                <div
+                  className={`h-12 w-12 rounded-xl flex items-center justify-center mb-5 ${
+                    i === 0
+                      ? "bg-[var(--color-primary-600)] text-white"
+                      : "bg-[var(--color-primary-50)] text-[var(--color-primary-600)]"
+                  }`}
+                >
                   <r.icon className="h-6 w-6" strokeWidth={1.7} />
                 </div>
+                {i === 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-600)] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 mb-2">
+                    <Sparkles className="h-3 w-3" /> New
+                  </span>
+                )}
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {r.title}
                 </h3>
@@ -305,6 +333,121 @@ export default function BecomeAHostPage() {
             </div>
 
             <HostEarningsCalculator />
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────  AI IMPORT SPOTLIGHT  ─────────────────────── */}
+      <section className="relative overflow-hidden py-20 sm:py-24 bg-gradient-to-br from-[var(--color-primary-700)] via-[var(--color-primary-600)] to-[var(--color-primary-800,#115e59)]">
+        <div className="absolute inset-0 opacity-20" aria-hidden="true">
+          <div className="absolute top-10 left-10 h-64 w-64 rounded-full bg-white blur-3xl" />
+          <div className="absolute bottom-10 right-10 h-72 w-72 rounded-full bg-[var(--color-primary-300,#5eead4)] blur-3xl" />
+        </div>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
+            <div className="lg:col-span-3 text-white">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white ring-1 ring-white/25 mb-5">
+                <Sparkles className="h-3.5 w-3.5" /> New · AI-powered import
+              </span>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
+                Paste a link. Skip the typing.
+                <br />
+                Be live in two minutes.
+              </h2>
+              <p className="mt-5 text-lg text-white/90 leading-relaxed max-w-2xl">
+                Drop in any URL — your Airbnb, Booking.com, FishingBooker page, or even
+                your own website. Our AI reads the page, writes your description, picks
+                your amenities, and mirrors every photo into our storage so your
+                listing never breaks.
+              </p>
+              <ul className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-[15px] text-white/95">
+                <li className="flex items-start gap-2.5">
+                  <Check className="h-5 w-5 shrink-0 text-[var(--color-primary-200,#99f6e4)] mt-0.5" />
+                  <span>Works with Airbnb, Booking.com, Vrbo, FishingBooker</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="h-5 w-5 shrink-0 text-[var(--color-primary-200,#99f6e4)] mt-0.5" />
+                  <span>Multi-property sites? We crawl every listing</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="h-5 w-5 shrink-0 text-[var(--color-primary-200,#99f6e4)] mt-0.5" />
+                  <span>Photos mirrored — source site can disappear</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="h-5 w-5 shrink-0 text-[var(--color-primary-200,#99f6e4)] mt-0.5" />
+                  <span>Review & approve every field before publishing</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="h-5 w-5 shrink-0 text-[var(--color-primary-200,#99f6e4)] mt-0.5" />
+                  <span>Mixed villas + boats on one site? Sorted</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="h-5 w-5 shrink-0 text-[var(--color-primary-200,#99f6e4)] mt-0.5" />
+                  <span>Free — zero cost to import</span>
+                </li>
+              </ul>
+              <div className="mt-9 flex flex-col sm:flex-row gap-3">
+                <Link href="/dashboard/import">
+                  <Button
+                    size="lg"
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                    className="!bg-white !text-[var(--color-primary-700)] hover:!bg-white/95"
+                  >
+                    Try AI import
+                  </Button>
+                </Link>
+                <Link href="/auth/register?role=owner">
+                  <Button
+                    size="lg"
+                    variant="ghost"
+                    className="!bg-white/15 !text-white hover:!bg-white/25 backdrop-blur-sm ring-1 ring-white/25"
+                  >
+                    Create host account first
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="lg:col-span-2">
+              <div className="rounded-2xl bg-white/10 backdrop-blur-sm ring-1 ring-white/20 p-5 shadow-2xl">
+                <div className="rounded-xl bg-white p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-400" />
+                  </div>
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    Paste your listing URL
+                  </label>
+                  <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+                    <span className="text-gray-400">https://</span>
+                    <span className="font-mono">airbnb.com/rooms/...</span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Reading page — 12 photos found
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Writing description &amp; amenities
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Mirroring photos to storage
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-lg bg-[var(--color-primary-50,#f0fdfa)] border border-[var(--color-primary-200,#99f6e4)] px-3 py-2.5 text-xs">
+                    <div className="font-semibold text-[var(--color-primary-800,#115e59)] flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" /> Ready for review
+                    </div>
+                    <div className="mt-0.5 text-[var(--color-primary-700)]">
+                      Approve each field — then publish.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
