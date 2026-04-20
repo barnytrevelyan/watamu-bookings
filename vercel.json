@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/check-ai-budget",
-      "schedule": "0 7 * * *"
+      "path": "/api/cron/billing",
+      "schedule": "0 2 * * *"
     }
   ]
 }

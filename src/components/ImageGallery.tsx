@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, Expand, Grid3x3 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Expand } from 'lucide-react';
 
 interface GalleryImage {
   src?: string;
@@ -62,7 +62,7 @@ export default function ImageGallery({
   return (
     <div className={className}>
       {/* Grid layout */}
-      <div className="relative grid grid-cols-4 grid-rows-2 gap-2 rounded-2xl overflow-hidden h-[28rem]">
+      <div className="grid grid-cols-4 grid-rows-2 gap-2 rounded-2xl overflow-hidden h-[28rem]">
         {/* Main image */}
         <div
           className="col-span-2 row-span-2 relative group cursor-pointer"
@@ -91,21 +91,15 @@ export default function ImageGallery({
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+            {i === 3 && images.length > 5 && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <span className="text-white text-lg font-semibold">
+                  +{images.length - 5} more
+                </span>
+              </div>
+            )}
           </div>
         ))}
-
-        {/* "Show all photos" CTA — Airbnb-style pill bottom-right over the grid */}
-        {images.length > 1 && (
-          <button
-            type="button"
-            onClick={() => openLightbox(0)}
-            className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-lg border border-gray-900 bg-white/95 px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-white transition-colors"
-            aria-label={`Show all ${images.length} photos`}
-          >
-            <Grid3x3 className="h-4 w-4" />
-            Show all photos
-          </button>
-        )}
       </div>
 
       {/* Lightbox */}

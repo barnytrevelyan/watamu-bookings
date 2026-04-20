@@ -33,34 +33,10 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSignOut = async () => {
-    // Await signOut so Supabase has time to clear its cookies before we
-    // navigate — firing-and-forgetting used to leave half-cleared sessions
-    // that made every subsequent API call return 401 "Authentication required".
-    try {
-      await signOut();
-    } catch {
-      // swallow — we're about to nuke cookies below anyway
-    }
-
-    // Belt and braces: also clear any leftover sb-* cookies on the current
-    // host + apex domain. Some browsers don't always honour Supabase's own
-    // cookie clearing, which leaves stale refresh tokens behind.
-    if (typeof document !== 'undefined') {
-      const host = window.location.hostname;
-      const parts = host.split('.');
-      const apex =
-        parts.length > 2 ? '.' + parts.slice(-2).join('.') : host;
-      document.cookie.split(';').forEach((raw) => {
-        const name = raw.split('=')[0].trim();
-        if (!name.startsWith('sb-')) return;
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${host};`;
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${apex};`;
-      });
-    }
-
-    // Hard redirect to clear all React state
+  const handleSignOut = () => {
+    // Fire signOut in background — don't wait for it
+    signOut();
+    // Hard redirect immediately to clear all state
     window.location.href = '/';
   };
 
@@ -156,12 +132,6 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link
-                  href="/become-a-host"
-                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-[var(--color-primary-600)] rounded-lg hover:bg-[var(--color-primary-50)] transition-colors"
-                >
-                  Become a host
-                </Link>
                 <Link href="/auth/login">
                   <Button variant="ghost" size="sm">
                     Log in
@@ -235,34 +205,25 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                <Link
-                  href="/become-a-host"
-                  onClick={() => setMobileOpen(false)}
-                  className="block px-4 py-3 text-base font-medium text-[var(--color-primary-700)] bg-[var(--color-primary-50)] rounded-lg text-center"
-                >
-                  Become a host
+              <div className="flex gap-3">
+                <Link href="/auth/login" className="flex-1">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Log in
+                  </Button>
                 </Link>
-                <div className="flex gap-3">
-                  <Link href="/auth/login" className="flex-1">
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      Log in
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register" className="flex-1">
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      Register
-                    </Button>
-                  </Link>
-                </div>
+                <Link href="/auth/register" className="flex-1">
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Register
+                  </Button>
+                </Link>
               </div>
             )}
           </div>

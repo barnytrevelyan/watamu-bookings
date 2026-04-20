@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 // import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
-import { amenityIconFor, AMENITY_CATEGORY_LABEL } from '@/lib/amenityIcons';
+import BillingModePicker from '@/components/BillingModePicker';
 
 interface Amenity {
   id: string;
@@ -190,7 +190,6 @@ export default function NewPropertyPage() {
   const [checkInTime, setCheckInTime] = useState('14:00');
   const [checkOutTime, setCheckOutTime] = useState('10:00');
   const [houseRules, setHouseRules] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
 
   // Map
   const [latitude, setLatitude] = useState(-3.354);
@@ -212,6 +211,7 @@ export default function NewPropertyPage() {
   const [basePrice, setBasePrice] = useState('');
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
+  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
   const [lowSeasonPrice, setLowSeasonPrice] = useState('');
   const [highSeasonPrice, setHighSeasonPrice] = useState('');
   const [peakSeasonPrice, setPeakSeasonPrice] = useState('');
@@ -391,8 +391,8 @@ export default function NewPropertyPage() {
           base_price_per_night: parseFloat(basePrice),
           currency,
           cancellation_policy: cancellationPolicy,
+          billing_mode: billingMode,
           house_rules: houseRules.trim() || null,
-          video_url: videoUrl.trim() || null,
           is_published: false,
           status,
           low_season_price: lowSeasonPrice ? parseFloat(lowSeasonPrice) : null,
@@ -587,21 +587,6 @@ export default function NewPropertyPage() {
                 rows={6}
               />
               <p className="mt-1 text-xs text-gray-500">{description.length} characters</p>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Video tour URL <span className="font-normal text-gray-400">(optional)</span>
-              </label>
-              <Input
-                type="url"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://youtu.be/... or https://vimeo.com/..."
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Paste a YouTube, Vimeo, or direct MP4 link — we'll embed it on your listing.
-              </p>
             </div>
 
             <div className="border-t pt-4">
@@ -863,48 +848,32 @@ export default function NewPropertyPage() {
             {/* DB amenities if available */}
             {hasDbAmenities && (
               <div className="space-y-6">
-                {Object.entries(amenitiesByCategory).map(([category, items]) => {
-                  const categoryLabel =
-                    AMENITY_CATEGORY_LABEL[category] ?? category.replace(/_/g, ' ');
-                  return (
-                    <div key={category}>
-                      <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-                        {categoryLabel}
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {items.map((amenity) => {
-                          const Icon = amenityIconFor(amenity.icon);
-                          const checked = selectedAmenities.includes(amenity.id);
-                          return (
-                            <label
-                              key={amenity.id}
-                              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition-all ${
-                                checked
-                                  ? 'border-teal-500 bg-teal-50 shadow-sm'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleAmenity(amenity.id)}
-                                className="sr-only"
-                              />
-                              <Icon
-                                className={`h-5 w-5 flex-shrink-0 ${
-                                  checked ? 'text-teal-600' : 'text-gray-600'
-                                }`}
-                                strokeWidth={1.7}
-                                aria-hidden
-                              />
-                              <span>{amenity.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                {Object.entries(amenitiesByCategory).map(([category, items]) => (
+                  <div key={category}>
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">{category}</h4>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {items.map((amenity) => (
+                        <label
+                          key={amenity.id}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition-all ${
+                            selectedAmenities.includes(amenity.id)
+                              ? 'border-teal-500 bg-teal-50 shadow-sm'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAmenities.includes(amenity.id)}
+                            onChange={() => toggleAmenity(amenity.id)}
+                            className="sr-only"
+                          />
+                          {amenity.icon && <span className="text-lg">{amenity.icon}</span>}
+                          <span>{amenity.name}</span>
+                        </label>
+                      ))}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -959,6 +928,8 @@ export default function NewPropertyPage() {
               <h3 className="mb-1 text-sm font-semibold text-gray-900">Pricing</h3>
               <p className="mb-4 text-xs text-gray-500">Set your base price and seasonal rates.</p>
             </div>
+
+            <BillingModePicker value={billingMode} onChange={setBillingMode} />
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>

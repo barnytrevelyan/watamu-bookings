@@ -56,10 +56,12 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Get property price for breakdown
+      // Get property price for breakdown. billing_mode='subscription' means
+      // the host has opted into a flat monthly fee instead of commission —
+      // the guest sees no service fee line in that case.
       const { data: property } = await supabase
         .from('wb_properties')
-        .select('base_price_per_night, cleaning_fee, service_fee_percent')
+        .select('base_price_per_night, cleaning_fee, service_fee_percent, billing_mode')
         .eq('id', propertyId)
         .single();
 
@@ -75,8 +77,9 @@ export async function GET(request: NextRequest) {
       );
       const accommodationCost = property.base_price_per_night * nights;
       const cleaningFee = property.cleaning_fee ?? 0;
-      const serviceFeePercent = property.service_fee_percent ?? 10;
-      const serviceFee = Math.round(accommodationCost * (serviceFeePercent / 100));
+      const onSubscription = property.billing_mode === 'subscription';
+      const serviceFeePercent = onSubscription ? 0 : (property.service_fee_percent ?? 8);
+      const serviceFee = onSubscription ? 0 : Math.round(accommodationCost * (serviceFeePercent / 100));
       const totalPrice = accommodationCost + cleaningFee + serviceFee;
 
       return NextResponse.json({

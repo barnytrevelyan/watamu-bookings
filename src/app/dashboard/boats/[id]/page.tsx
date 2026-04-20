@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 import CalendarSync from '@/components/CalendarSync';
+import BillingModePicker from '@/components/BillingModePicker';
 
 interface BoatFeature {
   id: string;
@@ -53,18 +54,13 @@ export default function EditBoatPage() {
   const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const boatId = params.id as string;
-  const justImported = searchParams?.get('imported') === '1';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('basic');
   const [allFeatures, setAllFeatures] = useState<BoatFeature[]>([]);
-  const [importSource, setImportSource] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [showImportBanner, setShowImportBanner] = useState(true);
 
   // Form state
   const [name, setName] = useState('');
@@ -82,8 +78,8 @@ export default function EditBoatPage() {
   const [departurePoint, setDeparturePoint] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
   const [isPublished, setIsPublished] = useState(false);
+  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
   const [existingImages, setExistingImages] = useState<{ id: string; url: string; is_cover: boolean }[]>([]);
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
@@ -129,10 +125,8 @@ export default function EditBoatPage() {
         setDeparturePoint(boat.departure_point || '');
         setLatitude(boat.latitude?.toString() || '');
         setLongitude(boat.longitude?.toString() || '');
-        setVideoUrl(boat.video_url || '');
         setIsPublished(boat.is_published);
-        setImportSource(boat.import_source || null);
-        setStatus(boat.status || null);
+        setBillingMode((boat.billing_mode as 'commission' | 'subscription') || 'commission');
         setSelectedFeatures((boat.wb_boat_feature_links || []).map((l: any) => l.feature_id));
         setTrips(
           (boat.wb_boat_trips || []).map((t: any) => ({
@@ -226,8 +220,8 @@ export default function EditBoatPage() {
           departure_point: departurePoint.trim(),
           latitude: latitude ? parseFloat(latitude) : null,
           longitude: longitude ? parseFloat(longitude) : null,
-          video_url: videoUrl.trim() || null,
           is_published: isPublished,
+          billing_mode: billingMode,
         })
         .eq('id', boatId)
         .eq('owner_id', user.id);
@@ -337,69 +331,6 @@ export default function EditBoatPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
 
-      {showImportBanner && status === 'draft' && importSource && importSource.startsWith('ai') && (
-        <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5 h-9 w-9 rounded-lg bg-teal-600 text-white flex items-center justify-center">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-teal-900">
-                    {justImported
-                      ? 'Your AI draft is saved — now finish the bits the AI couldn\u2019t guess'
-                      : 'AI-imported draft — complete to publish'}
-                  </p>
-                  <p className="text-xs text-teal-800 mt-1 leading-relaxed">
-                    Check each tab: confirm <strong>Specs</strong>, tick the right{' '}
-                    <strong>Features</strong>, choose your <strong>Fishing</strong> species &amp; techniques,
-                    price your <strong>Trips</strong>, set <strong>Safety</strong> equipment, pin your{' '}
-                    <strong>Location</strong>, and add extra <strong>Images</strong>. Tick &ldquo;Published&rdquo;
-                    in Basic Info when you&apos;re happy.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowImportBanner(false)}
-                  className="shrink-0 text-teal-500 hover:text-teal-700 text-xs"
-                  aria-label="Dismiss"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {[
-                  ['basic', 'Basic'],
-                  ['specs', 'Specs'],
-                  ['features', 'Features'],
-                  ['fishing', 'Fishing'],
-                  ['trips', 'Trips'],
-                  ['safety', 'Safety'],
-                  ['location', 'Location'],
-                  ['images', 'Images'],
-                ].map(([tab, label]) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                      activeTab === tab
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-white text-teal-700 border border-teal-200 hover:bg-teal-100'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
       <Card className="p-6">
@@ -420,20 +351,6 @@ export default function EditBoatPage() {
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Video tour URL <span className="font-normal text-gray-400">(optional)</span>
-              </label>
-              <Input
-                type="url"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://youtu.be/... or https://vimeo.com/..."
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                YouTube, Vimeo, or direct MP4 — embedded on your boat's detail page.
-              </p>
             </div>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-teal-600" />
@@ -504,6 +421,7 @@ export default function EditBoatPage() {
 
         {activeTab === 'trips' && (
           <div className="space-y-4">
+            <BillingModePicker value={billingMode} onChange={setBillingMode} compact />
             <div className="flex justify-end">
               <Button variant="outline" size="sm" onClick={addTrip}>+ Add Trip</Button>
             </div>

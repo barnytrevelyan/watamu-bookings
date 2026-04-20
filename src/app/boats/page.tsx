@@ -1,7 +1,6 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
-import SortSelect from "../properties/SortSelect";
 import { getBoatImage } from "@/lib/images";
 import type { Boat } from "@/lib/types";
 import type { Metadata } from "next";
@@ -160,12 +159,12 @@ export default async function BoatsPage({
                 name={boat.name}
                 type={boat.boat_type?.replace('_', ' ') || 'Sport Fisher'}
                 coverImage={boat.images?.[0]?.url || getBoatImage(index)}
-                captainName={boat.captain_name || 'Local skipper'}
+                captainName={boat.captain_name || 'TBA'}
                 capacity={boat.capacity || 6}
                 lengthFt={boat.length_ft || null}
-                rating={Number(boat.avg_rating ?? 0)}
+                rating={boat.avg_rating || boat.avg_rating || 0}
                 reviewCount={boat.review_count || 0}
-                startingPrice={boat.trips?.[0]?.price_total || 0}
+                startingPrice={boat.price_from || (boat.trips?.[0]?.price_total) || 0}
                 currency={boat.currency || 'KES'}
                 instantConfirmation={boat.instant_confirmation || false}
               />
@@ -199,6 +198,29 @@ function EmptyState() {
         Try adjusting your filters. New boats and charters are added regularly.
       </p>
     </div>
+  );
+}
+
+function SortSelect({ current }: { current?: string }) {
+  return (
+    <form>
+      <select
+        name="sort"
+        defaultValue={current || ""}
+        className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+      >
+        <option value="">Recommended</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="rating">Top Rated</option>
+        <option value="newest">Newest</option>
+      </select>
+      <noscript>
+        <button type="submit" className="ml-2 text-sm text-teal-600 underline">
+          Apply
+        </button>
+      </noscript>
+    </form>
   );
 }
 

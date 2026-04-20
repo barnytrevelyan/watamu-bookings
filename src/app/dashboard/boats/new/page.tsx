@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { TRIP_TYPE_LABELS } from '@/lib/types';
 import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
+import BillingModePicker from '@/components/BillingModePicker';
 
 interface BoatFeature {
   id: string;
@@ -173,7 +174,6 @@ export default function NewBoatPage() {
   const [name, setName] = useState('');
   const [boatType, setBoatType] = useState('sport_fisher');
   const [description, setDescription] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
 
   // Specs
   const [length, setLength] = useState('');
@@ -185,6 +185,7 @@ export default function NewBoatPage() {
   const [instantConfirmation, setInstantConfirmation] = useState(false);
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
+  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
 
   // Features
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
@@ -366,7 +367,7 @@ export default function NewBoatPage() {
           longitude: mapPinSet ? longitude : null,
           currency,
           cancellation_policy: cancellationPolicy,
-          video_url: videoUrl.trim() || null,
+          billing_mode: billingMode,
           is_published: false,
           status,
         })
@@ -564,20 +565,6 @@ export default function NewBoatPage() {
               />
               <p className="mt-1 text-xs text-gray-500">{description.length} characters</p>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Video tour URL <span className="font-normal text-gray-400">(optional)</span>
-              </label>
-              <Input
-                type="url"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://youtu.be/... or https://vimeo.com/..."
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                YouTube, Vimeo, or direct MP4 — embedded on your boat's detail page.
-              </p>
-            </div>
           </div>
         </Card>
       )}
@@ -624,6 +611,9 @@ export default function NewBoatPage() {
                 <option value="strict">Strict</option>
               </select>
             </div>
+          </div>
+          <div className="mt-4">
+            <BillingModePicker value={billingMode} onChange={setBillingMode} />
           </div>
           <div className="mt-4">
             <label className="mb-1 block text-sm font-medium text-gray-700">Departure Point</label>

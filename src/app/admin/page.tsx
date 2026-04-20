@@ -62,7 +62,7 @@ interface PendingListing {
   images?: { url: string; is_cover: boolean }[];
 }
 
-const COMMISSION_RATE = 0.1;
+const COMMISSION_RATE = 0.08;
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats>({
@@ -120,9 +120,11 @@ export default function AdminDashboard() {
         supabase
           .from('wb_bookings')
           .select('*', { count: 'exact', head: true }),
+        // Only count bookings whose listing is still on commission mode —
+        // subscription-mode listings don't contribute to platform commission.
         supabase
           .from('wb_bookings')
-          .select('total_price')
+          .select('total_price, property_id, boat_id, wb_properties(billing_mode), wb_boats(billing_mode)')
           .in('status', ['completed', 'confirmed']),
         supabase
           .from('wb_profiles')
@@ -160,9 +162,21 @@ export default function AdminDashboard() {
       ]);
 
       const totalRevenue = (allBookings || []).reduce(
-        (sum, b) => sum + (b.total_price || 0),
+        (sum, b: any) => sum + (b.total_price || 0),
         0
       );
+      // Commission only applies to commission-mode listings. If the joined
+      // property or boat is on subscription, exclude its gross from the
+      // commission base.
+      const commissionableRevenue = (allBookings || []).reduce((sum, b: any) => {
+        const prop = b.wb_properties;
+        const boat = b.wb_boats;
+        const propMode = Array.isArray(prop) ? prop[0]?.billing_mode : prop?.billing_mode;
+        const boatMode = Array.isArray(boat) ? boat[0]?.billing_mode : boat?.billing_mode;
+        const mode = b.property_id ? propMode : boatMode;
+        if (mode === 'subscription') return sum;
+        return sum + (b.total_price || 0);
+      }, 0);
 
       // Format pending listings
       const formattedPending: PendingListing[] = [
@@ -208,7 +222,7 @@ export default function AdminDashboard() {
         totalBoats: boatsCount || 0,
         totalBookings: bookingsCount || 0,
         totalRevenue,
-        platformCommission: Math.round(totalRevenue * COMMISSION_RATE),
+        platformCommission: Math.round(commissionableRevenue * COMMISSION_RATE),
         pendingReviews: formattedPending.length,
       });
 
@@ -359,7 +373,7 @@ export default function AdminDashboard() {
           </p>
         </Card>
         <Card className="border-indigo-200 bg-indigo-50 p-5">
-          <p className="text-sm text-indigo-600">Platform Commission (10%)</p>
+          <p className="text-sm text-indigo-600">Platform Commission (8%)</p>
           <p className="mt-1 text-2xl font-bold text-indigo-700">
             KES {stats.platformCommission.toLocaleString()}
           </p>

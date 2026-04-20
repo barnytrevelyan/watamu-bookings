@@ -43,18 +43,17 @@ export const STOCK_IMAGES = {
     'https://images.unsplash.com/photo-1599076695552-6bab0cc1e80f?w=800&q=80&fit=crop',
   ],
 
-  // Boat images — dhows, traditional wooden fishing boats, sport fishing vessels — NOT luxury yachts.
-  // IMPORTANT: No underwater photos — boats are always shown above the waterline.
+  // Boat images — dhows, traditional wooden fishing boats, sport fishing vessels — NOT luxury yachts
   boats: [
-    // Traditional dhow sailing vessel on calm water — East African / Arab dhow
+    // Traditional dhow sailing vessel — East African / Arab dhow
     'https://images.unsplash.com/photo-1619550481986-5751a79d0d1b?w=800&q=80&fit=crop',
-    // Sailing yacht under full sail on open sea — charter feel
-    'https://images.unsplash.com/photo-1540946485063-a40da27545f8?w=800&q=80&fit=crop',
-    // Aerial view of small wooden boats moored in turquoise shallows — Watamu beach vibe
-    'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80&fit=crop',
-    // Long-tail fishing boats pulled up on the beach — working fishing fleet
-    'https://images.pexels.com/photos/3732497/pexels-photo-3732497.jpeg?auto=compress&cs=tinysrgb&w=800',
-    // Deep-sea fishing rod silhouette against a golden-hour offshore sunset
+    // Dhow boat on ocean — classic lateen-sailed vessel
+    'https://images.unsplash.com/photo-1597306428920-69049e0f26ed?w=800&q=80&fit=crop',
+    // Small wooden fishing boat on calm tropical water
+    'https://images.unsplash.com/photo-1631994299194-1d712dfd19b4?w=800&q=80&fit=crop',
+    // Traditional fishing boats on beach — coastal Africa
+    'https://images.unsplash.com/photo-1575658075190-c7b80d4a5e77?w=800&q=80&fit=crop',
+    // Sport fishing boat heading out to sea
     'https://images.unsplash.com/photo-1541742425281-c1d3fc8aff96?w=800&q=80&fit=crop',
     // Wooden boat on mangrove creek water — Mida Creek feel
     'https://images.unsplash.com/photo-1643276715928-f0210284bea8?w=800&q=80&fit=crop',
@@ -92,10 +91,10 @@ export const STOCK_IMAGES = {
 
   // Fishing / Activities — deep sea fishing, marlin, snorkeling, kite surfing
   fishing: {
-    // Rod over the rail on a charter — deep-sea fishing vibe (above water)
+    // Deep sea sport fishing boat on open ocean
     deepSea: 'https://images.unsplash.com/photo-1529230117010-b6c436154f25?w=800&q=80&fit=crop',
-    // Sport fisher on a second sailing-yacht — big-game charter feel (above water)
-    marlin: 'https://images.pexels.com/photos/1482193/pexels-photo-1482193.jpeg?auto=compress&cs=tinysrgb&w=800',
+    // Marlin / big game fishing — sailfish jump
+    marlin: 'https://images.unsplash.com/photo-1674606844137-40e5b1239df1?w=800&q=80&fit=crop',
     // Snorkeling on coral reef with tropical fish
     snorkeling: 'https://images.unsplash.com/photo-1682687981630-cefe9cd73072?w=800&q=80&fit=crop',
     // Kite surfing on blue ocean — Watamu is a premier kite surfing spot

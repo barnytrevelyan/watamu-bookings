@@ -134,7 +134,6 @@ export interface Property {
   peak_season_months: string | null;
   source_url: string | null;
   import_source: string | null;
-  video_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -204,7 +203,6 @@ export interface Boat {
   captain_fishing_reports: number;
   source_url: string | null;
   import_source: string | null;
-  video_url: string | null;
   created_at: string;
   updated_at: string;
 }

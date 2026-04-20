@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@/lib/supabase/server';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://watamubookings.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://watamubookings.com';
 
 export const revalidate = 3600; // rebuild hourly
 

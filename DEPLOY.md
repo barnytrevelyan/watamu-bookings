@@ -33,7 +33,7 @@ git push -u origin main
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://jiyoxdeiyydyxjymahrh.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppeW94ZGVpeXlkeXhqeW1haHJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0OTc5ODIsImV4cCI6MjA5MjA3Mzk4Mn0.EBMczipdZE2EaZw2M628EBBM7Y9xv3U6ZvXD6HajADM` |
 | `SUPABASE_SERVICE_ROLE_KEY` | *(from Supabase Dashboard → Settings → API)* |
-| `NEXT_PUBLIC_BASE_URL` | `https://watamubookings.com` |
+| `NEXT_PUBLIC_SITE_URL` | `https://watamubookings.com` |
 | `STRIPE_SECRET_KEY` | *(your Stripe secret key)* |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | *(your Stripe publishable key)* |
 | `STRIPE_WEBHOOK_SECRET` | *(set up after deploy — see below)* |
@@ -43,7 +43,11 @@ git push -u origin main
 | `MPESA_SHORTCODE` | `174379` |
 | `MPESA_CALLBACK_URL` | `https://watamubookings.com/api/webhooks/mpesa` |
 | `MPESA_ENV` | `sandbox` |
-| `PLATFORM_COMMISSION_PERCENT` | `10` |
+| `PLATFORM_COMMISSION_PERCENT` | `8` *(canonical — kept in sync with `wb_settings.billing.commission_rate_bps = 800`)* |
+| `CRON_SECRET` | *(random 32+ char string — protects `/api/cron/billing`)* |
+| `ZEPTOMAIL_API_KEY` | *(from ZeptoMail console — transactional invoice & lapse emails)* |
+| `ZEPTOMAIL_FROM` | `bookings@watamubookings.com` |
+| `ZEPTOMAIL_FROM_NAME` | `Watamu Bookings` |
 
 5. Click **Deploy**
 

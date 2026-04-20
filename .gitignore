@@ -1,8 +1,12 @@
 # dependencies
 /node_modules
 /.pnp
-.pnp.js
-.yarn/install-state.gz
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
 # testing
 /coverage
@@ -24,12 +28,33 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
-
-# vercel
-.vercel
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# vercel
+.vercel
+
+# IDE
+.idea
+.vscode
+
+# OS
+Thumbs.db
+
+# Audit reports (kept locally, not shipped to prod)
+*.docx
+*.pdf
+
+# Archived unused files (kept locally for review, not shipped)
+_archive/
+
+# Sync helper — staging only, not shipped
+sync-audit-fixes.sh
