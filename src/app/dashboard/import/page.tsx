@@ -322,7 +322,7 @@ export default function ImportPage() {
               bathrooms: d.bathrooms || 1,
               cancellation_policy: 'moderate',
               is_published: false,
-              status: 'pending_review',
+              status: 'draft',
               source_url: d.source_url || url.trim(),
               import_source: importSourceTag,
               video_url: (d.video_url || '').trim() || null,
@@ -366,7 +366,7 @@ export default function ImportPage() {
               currency: 'KES',
               cancellation_policy: 'moderate',
               is_published: false,
-              status: 'pending_review',
+              status: 'draft',
               source_url: d.source_url || url.trim(),
               import_source: importSourceTag,
               video_url: (d.video_url || '').trim() || null,
@@ -415,12 +415,22 @@ export default function ImportPage() {
 
       setCreatedItems(createdItemsLocal);
       setSaveProgress({ current: approved.length, total: approved.length });
+
+      if (createdItemsLocal.length === 1) {
+        // Single import: skip the "done" card and drop the host straight
+        // into the edit page so they can finish the listing.
+        const { id, kind } = createdItemsLocal[0];
+        toast.success('Draft saved — now finish your listing');
+        router.push(
+          kind === 'boat'
+            ? `/dashboard/boats/${id}?imported=1`
+            : `/dashboard/properties/${id}?imported=1`
+        );
+        return;
+      }
+
       setStep('done');
-      toast.success(
-        approved.length === 1
-          ? 'Listing imported successfully!'
-          : `${approved.length} listings imported successfully!`
-      );
+      toast.success(`${approved.length} drafts saved — finish each one below`);
     } catch (err: any) {
       setError(err.message);
       setStep('preview');
@@ -784,14 +794,14 @@ export default function ImportPage() {
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
                   {listings.length === 1
-                    ? 'Review Imported Listing'
-                    : `Review ${listings.length} Imported Listings`}
+                    ? 'AI draft ready'
+                    : `${listings.length} AI drafts ready`}
                 </h2>
-                {listings.length > 1 && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Uncheck any listing or image you don&apos;t want to save. Edit details inline.
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Quick sanity check — fix the name, description and basics here if needed.
+                  {listings.length > 1 && ' Uncheck any listing or image you don\u2019t want.'}
+                  {' '}You&apos;ll complete each listing (location, amenities, pricing, more photos) on the next screen.
+                </p>
               </div>
               <button
                 type="button"
@@ -1118,21 +1128,22 @@ export default function ImportPage() {
               );
             })}
 
-            <Card className="border-amber-200 bg-amber-50 p-4">
+            <Card className="border-teal-200 bg-teal-50 p-4">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                <svg className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <p className="text-sm font-medium text-amber-900">
+                  <p className="text-sm font-medium text-teal-900">
                     {includedCount === 1
-                      ? 'Your listing will be submitted for review'
-                      : `${includedCount} listings will be submitted for review`}
+                      ? 'We\u2019ll save this as a draft you can finish'
+                      : `We\u2019ll save ${includedCount} drafts you can finish`}
                   </p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    Imported photos are mirrored to Watamu Bookings storage, so your listing keeps working
-                    even if you remove it from the original site. Our team will verify ownership before
-                    going live — you can keep editing in the meantime.
+                  <p className="text-xs text-teal-800 mt-1 leading-relaxed">
+                    The AI gets you 80% there. Next, you&apos;ll add the bits it can&apos;t guess —
+                    pin your exact location on the map, tick the right amenities, add more photos,
+                    set trip packages and house rules. Nothing goes live until you hit publish.
+                    Photos are mirrored to our storage so your listing survives if the source goes down.
                   </p>
                 </div>
               </div>
@@ -1156,8 +1167,8 @@ export default function ImportPage() {
                 {includedCount === 0
                   ? 'Select at least one listing'
                   : includedCount === 1
-                    ? 'Submit for Review'
-                    : `Submit ${includedCount} for Review`}
+                    ? 'Create draft & edit'
+                    : `Create ${includedCount} drafts & edit`}
               </Button>
             </div>
           </div>
@@ -1180,22 +1191,55 @@ export default function ImportPage() {
         </Card>
       )}
 
-      {/* Step 5: Done */}
+      {/* Step 5: Done — only reached for multi-listing imports. Single-listing
+          imports redirect straight to the edit page in handleSave(). */}
       {step === 'done' && (
-        <Card className="p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+        <Card className="p-8">
+          <div className="text-center mb-6">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-teal-100">
+              <svg className="h-8 w-8 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {createdItems.length} drafts saved
+            </h2>
+            <p className="text-gray-600 max-w-lg mx-auto">
+              Open each one to add the bits the AI couldn&apos;t guess —
+              location, amenities, trip packages, extra photos — then hit publish when you&apos;re ready.
+            </p>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {createdItems.length === 1 ? 'Import Complete!' : `${createdItems.length} Listings Imported!`}
-          </h2>
-          <p className="text-gray-600 mb-6">
-            {createdItems.length === 1
-              ? 'Your listing has been submitted for review. Our team will verify ownership and approve it shortly. You can edit details in the meantime.'
-              : 'Your listings have been submitted for review. Our team will verify ownership and approve them shortly. You can edit details in the meantime.'}
-          </p>
+
+          <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden mb-6">
+            {createdItems.map((item, idx) => {
+              const name =
+                (listings?.filter((l) => l.include)[idx]?.data?.name || '').trim() ||
+                `Untitled ${item.kind}`;
+              return (
+                <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-gray-50">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                    <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">
+                      {item.kind === 'boat' ? 'Boat · Draft' : 'Property · Draft'}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      router.push(
+                        item.kind === 'boat'
+                          ? `/dashboard/boats/${item.id}?imported=1`
+                          : `/dashboard/properties/${item.id}?imported=1`
+                      )
+                    }
+                  >
+                    Finish listing
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+
           <div className="flex gap-3 justify-center flex-wrap">
             <Button
               variant="outline"
@@ -1210,26 +1254,11 @@ export default function ImportPage() {
                 setError(null);
               }}
             >
-              Import Another
+              Import another
             </Button>
-            {createdItems.length === 1 ? (
-              <Button
-                onClick={() => {
-                  const { id, kind } = createdItems[0];
-                  router.push(
-                    kind === 'boat'
-                      ? `/dashboard/boats/${id}`
-                      : `/dashboard/properties/${id}`
-                  );
-                }}
-              >
-                Edit Listing
-              </Button>
-            ) : (
-              <Button onClick={() => router.push('/dashboard')}>
-                Go to Dashboard
-              </Button>
-            )}
+            <Button variant="outline" onClick={() => router.push('/dashboard/properties')}>
+              View all my listings
+            </Button>
           </div>
         </Card>
       )}

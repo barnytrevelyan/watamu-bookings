@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
@@ -33,13 +33,18 @@ export default function EditPropertyPage() {
   const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const propertyId = params.id as string;
+  const justImported = searchParams?.get('imported') === '1';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('basic');
   const [allAmenities, setAllAmenities] = useState<Amenity[]>([]);
+  const [importSource, setImportSource] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [showImportBanner, setShowImportBanner] = useState(true);
 
   // Form state
   const [name, setName] = useState('');
@@ -121,6 +126,8 @@ export default function EditPropertyPage() {
         setHouseRules(property.house_rules || '');
         setVideoUrl(property.video_url || '');
         setIsPublished(property.is_published);
+        setImportSource(property.import_source || null);
+        setStatus(property.status || null);
         setSelectedAmenities(
           (property.wb_property_amenities || []).map((pa: any) => pa.amenity_id)
         );
@@ -335,6 +342,66 @@ export default function EditPropertyPage() {
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {showImportBanner && status === 'draft' && importSource && importSource.startsWith('ai') && (
+        <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5 h-9 w-9 rounded-lg bg-teal-600 text-white flex items-center justify-center">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-teal-900">
+                    {justImported
+                      ? 'Your AI draft is saved — now finish the bits the AI couldn\u2019t guess'
+                      : 'AI-imported draft — complete to publish'}
+                  </p>
+                  <p className="text-xs text-teal-800 mt-1 leading-relaxed">
+                    Check each tab: pin your exact <strong>Location</strong> on the map, tick the right{' '}
+                    <strong>Amenities</strong>, add extra <strong>Images</strong>, review{' '}
+                    <strong>Pricing</strong>, and set <strong>House Rules</strong>. When you&apos;re happy,
+                    tick &ldquo;Published&rdquo; in Basic Info to send it for review and go live.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowImportBanner(false)}
+                  className="shrink-0 text-teal-500 hover:text-teal-700 text-xs"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {[
+                  ['basic', 'Basic'],
+                  ['location', 'Location'],
+                  ['amenities', 'Amenities'],
+                  ['pricing', 'Pricing'],
+                  ['images', 'Images'],
+                  ['rules', 'House Rules'],
+                ].map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+                      activeTab === tab
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-white text-teal-700 border border-teal-200 hover:bg-teal-100'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

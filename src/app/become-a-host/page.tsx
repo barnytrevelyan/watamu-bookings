@@ -134,7 +134,7 @@ const FAQS = [
   },
   {
     q: "What if the AI gets something wrong?",
-    a: "Every AI-imported listing lands in a review screen where you can edit the name, description, photos, amenities, pricing, and trip packages before it goes live. Think of the AI as a very fast first draft — it saves you an hour of typing, not your final judgment. Most hosts spend 5 minutes polishing and then hit publish.",
+    a: "The AI saves as a draft — it doesn't publish anything automatically. After the import, you land on the edit page for each listing where you can fix the name, description, tick the right amenities, pin your exact location on the map, upload extra photos, set pricing, and add trip packages or house rules. Think of the AI as a very fast first draft — it saves you an hour of typing, not your final judgment. Most hosts spend 5 minutes polishing and then hit publish.",
   },
   {
     q: "How does this compare to Airbnb or Booking.com?",
