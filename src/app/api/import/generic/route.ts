@@ -4,14 +4,22 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 /**
  * POST /api/import/generic
  *
- * Generic "paste any URL" importer. Takes any public https URL, fetches the
- * page, and extracts listing data from OpenGraph / JSON-LD / meta tags. Used
- * when the URL isn't one of the specifically-supported platforms (Airbnb,
- * FishingBooker, Booking.com) — e.g. Vrbo, personal Wix/Squarespace/WordPress
- * sites, or bespoke hotel microsites.
+ * Generic "paste any URL" importer powered by an LLM (OpenAI by default).
+ * Fetches the target page, strips it down to a structured brief (title, meta,
+ * JSON-LD blocks, image URLs, body text), then asks the LLM for the canonical
+ * listing fields using a strict JSON schema.
  *
- * Also heuristically detects whether the page describes a property rental or
- * a fishing / boat charter so the import flow can pipe it to the right draft.
+ * Used for:
+ *   - Vrbo / personal Wix / Squarespace / WordPress sites / bespoke hotel
+ *     microsites / small charter-boat websites.
+ *   - Any URL NOT handled by /api/import/airbnb, /api/import/booking-com,
+ *     /api/import/fishingbooker — those dedicated scrapers are faster, cheaper,
+ *     and more reliable and should always be preferred when the host matches.
+ *
+ * Env vars (set on Vercel):
+ *   WATAMU_AI_API_KEY   (required)  – OpenAI API key
+ *   WATAMU_AI_PROVIDER  (optional)  – "openai" (default). Reserved.
+ *   WATAMU_AI_MODEL     (optional)  – defaults to "gpt-4o".
  *
  * Body: { url: string, listing_type?: 'property' | 'boat' }
  * Returns: { data: ImportedProperty | ImportedBoat, listing_type: 'property' | 'boat' }
@@ -30,12 +38,33 @@ interface ImportedProperty {
   max_guests: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
+  beds: number | null;
   amenities: string[];
+  house_rules: string[];
+  check_in_time: string | null;
+  check_out_time: string | null;
+  min_nights: number | null;
+  max_nights: number | null;
+  cleaning_fee: number | null;
+  security_deposit: number | null;
+  cancellation_policy: string | null;
   images: string[];
   rating: number | null;
   review_count: number | null;
   source_url: string;
   source: 'generic';
+}
+
+interface ImportedTrip {
+  name: string;
+  duration_hours: number | null;
+  price_total: number | null;
+  price_per_person: number | null;
+  trip_type: string;
+  departure_time: string | null;
+  description: string;
+  includes: string[];
+  target_species: string[];
 }
 
 interface ImportedBoat {
@@ -47,56 +76,47 @@ interface ImportedBoat {
   crew_size: number | null;
   captain_name: string | null;
   captain_bio: string | null;
+  captain_experience_years: number | null;
   target_species: string[];
   fishing_techniques: string[];
-  trips: any[];
+  trips: ImportedTrip[];
+  departure_point: string | null;
   images: string[];
   rating: number | null;
   review_count: number | null;
+  location: string;
   source_url: string;
   source: 'generic';
 }
 
 // ---------------------------------------------------------------------------
-// SSRF guard.
-//
-// The generic importer accepts arbitrary user-supplied URLs, so we have to
-// block:
-//   - non-https (http would allow local plaintext endpoints; file:// / gopher://
-//     obvious-no)
-//   - private / loopback / link-local / IPv6 unique-local ranges (cloud
-//     metadata, RFC1918, 127.0.0.0/8, 169.254.169.254, etc.)
-//   - hosts that resolve to nothing
-// We do a cheap syntactic check here; the fetch layer enforces no redirects
-// to disallowed hosts via a manual redirect walk.
+// SSRF guard — private IP blocklist + manual redirect walk so every hop is
+// re-checked. Blocks cloud metadata endpoints (169.254.169.254), RFC1918,
+// CGNAT (100.64/10), loopback, link-local, IPv6 ULA (fc00::/7) and IPv6
+// link-local (fe80::/10).
 // ---------------------------------------------------------------------------
 const PRIVATE_IP_RANGES: RegExp[] = [
-  /^10\./,                                                                    // 10.0.0.0/8
-  /^127\./,                                                                   // 127.0.0.0/8  loopback
-  /^169\.254\./,                                                              // 169.254.0.0/16  link-local (AWS metadata!)
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,                                           // 172.16.0.0/12
-  /^192\.168\./,                                                              // 192.168.0.0/16
-  /^0\./,                                                                     // 0.0.0.0/8
-  /^224\./, /^225\./, /^226\./, /^227\./, /^228\./, /^229\./,                 // multicast
+  /^10\./,
+  /^127\./,
+  /^169\.254\./,
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+  /^192\.168\./,
+  /^0\./,
+  /^224\./, /^225\./, /^226\./, /^227\./, /^228\./, /^229\./,
   /^230\./, /^231\./, /^232\./, /^233\./, /^234\./, /^235\./,
   /^236\./, /^237\./, /^238\./, /^239\./,
-  /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./,                          // 100.64.0.0/10  CGNAT
+  /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./,
 ];
 
 function isPrivateOrBlockedIp(host: string): boolean {
-  // IPv6 loopback / private / unique-local / link-local.
   if (host === '::1' || host === '[::1]') return true;
   if (/^\[?(fc|fd)[0-9a-f]{2}:/i.test(host)) return true;
   if (/^\[?fe80:/i.test(host)) return true;
-  if (/^\[?::ffff:/i.test(host)) return true; // IPv4-mapped IPv6
-
-  // IPv4 literals.
+  if (/^\[?::ffff:/i.test(host)) return true;
   if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
     return PRIVATE_IP_RANGES.some((re) => re.test(host));
   }
-  // localhost by name.
   if (/^(localhost|ip6-localhost|ip6-loopback)$/i.test(host)) return true;
-
   return false;
 }
 
@@ -106,7 +126,6 @@ function sanitiseUrl(raw: string): URL | null {
     if (u.protocol !== 'https:') return null;
     if (!u.hostname) return null;
     if (isPrivateOrBlockedIp(u.hostname)) return null;
-    // Strip credentials.
     u.username = '';
     u.password = '';
     return u;
@@ -116,130 +135,7 @@ function sanitiseUrl(raw: string): URL | null {
 }
 
 // ---------------------------------------------------------------------------
-// HTML helpers.
-// ---------------------------------------------------------------------------
-
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)));
-}
-
-function stripTags(s: string): string {
-  return decodeEntities(s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')).trim();
-}
-
-function extractMeta(html: string, name: string): string | null {
-  const propMatch = html.match(new RegExp(`property="${name}"\\s+content="([^"]*)"`, 'i'))
-    || html.match(new RegExp(`content="([^"]*)"\\s+property="${name}"`, 'i'));
-  if (propMatch) return decodeEntities(propMatch[1]);
-  const nameMatch = html.match(new RegExp(`name="${name}"\\s+content="([^"]*)"`, 'i'))
-    || html.match(new RegExp(`content="([^"]*)"\\s+name="${name}"`, 'i'));
-  return nameMatch ? decodeEntities(nameMatch[1]) : null;
-}
-
-// Collect every JSON-LD block on the page and return the one that best
-// resembles a listing. Falls back to the first one that has a useful name.
-function pickBestJsonLd(html: string): any | null {
-  const blocks = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g);
-  const candidates: any[] = [];
-  for (const m of blocks) {
-    try {
-      const parsed = JSON.parse(m[1]);
-      // A @graph entry lifts many sites' LD blocks into an array of nested objects.
-      if (parsed['@graph'] && Array.isArray(parsed['@graph'])) {
-        candidates.push(...parsed['@graph']);
-      } else {
-        candidates.push(parsed);
-      }
-    } catch {
-      // Some sites wrap ld+json in CDATA or include trailing commas — skip.
-    }
-  }
-
-  const listingTypes = new Set([
-    'Hotel', 'LodgingBusiness', 'Resort', 'BedAndBreakfast', 'Apartment', 'House',
-    'Accommodation', 'Campground', 'TouristAttraction', 'VacationRental',
-    'Product', 'Service', 'Offer', 'TravelAction', 'Motel', 'Hostel',
-  ]);
-
-  let best: any = null;
-  for (const c of candidates) {
-    if (!c) continue;
-    const type = c['@type'];
-    const typeStr = Array.isArray(type) ? type.join(',') : String(type || '');
-    const typeList = typeStr.split(/[,\s]+/).filter(Boolean);
-    const isListing = typeList.some((t) => listingTypes.has(t));
-    if (isListing) { best = c; break; }
-    if (!best && c.name && !/^(BreadcrumbList|Organization|WebSite|WebPage|ImageObject|SearchAction)$/.test(typeStr)) {
-      best = c;
-    }
-  }
-  return best;
-}
-
-// ---------------------------------------------------------------------------
-// Heuristic property-type / boat detection.
-// ---------------------------------------------------------------------------
-
-const BOAT_SIGNALS = [
-  'charter', 'fishing', 'marlin', 'sailfish', 'tuna', 'dorado', 'trolling',
-  'sport fisher', 'sportfisher', 'boat hire', 'deep sea', 'dhow', 'catamaran',
-  'captain', 'skipper', 'reel', 'rod', 'knots', 'outboard', 'offshore', 'yacht',
-  'marine park trip',
-];
-
-function classifyListing(text: string, url: string): 'property' | 'boat' {
-  const blob = (text + ' ' + url).toLowerCase();
-  let boatScore = 0;
-  for (const s of BOAT_SIGNALS) {
-    if (blob.includes(s)) boatScore += 1;
-  }
-  // Need at least two boat-ish signals before we classify as a boat, otherwise
-  // default to property. Keeps false positives on "Captain's Cottage" villas etc. low.
-  return boatScore >= 2 ? 'boat' : 'property';
-}
-
-function detectPropertyType(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes('villa')) return 'villa';
-  if (t.includes('apartment') || t.includes('flat') || t.includes('condo')) return 'apartment';
-  if (t.includes('cottage')) return 'cottage';
-  if (t.includes('penthouse')) return 'penthouse';
-  if (t.includes('banda')) return 'banda';
-  if (t.includes('guesthouse') || t.includes('guest house') || t.includes('bed and breakfast') || t.includes('b&b')) return 'guesthouse';
-  if (t.includes('hotel') || t.includes('resort') || t.includes('lodge')) return 'hotel';
-  return 'house';
-}
-
-function detectBoatType(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes('sport fisher') || t.includes('sportfisher') || t.includes('sport fishing')) return 'sport_fisher';
-  if (t.includes('catamaran')) return 'catamaran';
-  if (t.includes('dhow')) return 'dhow';
-  if (t.includes('yacht')) return 'yacht';
-  if (t.includes('sailboat') || t.includes('sailing')) return 'sailboat';
-  if (t.includes('speedboat') || t.includes('center console') || t.includes('centre console')) return 'speedboat';
-  return 'sport_fisher';
-}
-
-const TARGET_SPECIES = [
-  'marlin', 'sailfish', 'tuna', 'dorado', 'wahoo', 'kingfish', 'barracuda',
-  'trevally', 'yellowfin', 'giant trevally', 'dogtooth tuna', 'mahi mahi',
-];
-const FISHING_TECHNIQUES = [
-  'trolling', 'jigging', 'bottom fishing', 'popping', 'fly fishing', 'chumming',
-  'live baiting', 'deep dropping',
-];
-
-// ---------------------------------------------------------------------------
-// Page fetch — with a manual redirect walk so SSRF guards apply to each hop.
+// Page fetch with manual redirect walk.
 // ---------------------------------------------------------------------------
 
 async function fetchSafe(rawUrl: string): Promise<{ html: string; finalUrl: string }> {
@@ -290,8 +186,311 @@ async function fetchSafe(rawUrl: string): Promise<{ html: string; finalUrl: stri
 }
 
 // ---------------------------------------------------------------------------
-// Main scrape.
+// HTML → structured brief.
 // ---------------------------------------------------------------------------
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)));
+}
+
+function buildPageBrief(html: string, finalUrl: string): { brief: string; images: string[] } {
+  // Strip <script>, <style>, <noscript>, HTML comments.
+  const denuded = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+
+  // Title.
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const title = titleMatch ? decodeEntities(titleMatch[1]).trim() : '';
+
+  // All meta tags worth considering.
+  const metaLines: string[] = [];
+  for (const m of html.matchAll(/<meta\s+[^>]*>/gi)) {
+    const tag = m[0];
+    if (/(property|name)="(og:|twitter:|description$|keywords$|author$|geo|article:|og\.)/.test(tag)) {
+      metaLines.push(decodeEntities(tag).slice(0, 400));
+    }
+  }
+
+  // Image URLs (og:image + <img>).
+  const imageSet = new Set<string>();
+  const pushImage = (raw: string | undefined | null) => {
+    if (!raw) return;
+    let u = raw.trim().replace(/&amp;/g, '&');
+    if (u.startsWith('//')) u = 'https:' + u;
+    try {
+      const abs = new URL(u, finalUrl).toString();
+      if (!/^https:\/\//.test(abs)) return;
+      if (/\.(svg|ico)(\?|$)/i.test(abs)) return;
+      if (/(sprite|icon|logo|favicon|avatar|spinner|tracking|beacon|pixel)/i.test(abs)) return;
+      imageSet.add(abs);
+    } catch {}
+  };
+  for (const m of html.matchAll(/property="og:image(?::url|:secure_url)?"\s+content="([^"]+)"/g)) pushImage(m[1]);
+  for (const m of html.matchAll(/<img[^>]+src="([^"]+)"/gi)) pushImage(m[1]);
+  for (const m of html.matchAll(/<img[^>]+data-src="([^"]+)"/gi)) pushImage(m[1]);
+  for (const m of html.matchAll(/<img[^>]+srcset="([^"]+)"/gi)) {
+    const first = m[1].split(',')[0]?.trim().split(/\s+/)[0];
+    pushImage(first);
+  }
+  const images = Array.from(imageSet).slice(0, 40);
+
+  // JSON-LD — keep each block intact (information-dense).
+  const jsonLdBlocks: string[] = [];
+  for (const m of html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)) {
+    jsonLdBlocks.push(m[1].trim().slice(0, 8_000));
+    if (jsonLdBlocks.length >= 6) break;
+  }
+
+  // Visible body text: strip tags, collapse whitespace.
+  const bodyText = decodeEntities(denuded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+
+  const parts: string[] = [];
+  parts.push(`# URL\n${finalUrl}`);
+  if (title) parts.push(`# TITLE\n${title}`);
+  if (metaLines.length) parts.push(`# META\n${metaLines.slice(0, 40).join('\n')}`);
+  if (jsonLdBlocks.length) parts.push(`# JSON-LD\n${jsonLdBlocks.join('\n---\n')}`);
+  if (images.length) parts.push(`# IMAGES\n${images.slice(0, 40).join('\n')}`);
+  parts.push(`# BODY TEXT (truncated)\n${bodyText.slice(0, 20_000)}`);
+
+  return { brief: parts.join('\n\n').slice(0, 60_000), images };
+}
+
+// ---------------------------------------------------------------------------
+// Taxonomies enforced on the LLM via the JSON schema.
+// ---------------------------------------------------------------------------
+const PROPERTY_TYPES = ['villa', 'apartment', 'cottage', 'house', 'hotel', 'guesthouse', 'banda', 'penthouse'];
+const BOAT_TYPES = ['sport_fisher', 'catamaran', 'dhow', 'yacht', 'sailboat', 'speedboat'];
+const CANCELLATION_POLICIES = ['flexible', 'moderate', 'strict', 'non_refundable'];
+const TRIP_TYPES = ['half_day', 'half_day_morning', 'half_day_afternoon', 'full_day', 'overnight', 'multi_day', 'sunset_cruise'];
+
+// ---------------------------------------------------------------------------
+// LLM call — OpenAI Chat Completions with JSON Schema response format.
+// ---------------------------------------------------------------------------
+
+const LLM_SYSTEM_PROMPT = `You are a data-extraction assistant for Watamu Bookings, a property and boat-charter booking marketplace in Watamu, Kenya.
+
+You will receive a condensed brief of a webpage (title, meta tags, JSON-LD blocks, image URLs, and body text) representing a rental listing or boat charter. Your job is to extract the canonical listing data as JSON.
+
+Classification rule:
+- If the page describes a place to stay (villa, apartment, cottage, house, hotel, guesthouse, banda, penthouse) → listing_type = "property".
+- If the page describes a boat charter or fishing trip (fishing charter, sport fisher, catamaran tour, dhow cruise, yacht hire) → listing_type = "boat".
+- When ambiguous, prefer "property".
+
+Extraction rules:
+- Only use information that actually appears in the brief. Never invent.
+- If a field is unknown or not present, use null (for scalars) or [] (for arrays).
+- "name" must be the listing's human-facing title, cleaned of site suffixes like " | Airbnb", " - Updated 2025", " - Vrbo".
+- "description" is 2–5 paragraphs of the listing's own description, verbatim where possible, joined by \\n\\n. Do not add marketing hype that isn't on the page.
+- "price_per_night" is a number in the listing's currency; "currency" is a 3-letter ISO code. Use "KES" as fallback ONLY when the currency is genuinely unstated.
+- For properties, choose "property_type" from: ${PROPERTY_TYPES.join(', ')}.
+- For boats, choose "boat_type" from: ${BOAT_TYPES.join(', ')}.
+- For boats, "trips" is the list of offered packages with their durations and prices. "trip_type" must be one of: ${TRIP_TYPES.join(', ')}. "target_species" and "fishing_techniques" should be short normalised strings (e.g. "Marlin", "Trolling").
+- "amenities" are short lowercase labels (e.g. "wifi", "pool", "air conditioning", "kitchen"). Maximum 40.
+- "house_rules" are short plain-English lines (e.g. "No smoking", "No parties").
+- "check_in_time" and "check_out_time" are HH:MM 24h strings or null.
+- "cancellation_policy" is one of: ${CANCELLATION_POLICIES.join(', ')}, or null if unclear.
+- "images" is the list of full https URLs from the IMAGES section pointing to the actual listing (skip logos, avatars, icons). Maximum 25.
+- Always return valid JSON matching the schema exactly.`;
+
+// JSON schema with discriminator = listing_type.
+const LLM_RESPONSE_SCHEMA = {
+  name: 'ListingExtraction',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'listing_type',
+      'name',
+      'description',
+      'images',
+      // property-only
+      'property_type',
+      'address',
+      'city',
+      'latitude',
+      'longitude',
+      'price_per_night',
+      'currency',
+      'max_guests',
+      'bedrooms',
+      'bathrooms',
+      'beds',
+      'amenities',
+      'house_rules',
+      'check_in_time',
+      'check_out_time',
+      'min_nights',
+      'max_nights',
+      'cleaning_fee',
+      'security_deposit',
+      'cancellation_policy',
+      'rating',
+      'review_count',
+      // boat-only
+      'boat_type',
+      'length_ft',
+      'capacity',
+      'crew_size',
+      'captain_name',
+      'captain_bio',
+      'captain_experience_years',
+      'target_species',
+      'fishing_techniques',
+      'trips',
+      'departure_point',
+    ],
+    properties: {
+      listing_type: { type: 'string', enum: ['property', 'boat'] },
+      name: { type: 'string' },
+      description: { type: 'string' },
+      images: { type: 'array', items: { type: 'string' }, maxItems: 25 },
+      // property fields
+      property_type: { type: ['string', 'null'], enum: [...PROPERTY_TYPES, null] },
+      address: { type: ['string', 'null'] },
+      city: { type: ['string', 'null'] },
+      latitude: { type: ['number', 'null'] },
+      longitude: { type: ['number', 'null'] },
+      price_per_night: { type: ['number', 'null'] },
+      currency: { type: ['string', 'null'] },
+      max_guests: { type: ['integer', 'null'] },
+      bedrooms: { type: ['integer', 'null'] },
+      bathrooms: { type: ['integer', 'null'] },
+      beds: { type: ['integer', 'null'] },
+      amenities: { type: 'array', items: { type: 'string' } },
+      house_rules: { type: 'array', items: { type: 'string' } },
+      check_in_time: { type: ['string', 'null'] },
+      check_out_time: { type: ['string', 'null'] },
+      min_nights: { type: ['integer', 'null'] },
+      max_nights: { type: ['integer', 'null'] },
+      cleaning_fee: { type: ['number', 'null'] },
+      security_deposit: { type: ['number', 'null'] },
+      cancellation_policy: { type: ['string', 'null'], enum: [...CANCELLATION_POLICIES, null] },
+      rating: { type: ['number', 'null'] },
+      review_count: { type: ['integer', 'null'] },
+      // boat fields
+      boat_type: { type: ['string', 'null'], enum: [...BOAT_TYPES, null] },
+      length_ft: { type: ['integer', 'null'] },
+      capacity: { type: ['integer', 'null'] },
+      crew_size: { type: ['integer', 'null'] },
+      captain_name: { type: ['string', 'null'] },
+      captain_bio: { type: ['string', 'null'] },
+      captain_experience_years: { type: ['integer', 'null'] },
+      target_species: { type: 'array', items: { type: 'string' } },
+      fishing_techniques: { type: 'array', items: { type: 'string' } },
+      trips: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['name', 'duration_hours', 'price_total', 'price_per_person', 'trip_type', 'departure_time', 'description', 'includes', 'target_species'],
+          properties: {
+            name: { type: 'string' },
+            duration_hours: { type: ['number', 'null'] },
+            price_total: { type: ['number', 'null'] },
+            price_per_person: { type: ['number', 'null'] },
+            trip_type: { type: 'string', enum: TRIP_TYPES },
+            departure_time: { type: ['string', 'null'] },
+            description: { type: 'string' },
+            includes: { type: 'array', items: { type: 'string' } },
+            target_species: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+      departure_point: { type: ['string', 'null'] },
+    },
+  },
+};
+
+async function extractWithLLM(
+  brief: string,
+  forcedListingType?: 'property' | 'boat'
+): Promise<any> {
+  const apiKey = process.env.WATAMU_AI_API_KEY;
+  if (!apiKey) {
+    throw new Error('AI import is not configured on the server (missing WATAMU_AI_API_KEY).');
+  }
+  const model = process.env.WATAMU_AI_MODEL || 'gpt-4o';
+  const provider = (process.env.WATAMU_AI_PROVIDER || 'openai').toLowerCase();
+  if (provider !== 'openai') {
+    throw new Error(`Unsupported WATAMU_AI_PROVIDER: ${provider}`);
+  }
+
+  const userPrompt = forcedListingType
+    ? `The user has hinted that this is a ${forcedListingType} listing. Use that as the listing_type unless the brief is flatly inconsistent with it.\n\nBrief:\n\n${brief}`
+    : `Extract the listing data from this brief.\n\nBrief:\n\n${brief}`;
+
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 60_000);
+  let res: Response;
+  try {
+    res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        response_format: {
+          type: 'json_schema',
+          json_schema: LLM_RESPONSE_SCHEMA,
+        },
+        messages: [
+          { role: 'system', content: LLM_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+    });
+  } finally {
+    clearTimeout(t);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`LLM request failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const payload = await res.json();
+  const content = payload?.choices?.[0]?.message?.content;
+  if (!content || typeof content !== 'string') {
+    throw new Error('LLM response was empty or malformed.');
+  }
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error('LLM returned invalid JSON.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main pipeline.
+// ---------------------------------------------------------------------------
+
+function toFiniteNumber(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+function toFiniteInt(v: any): number | null {
+  const n = toFiniteNumber(v);
+  return n === null ? null : Math.round(n);
+}
 
 async function scrapeGeneric(
   rawUrl: string,
@@ -299,175 +498,103 @@ async function scrapeGeneric(
 ): Promise<{ data: ImportedProperty | ImportedBoat; listing_type: 'property' | 'boat' }> {
   const { html, finalUrl } = await fetchSafe(rawUrl);
 
-  const jsonLd = pickBestJsonLd(html);
+  const { brief, images: scrapedImages } = buildPageBrief(html, finalUrl);
 
-  const ogTitle = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title');
-  const ogDescription = extractMeta(html, 'og:description') || extractMeta(html, 'description');
-  const ogImage = extractMeta(html, 'og:image');
-
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const pageTitle = titleMatch ? decodeEntities(titleMatch[1]).trim() : '';
-
-  let name = (ogTitle || pageTitle || '').replace(/\s*\|\s*[^|]+$/, '').trim();
-  let description = (ogDescription || '').trim();
-
-  if (jsonLd) {
-    if (jsonLd.name && !name) name = String(jsonLd.name);
-    if (jsonLd.description && !description) description = stripTags(String(jsonLd.description));
-  }
-
-  // Pull the first chunk of visible <p> text as a last-resort description.
-  if (!description) {
-    const paragraphs: string[] = [];
-    const pMatches = html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g);
-    for (const m of pMatches) {
-      const txt = stripTags(m[1]);
-      if (txt.length > 60) paragraphs.push(txt);
-      if (paragraphs.join(' ').length > 800) break;
-    }
-    description = paragraphs.join('\n\n').slice(0, 2000);
-  }
-
-  // -------------------- images --------------------
-  const images: string[] = [];
-  const pushImage = (raw: string) => {
-    let u = raw.trim().replace(/&amp;/g, '&');
-    if (u.startsWith('//')) u = 'https:' + u;
-    try {
-      const abs = new URL(u, finalUrl).toString();
-      if (!/^https:\/\//.test(abs)) return;
-      if (/\.(svg|ico)(\?|$)/i.test(abs)) return;
-      if (/sprite|icon|logo|favicon/i.test(abs)) return;
-      if (!images.includes(abs)) images.push(abs);
-    } catch {}
-  };
-
-  if (ogImage) pushImage(ogImage);
-  for (const m of html.matchAll(/property="og:image(?::url)?"\s+content="([^"]+)"/g)) pushImage(m[1]);
-  for (const m of html.matchAll(/property="og:image:secure_url"\s+content="([^"]+)"/g)) pushImage(m[1]);
-
-  // Images from JSON-LD (.image: string | string[] | ImageObject | ImageObject[])
-  if (jsonLd?.image) {
-    const imgs = Array.isArray(jsonLd.image) ? jsonLd.image : [jsonLd.image];
-    for (const img of imgs) {
-      if (typeof img === 'string') pushImage(img);
-      else if (img?.url) pushImage(String(img.url));
-      else if (img?.contentUrl) pushImage(String(img.contentUrl));
-    }
-  }
-
-  // <img src="..."> as a fallback — keep the first 15 reasonable-looking ones.
-  if (images.length < 10) {
-    for (const m of html.matchAll(/<img[^>]+src="([^"]+)"/g)) {
-      pushImage(m[1]);
-      if (images.length >= 20) break;
-    }
-  }
-
-  // -------------------- price / currency / rating --------------------
-  let pricePerNight: number | null = null;
-  let currency = 'KES';
-  let rating: number | null = null;
-  let reviewCount: number | null = null;
-  let latitude: number | null = null;
-  let longitude: number | null = null;
-  let address = '';
-  let city = 'Watamu';
-
-  if (jsonLd) {
-    if (jsonLd.address) {
-      if (typeof jsonLd.address === 'string') {
-        address = jsonLd.address;
-      } else {
-        address = [jsonLd.address.streetAddress, jsonLd.address.postalCode].filter(Boolean).join(', ');
-        if (jsonLd.address.addressLocality) city = jsonLd.address.addressLocality;
-      }
-    }
-    if (jsonLd.geo) {
-      latitude = parseFloat(jsonLd.geo.latitude) || null;
-      longitude = parseFloat(jsonLd.geo.longitude) || null;
-    }
-    if (jsonLd.aggregateRating) {
-      rating = parseFloat(jsonLd.aggregateRating.ratingValue) || null;
-      reviewCount = parseInt(jsonLd.aggregateRating.reviewCount || jsonLd.aggregateRating.ratingCount) || null;
-    }
-    const offer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
-    if (offer?.price) {
-      pricePerNight = parseFloat(String(offer.price));
-      if (offer.priceCurrency) currency = offer.priceCurrency;
-    } else if (jsonLd.priceRange) {
-      const pm = String(jsonLd.priceRange).match(/([A-Z]{3})?\s*([\d,]+(?:\.\d+)?)/);
-      if (pm) {
-        pricePerNight = parseFloat(pm[2].replace(/,/g, ''));
-        if (pm[1]) currency = pm[1];
-      }
-    }
-  }
-
-  // -------------------- classification --------------------
-  const listingType: 'property' | 'boat' =
-    forcedListingType || classifyListing(`${name} ${description}`, finalUrl);
-
-  // Final validation.
-  if (!name || /^(404|Not Found|Page Not Found|Access Denied)$/i.test(name)) {
+  // Bail early if the page has basically nothing usable — saves an LLM call.
+  if (brief.length < 400) {
     throw new Error(
-      'Could not extract enough information from that page. It may be JavaScript-only or require login. Try pasting the listing URL from Airbnb, Booking.com, or FishingBooker instead.'
+      'That page has almost no readable content. It may be JavaScript-only or require login. Try pasting an Airbnb, Booking.com, or FishingBooker URL instead.'
     );
   }
 
-  if (listingType === 'boat') {
-    const blob = `${name} ${description}`.toLowerCase();
-    const detectedSpecies = TARGET_SPECIES.filter((s) => blob.includes(s));
-    const detectedTechniques = FISHING_TECHNIQUES.filter((tq) => blob.includes(tq));
+  const extracted = await extractWithLLM(brief, forcedListingType);
 
-    const capacityMatch = blob.match(/(\d+)\s*(?:pax|guest|angler|people)/);
-    const lengthMatch = blob.match(/(\d+)\s*(?:ft|foot|feet|m\b)/);
-    const crewMatch = blob.match(/(\d+)\s*crew/);
+  const listingType: 'property' | 'boat' =
+    extracted.listing_type === 'boat' ? 'boat' : 'property';
+
+  // Prefer the LLM's curated images; fall back to the scraped list if the
+  // model was conservative or picked nothing valid.
+  const llmImages: string[] = Array.isArray(extracted.images)
+    ? extracted.images.filter((s: any) => typeof s === 'string' && /^https:\/\//.test(s))
+    : [];
+  const images = (llmImages.length > 0 ? llmImages : scrapedImages).slice(0, 25);
+
+  const name = String(extracted.name || '').trim();
+  if (!name || /^(404|Not Found|Page Not Found|Access Denied)$/i.test(name)) {
+    throw new Error(
+      'Could not extract a listing name from that page. It may be JavaScript-only or require login.'
+    );
+  }
+  const description = String(extracted.description || '').trim().slice(0, 8000);
+
+  if (listingType === 'boat') {
+    const trips: ImportedTrip[] = Array.isArray(extracted.trips)
+      ? extracted.trips
+          .filter((t: any) => t && typeof t.name === 'string' && t.name.trim())
+          .slice(0, 10)
+          .map((t: any) => ({
+            name: String(t.name).trim().slice(0, 160),
+            duration_hours: toFiniteNumber(t.duration_hours),
+            price_total: toFiniteNumber(t.price_total),
+            price_per_person: toFiniteNumber(t.price_per_person),
+            trip_type: TRIP_TYPES.includes(t.trip_type) ? t.trip_type : 'half_day',
+            departure_time: t.departure_time ? String(t.departure_time).slice(0, 16) : null,
+            description: String(t.description || '').slice(0, 1000),
+            includes: Array.isArray(t.includes) ? t.includes.slice(0, 20).map((x: any) => String(x).slice(0, 80)) : [],
+            target_species: Array.isArray(t.target_species) ? t.target_species.slice(0, 10).map((x: any) => String(x).slice(0, 40)) : [],
+          }))
+      : [];
 
     const boat: ImportedBoat = {
       name,
-      description: description.slice(0, 5000),
-      boat_type: detectBoatType(blob),
-      length_ft: lengthMatch ? parseInt(lengthMatch[1], 10) : null,
-      capacity: capacityMatch ? parseInt(capacityMatch[1], 10) : null,
-      crew_size: crewMatch ? parseInt(crewMatch[1], 10) : null,
-      captain_name: null,
-      captain_bio: null,
-      target_species: detectedSpecies,
-      fishing_techniques: detectedTechniques,
-      trips: [],
-      images: images.slice(0, 20),
-      rating,
-      review_count: reviewCount,
+      description,
+      boat_type: (extracted.boat_type && BOAT_TYPES.includes(extracted.boat_type)) ? extracted.boat_type : 'sport_fisher',
+      length_ft: toFiniteInt(extracted.length_ft),
+      capacity: toFiniteInt(extracted.capacity),
+      crew_size: toFiniteInt(extracted.crew_size),
+      captain_name: extracted.captain_name ?? null,
+      captain_bio: extracted.captain_bio ?? null,
+      captain_experience_years: toFiniteInt(extracted.captain_experience_years),
+      target_species: Array.isArray(extracted.target_species) ? extracted.target_species.slice(0, 20).map((x: any) => String(x).slice(0, 40)) : [],
+      fishing_techniques: Array.isArray(extracted.fishing_techniques) ? extracted.fishing_techniques.slice(0, 20).map((x: any) => String(x).slice(0, 40)) : [],
+      trips,
+      departure_point: extracted.departure_point ?? null,
+      images,
+      rating: toFiniteNumber(extracted.rating),
+      review_count: toFiniteInt(extracted.review_count),
+      location: 'Watamu, Kenya',
       source_url: finalUrl,
       source: 'generic',
     };
     return { data: boat, listing_type: 'boat' };
   }
 
-  // -------------------- property shape --------------------
-  const blob = `${name} ${description}`.toLowerCase();
-  const guestMatch = blob.match(/(\d+)\s*(?:guest|sleeps|people)/);
-  const bedroomMatch = blob.match(/(\d+)\s*bedroom/);
-  const bathroomMatch = blob.match(/(\d+)\s*bathroom/);
-
   const property: ImportedProperty = {
     name,
-    description: description.slice(0, 5000),
-    property_type: detectPropertyType(blob),
-    address,
-    city,
-    latitude,
-    longitude,
-    price_per_night: pricePerNight,
-    currency,
-    max_guests: guestMatch ? parseInt(guestMatch[1], 10) : null,
-    bedrooms: bedroomMatch ? parseInt(bedroomMatch[1], 10) : null,
-    bathrooms: bathroomMatch ? parseInt(bathroomMatch[1], 10) : null,
-    amenities: [],
-    images: images.slice(0, 20),
-    rating,
-    review_count: reviewCount,
+    description,
+    property_type: (extracted.property_type && PROPERTY_TYPES.includes(extracted.property_type)) ? extracted.property_type : 'house',
+    address: extracted.address ?? '',
+    city: extracted.city || 'Watamu',
+    latitude: toFiniteNumber(extracted.latitude),
+    longitude: toFiniteNumber(extracted.longitude),
+    price_per_night: toFiniteNumber(extracted.price_per_night),
+    currency: (extracted.currency || 'KES').toString().toUpperCase().slice(0, 8),
+    max_guests: toFiniteInt(extracted.max_guests),
+    bedrooms: toFiniteInt(extracted.bedrooms),
+    bathrooms: toFiniteInt(extracted.bathrooms),
+    beds: toFiniteInt(extracted.beds),
+    amenities: Array.isArray(extracted.amenities) ? extracted.amenities.slice(0, 40).map((x: any) => String(x).slice(0, 60)) : [],
+    house_rules: Array.isArray(extracted.house_rules) ? extracted.house_rules.slice(0, 20).map((x: any) => String(x).slice(0, 140)) : [],
+    check_in_time: extracted.check_in_time ?? null,
+    check_out_time: extracted.check_out_time ?? null,
+    min_nights: toFiniteInt(extracted.min_nights),
+    max_nights: toFiniteInt(extracted.max_nights),
+    cleaning_fee: toFiniteNumber(extracted.cleaning_fee),
+    security_deposit: toFiniteNumber(extracted.security_deposit),
+    cancellation_policy: (extracted.cancellation_policy && CANCELLATION_POLICIES.includes(extracted.cancellation_policy)) ? extracted.cancellation_policy : null,
+    images,
+    rating: toFiniteNumber(extracted.rating),
+    review_count: toFiniteInt(extracted.review_count),
     source_url: finalUrl,
     source: 'generic',
   };
