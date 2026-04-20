@@ -115,12 +115,25 @@ export default function MapPage() {
         zoomControl: true,
       });
 
-      // Google Maps Satellite tile layer
+      // Esri World Imagery — a properly-licensed satellite basemap.
+      // (Previously used Google tiles via an unofficial endpoint, which
+      // breaches Google's terms of service.)
       L.tileLayer(
-        'https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         {
-          maxZoom: 20,
-          attribution: '&copy; Google Maps',
+          maxZoom: 19,
+          attribution:
+            'Imagery &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+        }
+      ).addTo(map);
+
+      // Labels overlay (place names, roads) — semi-transparent reference
+      // layer on top of the imagery, also from Esri.
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 19,
+          opacity: 0.9,
         }
       ).addTo(map);
 
@@ -203,17 +216,30 @@ export default function MapPage() {
           }
         `}</style>
 
-        {/* Map Container */}
+        {/* Map Container — the loader is rendered INSIDE the mount div so
+            Leaflet wipes it on init (and so a no-JS crawler still sees a
+            sensible container rather than a stuck spinner). */}
         <div className="relative rounded-2xl overflow-hidden shadow-lg border border-gray-200">
-          {!mapReady && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-900">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                <p className="text-gray-400 text-sm">Loading satellite map...</p>
+          <div
+            id="watamu-map"
+            ref={mapRef}
+            className="relative w-full h-[500px] lg:h-[650px] bg-gray-900"
+          >
+            <noscript>
+              <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-gray-300">
+                This interactive map needs JavaScript. A full list of the
+                locations is available below.
               </div>
-            </div>
-          )}
-          <div id="watamu-map" className="w-full h-[500px] lg:h-[650px]" />
+            </noscript>
+            {!mapReady && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-900">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-gray-400 text-sm">Loading satellite map...</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Category filters */}
