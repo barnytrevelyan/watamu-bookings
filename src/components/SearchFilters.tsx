@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, Calendar, Users, Home, Anchor, SlidersHorizontal } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -67,6 +68,7 @@ export default function SearchFilters({
   variant,
   onSearch,
 }: SearchFiltersProps) {
+  const router = useRouter();
   // variant maps to a sensible default tab
   const resolvedDefault: FilterTab =
     defaultTab ?? (variant === 'boats' ? 'boats' : 'properties');
@@ -85,24 +87,53 @@ export default function SearchFilters({
   const [boatType, setBoatType] = useState('');
   const [tripType, setTripType] = useState('');
 
+  // Default behaviour: navigate to the matching index with query string.
+  // If a parent passes `onSearch`, prefer that (e.g. embedded list filtering).
   const handleSearch = () => {
+    if (onSearch) {
+      if (activeTab === 'properties') {
+        onSearch({
+          type: 'property',
+          checkIn,
+          checkOut,
+          guests: propertyGuests,
+          propertyType,
+          priceRange,
+        });
+      } else {
+        onSearch({
+          type: 'boat',
+          tripDate,
+          guests: boatGuests,
+          boatType,
+          tripType,
+        });
+      }
+      return;
+    }
+
+    const params = new URLSearchParams();
     if (activeTab === 'properties') {
-      onSearch?.({
-        type: 'property',
-        checkIn,
-        checkOut,
-        guests: propertyGuests,
-        propertyType,
-        priceRange,
-      });
+      if (checkIn) params.set('check_in', checkIn);
+      if (checkOut) params.set('check_out', checkOut);
+      if (propertyGuests) params.set('guests', propertyGuests);
+      if (propertyType) params.set('property_type', propertyType);
+      if (priceRange) {
+        if (priceRange.endsWith('+')) {
+          params.set('min_price', priceRange.replace('+', ''));
+        } else {
+          const [min, max] = priceRange.split('-');
+          if (min) params.set('min_price', min);
+          if (max) params.set('max_price', max);
+        }
+      }
+      router.push(`/properties${params.toString() ? `?${params}` : ''}`);
     } else {
-      onSearch?.({
-        type: 'boat',
-        tripDate,
-        guests: boatGuests,
-        boatType,
-        tripType,
-      });
+      if (tripDate) params.set('trip_date', tripDate);
+      if (boatGuests) params.set('capacity', boatGuests);
+      if (boatType) params.set('boat_type', boatType);
+      if (tripType) params.set('trip_type', tripType);
+      router.push(`/boats${params.toString() ? `?${params}` : ''}`);
     }
   };
 

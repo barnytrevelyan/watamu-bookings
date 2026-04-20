@@ -419,15 +419,25 @@ export default function BecomeAHostPage() {
           >
             Import an existing listing
           </Link>
-          <a
-            href="https://wa.me/254700000000"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:border-gray-300"
-          >
-            <MessageSquare className="h-4 w-4" />
-            WhatsApp us
-          </a>
+          {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ? (
+            <a
+              href={`https://wa.me/${(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '').replace(/[^\d]/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:border-gray-300"
+            >
+              <MessageSquare className="h-4 w-4" />
+              WhatsApp us
+            </a>
+          ) : (
+            <a
+              href="mailto:hello@watamubookings.com?subject=Listing%20on%20Watamu%20Bookings"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:border-gray-300"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Email us
+            </a>
+          )}
         </div>
       </section>
     </div>

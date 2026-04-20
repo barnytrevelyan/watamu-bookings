@@ -9,8 +9,15 @@ export const metadata: Metadata = {
 };
 
 const SUPPORT_EMAIL = 'hello@watamubookings.com';
-const WHATSAPP_NUMBER = '+254 700 000 000';
-const WHATSAPP_LINK = 'https://wa.me/254700000000';
+
+// WhatsApp + phone are gated behind an env var so we never render the
+// `+254 700 000 000` placeholder in demos/prod. Set NEXT_PUBLIC_WHATSAPP_NUMBER
+// to e.g. "+254712345678" (digits only also fine) to enable the cards.
+const RAW_WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() || '';
+const WHATSAPP_DIGITS = RAW_WHATSAPP.replace(/[^\d]/g, '');
+const WHATSAPP_NUMBER = RAW_WHATSAPP || '';
+const WHATSAPP_LINK = WHATSAPP_DIGITS ? `https://wa.me/${WHATSAPP_DIGITS}` : '';
+const HAS_WHATSAPP = Boolean(WHATSAPP_DIGITS);
 
 export default function ContactPage() {
   return (
@@ -43,28 +50,39 @@ export default function ContactPage() {
             sub="For bookings, billing, refunds and anything else that needs a paper trail."
           />
 
-          <ContactCard
-            icon={<MessageSquare className="h-5 w-5" />}
-            title="WhatsApp"
-            body={
-              <a
-                href={WHATSAPP_LINK}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-indigo-600 hover:underline"
-              >
-                {WHATSAPP_NUMBER}
-              </a>
-            }
-            sub="Fastest for urgent arrival-day questions and tide-dependent charter changes."
-          />
+          {HAS_WHATSAPP ? (
+            <>
+              <ContactCard
+                icon={<MessageSquare className="h-5 w-5" />}
+                title="WhatsApp"
+                body={
+                  <a
+                    href={WHATSAPP_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-indigo-600 hover:underline"
+                  >
+                    {WHATSAPP_NUMBER}
+                  </a>
+                }
+                sub="Fastest for urgent arrival-day questions and tide-dependent charter changes."
+              />
 
-          <ContactCard
-            icon={<Phone className="h-5 w-5" />}
-            title="Phone"
-            body={<span className="font-medium text-gray-900">{WHATSAPP_NUMBER}</span>}
-            sub="Mon–Sat, 08:00–18:00 EAT."
-          />
+              <ContactCard
+                icon={<Phone className="h-5 w-5" />}
+                title="Phone"
+                body={<span className="font-medium text-gray-900">{WHATSAPP_NUMBER}</span>}
+                sub="Mon–Sat, 08:00–18:00 EAT."
+              />
+            </>
+          ) : (
+            <ContactCard
+              icon={<MessageSquare className="h-5 w-5" />}
+              title="Response time"
+              body={<span className="font-medium text-gray-900">Usually within a few hours, 08:00–20:00 EAT</span>}
+              sub="Email first — we reply from a real Watamu address, not a ticketing bot."
+            />
+          )}
 
           <ContactCard
             icon={<MapPin className="h-5 w-5" />}

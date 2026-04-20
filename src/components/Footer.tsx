@@ -63,10 +63,10 @@ export default function Footer() {
               <div className="flex items-center gap-2 text-gray-400">
                 <Mail className="h-4 w-4 shrink-0" />
                 <a
-                  href="mailto:info@watamubookings.com"
+                  href="mailto:hello@watamubookings.com"
                   className="hover:text-white transition-colors"
                 >
-                  info@watamubookings.com
+                  hello@watamubookings.com
                 </a>
               </div>
             </div>

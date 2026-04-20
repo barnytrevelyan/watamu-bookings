@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
+import SortSelect from "@/components/SortSelect";
 import { getBoatImage } from "@/lib/images";
 import type { Boat } from "@/lib/types";
 import type { Metadata } from "next";
@@ -102,7 +103,22 @@ async function getBoats(searchParams: SearchParams) {
     return { boats: [] as Boat[], total: 0, page };
   }
 
-  return { boats: (data ?? []) as Boat[], total: count ?? 0, page };
+  let boats = (data ?? []) as Boat[];
+
+  // F6: trip prices live on wb_boat_trips, so price sort has to run client-side
+  // after the Supabase fetch. Rating/newest/default already handled above.
+  if (searchParams.sort === "price_asc" || searchParams.sort === "price_desc") {
+    const startingPrice = (b: any) =>
+      Array.isArray(b?.trips) && b.trips.length > 0
+        ? Math.min(
+            ...b.trips.map((t: any) => Number(t.price_total) || Infinity)
+          )
+        : Infinity;
+    const dir = searchParams.sort === "price_asc" ? 1 : -1;
+    boats = [...boats].sort((a, b) => (startingPrice(a) - startingPrice(b)) * dir);
+  }
+
+  return { boats, total: count ?? 0, page };
 }
 
 export default async function BoatsPage({
@@ -207,29 +223,6 @@ function EmptyState() {
         Try adjusting your filters. New boats and charters are added regularly.
       </p>
     </div>
-  );
-}
-
-function SortSelect({ current }: { current?: string }) {
-  return (
-    <form>
-      <select
-        name="sort"
-        defaultValue={current || ""}
-        className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-      >
-        <option value="">Recommended</option>
-        <option value="price_asc">Price: Low to High</option>
-        <option value="price_desc">Price: High to Low</option>
-        <option value="rating">Top Rated</option>
-        <option value="newest">Newest</option>
-      </select>
-      <noscript>
-        <button type="submit" className="ml-2 text-sm text-teal-600 underline">
-          Apply
-        </button>
-      </noscript>
-    </form>
   );
 }
 

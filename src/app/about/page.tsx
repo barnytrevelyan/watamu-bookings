@@ -106,7 +106,7 @@ export default function AboutPage() {
               </svg>
             </Link>
             <a
-              href="mailto:info@watamubookings.com"
+              href="mailto:hello@watamubookings.com"
               className="inline-flex items-center gap-2 bg-white text-gray-700 font-semibold px-6 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
             >
               Questions? Email Us

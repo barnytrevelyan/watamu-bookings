@@ -1,6 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import PropertyCard from "@/components/PropertyCard";
 import SearchFilters from "@/components/SearchFilters";
+import SortSelect from "@/components/SortSelect";
 import { getPropertyImage } from "@/lib/images";
 import type { Property } from "@/lib/types";
 import type { Metadata } from "next";
@@ -205,31 +206,6 @@ function EmptyState() {
         Try adjusting your filters or search for different dates. New properties are added regularly.
       </p>
     </div>
-  );
-}
-
-function SortSelect({ current }: { current?: string }) {
-  return (
-    <form>
-      <select
-        name="sort"
-        defaultValue={current || ""}
-        className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-        // Using native form submission for server component compatibility
-        onChange={undefined}
-      >
-        <option value="">Recommended</option>
-        <option value="price_asc">Price: Low to High</option>
-        <option value="price_desc">Price: High to Low</option>
-        <option value="rating">Top Rated</option>
-        <option value="newest">Newest</option>
-      </select>
-      <noscript>
-        <button type="submit" className="ml-2 text-sm text-teal-600 underline">
-          Apply
-        </button>
-      </noscript>
-    </form>
   );
 }
 
