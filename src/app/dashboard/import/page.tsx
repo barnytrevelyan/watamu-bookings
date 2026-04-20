@@ -99,11 +99,22 @@ interface PreviewState {
   departurePoint: string | null;
 }
 
+// Hosts routinely paste bare hostnames ("unreelexperience.com") or
+// "www.example.com" without a scheme. Prepend https:// so the URL parser
+// and the server-side sanitiser don't reject them.
+function normaliseUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function detectSourceFromUrl(rawUrl: string): DetectedSource | null {
   try {
-    const u = new URL(rawUrl.trim());
+    const u = new URL(normaliseUrl(rawUrl));
     if (u.protocol !== 'https:') return null;
     const host = u.hostname.toLowerCase();
+    if (!host.includes('.')) return null;
     if (/(^|\.)airbnb\.[a-z.]+$/.test(host)) return 'airbnb';
     if (/(^|\.)fishingbooker\.com$/.test(host)) return 'fishingbooker';
     if (/(^|\.)booking\.com$/.test(host)) return 'booking_com';
@@ -239,7 +250,7 @@ export default function ImportPage() {
   }, [loading, detectedSource]);
 
   async function handleImport() {
-    const cleanUrl = url.trim();
+    const cleanUrl = normaliseUrl(url);
     if (!cleanUrl) {
       setError('Please paste a listing URL');
       return;
@@ -254,7 +265,7 @@ export default function ImportPage() {
 
     const source = detectSourceFromUrl(cleanUrl);
     if (!source) {
-      setError('That doesn’t look like a valid https:// URL. Double-check it and try again.');
+      setError('That doesn’t look like a valid URL. Double-check it and try again.');
       return;
     }
 
