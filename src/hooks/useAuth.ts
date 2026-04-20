@@ -1,0 +1,101 @@
+'use client';
+
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import type { Profile } from '@/lib/types';
+
+export function useAuth() {
+  // useMemo ensures we get the same client instance across re-renders
+  // but only creates it in the browser (not during SSR)
+  const supabase = useMemo(() => createClient(), []);
+
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+
+    // 1. Read the session from cookies — fast, no network call
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted.current) return;
+
+      if (session?.user) {
+        setUser(session.user);
+
+        // 2. Fetch profile — wait for it before marking loading as done
+        supabase
+          .from('wb_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (mounted.current) {
+              if (data) setProfile(data as Profile);
+              setProfileLoaded(true);
+              setLoading(false);
+            }
+          });
+      } else {
+        setProfileLoaded(true);
+        setLoading(false);
+      }
+    });
+
+    // 3. Listen for auth state changes (login, logout, token refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted.current) return;
+
+      if (session?.user) {
+        setUser(session.user);
+
+        // Refresh profile on auth change
+        supabase
+          .from('wb_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (mounted.current) {
+              setProfile(data ? (data as Profile) : null);
+              setProfileLoaded(true);
+              setLoading(false);
+            }
+          });
+      } else {
+        setUser(null);
+        setProfile(null);
+        setProfileLoaded(true);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      mounted.current = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  // Derive role from profile first, fall back to JWT user_metadata
+  const role = profile?.role || (user?.user_metadata?.role as string | undefined);
+
+  const isSuperAdmin = !!profile?.is_super_admin;
+
+  return {
+    user,
+    profile,
+    loading,
+    isAdmin: role === 'admin',
+    isSuperAdmin,
+    isOwner: role === 'owner',
+    isGuest: role === 'guest',
+    signOut: async () => {
+      await supabase.auth.signOut().catch(() => {});
+    },
+  };
+}
