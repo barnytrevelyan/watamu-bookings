@@ -3,11 +3,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import ImageGallery from "@/components/ImageGallery";
-import AmenityBadge from "@/components/AmenityBadge";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
 import { Badge } from "@/components/ui/Badge";
 import PropertyBookingSidebar from "./PropertyBookingSidebar";
+import PropertyHeaderActions from "./PropertyHeaderActions";
+import PropertyAmenitiesSection from "./PropertyAmenitiesSection";
+import PropertyMap from "./PropertyMap";
+import PropertyHostCard from "./PropertyHostCard";
 import type { Property, Room, Amenity, Review, Image } from "@/lib/types";
 
 /* ---------- Data fetching ---------- */
@@ -22,6 +25,9 @@ interface PropertyDetail extends Property {
     full_name: string;
     avatar_url: string | null;
     created_at: string;
+    business_name: string | null;
+    bio: string | null;
+    is_verified: boolean;
   } | null;
 }
 
@@ -41,7 +47,7 @@ async function getProperty(slug: string): Promise<PropertyDetail | null> {
         cleanliness_rating, location_rating, value_rating, communication_rating,
         author:wb_profiles!guest_id(id, full_name, avatar_url)
       ),
-      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at)
+      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at, business_name, bio, is_verified)
     `
     )
     .eq("slug", slug)
@@ -117,13 +123,17 @@ export default async function PropertyDetailPage({
     count: reviews.filter((r) => Math.round(r.rating) === star).length,
   }));
 
-  // Group amenities by category
-  const amenitiesByCategory = amenities.reduce<Record<string, Amenity[]>>((acc, a) => {
-    const cat = a.category || "General";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(a);
-    return acc;
-  }, {});
+  // Sub-rating averages (used for the highlights row and the reviews section).
+  const avgSubRating = (key: "cleanliness_rating" | "location_rating" | "value_rating" | "communication_rating") => {
+    const values = reviews.map((r) => (r as any)[key]).filter((v: unknown): v is number => typeof v === "number");
+    if (values.length === 0) return 0;
+    return values.reduce((s, v) => s + v, 0) / values.length;
+  };
+  const locationAvg = avgSubRating("location_rating");
+  const cleanlinessAvg = avgSubRating("cleanliness_rating");
+
+  // "Guest favourite" badge — conservative thresholds so it's earned.
+  const isGuestFavourite = averageRating >= 4.8 && totalReviews >= 5;
 
   return (
     <div className="min-h-screen bg-white">
@@ -136,13 +146,18 @@ export default async function PropertyDetailPage({
           <div className="lg:col-span-2">
             {/* Header */}
             <div className="mb-8">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <Badge variant="secondary">{property.property_type}</Badge>
-                {property.is_featured && <Badge variant="default">Featured</Badge>}
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{property.property_type}</Badge>
+                  {property.is_featured && <Badge variant="default">Featured</Badge>}
+                </div>
+                <PropertyHeaderActions propertyName={property.name} />
               </div>
+
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
                 {property.name}
               </h1>
+
               <div className="flex flex-wrap items-center gap-4 text-gray-600">
                 <span className="flex items-center gap-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -152,13 +167,17 @@ export default async function PropertyDetailPage({
                   {[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}
                 </span>
                 {totalReviews > 0 && (
-                  <span className="flex items-center gap-1">
+                  <a
+                    href="#reviews"
+                    className="flex items-center gap-1 hover:underline underline-offset-2"
+                  >
                     <StarRating rating={averageRating} />
                     <span className="font-medium">{averageRating.toFixed(1)}</span>
                     <span className="text-gray-400">({totalReviews} review{totalReviews !== 1 ? "s" : ""})</span>
-                  </span>
+                  </a>
                 )}
               </div>
+
               {/* Quick stats */}
               <div className="flex flex-wrap gap-6 mt-4 text-sm text-gray-700">
                 {property.bedrooms != null && (
@@ -171,6 +190,75 @@ export default async function PropertyDetailPage({
                   <span>Up to {property.max_guests} guest{property.max_guests !== 1 ? "s" : ""}</span>
                 )}
               </div>
+
+              {/* Guest favourite callout — earned, not decorative */}
+              {isGuestFavourite && (
+                <div className="mt-5 flex items-center gap-4 rounded-2xl border border-gray-200 bg-gradient-to-br from-rose-50 to-amber-50 p-4">
+                  <svg className="w-8 h-8 flex-shrink-0 text-rose-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2c-.7 0-1.3.4-1.6 1l-2.3 4.6L3 8.3c-.8.1-1.3 1.1-.7 1.7l3.8 3.7-.9 5.2c-.1.8.8 1.4 1.5 1l4.5-2.4 4.5 2.4c.7.4 1.6-.2 1.5-1l-.9-5.2 3.8-3.7c.6-.6.1-1.6-.7-1.7l-5.1-.7L13.6 3C13.3 2.4 12.7 2 12 2z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">Guest favourite</p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      One of the most loved homes on Watamu Bookings, according to guests
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Highlights row */}
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-gray-100 pt-6">
+                <div className="flex items-start gap-3">
+                  <svg className="w-6 h-6 text-gray-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12 8 6.25 13.75 12 8 17.75 2.25 12Zm6.75-6.75h12m-12 13.5h12M18.75 5.25v13.5" />
+                  </svg>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Self check-in</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Check yourself in with the lockbox
+                    </p>
+                  </div>
+                </div>
+
+                {locationAvg >= 4.5 ? (
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-gray-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">Great location</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {locationAvg.toFixed(1)}/5 on location from recent guests
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-gray-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                    </svg>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">Prime Watamu location</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Minutes from the beach and Marine Park
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3">
+                  <svg className="w-6 h-6 text-gray-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Free cancellation</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      For 48 hours after booking
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Description */}
@@ -182,23 +270,7 @@ export default async function PropertyDetailPage({
             </section>
 
             {/* Amenities */}
-            {amenities.length > 0 && (
-              <section className="mb-10">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Amenities</h2>
-                {Object.entries(amenitiesByCategory).map(([category, items]) => (
-                  <div key={category} className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
-                      {category}
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {items.map((amenity) => (
-                        <AmenityBadge key={amenity.id} name={amenity.name} icon={amenity.icon ?? undefined} category={(amenity.category as any) ?? undefined} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            )}
+            <PropertyAmenitiesSection amenities={amenities} />
 
             {/* Rooms */}
             {rooms.length > 0 && (
@@ -248,27 +320,32 @@ export default async function PropertyDetailPage({
               </section>
             )}
 
-            {/* Map placeholder */}
-            {(property.latitude || property.longitude) && (
-              <section className="mb-10">
-                <h2 className="text-xl font-semibold text-gray-900 mb-3">Location</h2>
-                <div className="w-full h-64 rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-gray-200 flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <svg className="w-10 h-10 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    <p className="text-sm font-medium">{[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {property.latitude?.toFixed(4)}, {property.longitude?.toFixed(4)}
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
+            {/* Map */}
+            <PropertyMap
+              latitude={property.latitude}
+              longitude={property.longitude}
+              placeLabel={
+                [property.city, property.county || "Kilifi", property.country || "Kenya"]
+                  .filter(Boolean)
+                  .join(", ") || "Watamu, Kenya"
+              }
+            />
+
+            {/* Host */}
+            <PropertyHostCard
+              owner={property.owner}
+              isSuperhost={isGuestFavourite}
+              totalReviews={totalReviews}
+              averageRating={averageRating}
+              listingYears={Math.max(
+                0,
+                new Date().getFullYear() -
+                  new Date(property.owner?.created_at ?? Date.now()).getFullYear()
+              )}
+            />
 
             {/* Reviews */}
-            <section className="mb-10">
+            <section id="reviews" className="mb-10 scroll-mt-24">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Reviews
                 {totalReviews > 0 && (
@@ -329,37 +406,13 @@ export default async function PropertyDetailPage({
                 maxGuests={property.max_guests}
                 rooms={rooms}
                 availability={availability}
+                checkInTime={property.check_in_time}
+                checkOutTime={property.check_out_time}
+                cancellationPolicy={property.cancellation_policy}
               />
 
-              {/* Owner info */}
-              {property.owner && (
-                <div className="border border-gray-200 rounded-xl p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3">Hosted by</h3>
-                  <div className="flex items-center gap-3">
-                    {property.owner.avatar_url ? (
-                      <img
-                        src={property.owner.avatar_url}
-                        alt={property.owner.full_name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-lg">
-                        {property.owner.full_name?.charAt(0)?.toUpperCase() || "H"}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-medium text-gray-900">{property.owner.full_name}</p>
-                      <p className="text-sm text-gray-500">
-                        Member since{" "}
-                        {new Date(property.owner.created_at).toLocaleDateString("en-GB", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* The full host card now lives below in the main column,
+                  closer to the reviews. Sidebar stays focused on booking. */}
             </div>
           </aside>
         </div>

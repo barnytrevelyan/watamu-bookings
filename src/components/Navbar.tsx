@@ -132,6 +132,12 @@ export default function Navbar() {
               </div>
             ) : (
               <>
+                <Link
+                  href="/become-a-host"
+                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-[var(--color-primary-600)] rounded-lg hover:bg-[var(--color-primary-50)] transition-colors"
+                >
+                  Become a host
+                </Link>
                 <Link href="/auth/login">
                   <Button variant="ghost" size="sm">
                     Log in
@@ -205,25 +211,34 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <div className="flex gap-3">
-                <Link href="/auth/login" className="flex-1">
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Log in
-                  </Button>
+              <div className="space-y-3">
+                <Link
+                  href="/become-a-host"
+                  onClick={() => setMobileOpen(false)}
+                  className="block px-4 py-3 text-base font-medium text-[var(--color-primary-700)] bg-[var(--color-primary-50)] rounded-lg text-center"
+                >
+                  Become a host
                 </Link>
-                <Link href="/auth/register" className="flex-1">
-                  <Button
-                    variant="primary"
-                    fullWidth
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Register
-                  </Button>
-                </Link>
+                <div className="flex gap-3">
+                  <Link href="/auth/login" className="flex-1">
+                    <Button
+                      variant="outline"
+                      fullWidth
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Log in
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register" className="flex-1">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Register
+                    </Button>
+                  </Link>
+                </div>
               </div>
             )}
           </div>

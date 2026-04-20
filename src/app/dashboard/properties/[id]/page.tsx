@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 import CalendarSync from '@/components/CalendarSync';
+import { amenityIconFor, AMENITY_CATEGORY_LABEL } from '@/lib/amenityIcons';
 
 interface Amenity {
   id: string;
@@ -470,32 +471,48 @@ export default function EditPropertyPage() {
 
         {activeTab === 'amenities' && (
           <div className="space-y-6">
-            {Object.entries(amenitiesByCategory).map(([category, items]) => (
-              <div key={category}>
-                <h3 className="mb-3 text-sm font-semibold uppercase text-gray-500">{category}</h3>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {items.map((amenity) => (
-                    <label
-                      key={amenity.id}
-                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
-                        selectedAmenities.includes(amenity.id)
-                          ? 'border-teal-500 bg-teal-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedAmenities.includes(amenity.id)}
-                        onChange={() => toggleAmenity(amenity.id)}
-                        className="sr-only"
-                      />
-                      {amenity.icon && <span className="text-lg">{amenity.icon}</span>}
-                      <span>{amenity.name}</span>
-                    </label>
-                  ))}
+            {Object.entries(amenitiesByCategory).map(([category, items]) => {
+              const categoryLabel =
+                AMENITY_CATEGORY_LABEL[category] ?? category.replace(/_/g, ' ');
+              return (
+                <div key={category}>
+                  <h3 className="mb-3 text-sm font-semibold uppercase text-gray-500">
+                    {categoryLabel}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {items.map((amenity) => {
+                      const Icon = amenityIconFor(amenity.icon);
+                      const checked = selectedAmenities.includes(amenity.id);
+                      return (
+                        <label
+                          key={amenity.id}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
+                            checked
+                              ? 'border-teal-500 bg-teal-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAmenity(amenity.id)}
+                            className="sr-only"
+                          />
+                          <Icon
+                            className={`h-5 w-5 flex-shrink-0 ${
+                              checked ? 'text-teal-600' : 'text-gray-600'
+                            }`}
+                            strokeWidth={1.7}
+                            aria-hidden
+                          />
+                          <span>{amenity.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

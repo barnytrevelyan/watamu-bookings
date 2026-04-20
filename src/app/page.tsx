@@ -129,16 +129,28 @@ export default async function HomePage() {
   return (
     <>
       {/* ===== HERO SECTION ===== */}
-      <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[620px] lg:min-h-[720px] flex items-center justify-center overflow-hidden">
         {/* Hero background image */}
         <Image
           src="https://jiyoxdeiyydyxjymahrh.supabase.co/storage/v1/object/public/watamu-images/hero/watamu-hero.jpg"
           alt="White sand beach and turquoise ocean in Watamu, Kenya"
           fill
-          className="object-cover"
+          className="object-cover scale-105"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/50" />
+
+        {/* Dark gradient: punchy top, readable middle, darker bottom so the
+            wave meets a darker edge. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-900/35 to-slate-950/70" />
+        {/* Brand-tinted radial glow behind the title + card — gives depth
+            without swamping the beach palette. */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(60% 55% at 50% 42%, rgba(13,148,136,0.22) 0%, rgba(0,0,0,0) 70%)",
+          }}
+        />
 
         {/* Decorative wave */}
         <div className="absolute bottom-0 left-0 right-0">
@@ -151,15 +163,25 @@ export default async function HomePage() {
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur-sm ring-1 ring-white/25 px-3 py-1 text-xs font-medium text-white/90 mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-300" aria-hidden />
+            Trusted by guests along the Kenyan coast
+          </span>
+          <h1
+            className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight"
+            style={{ textShadow: "0 2px 24px rgba(0,0,0,0.35)" }}
+          >
             Your Stay in Watamu Starts Here
           </h1>
-          <p className="text-lg sm:text-xl text-white/90 mb-10 max-w-2xl mx-auto">
+          <p
+            className="text-lg sm:text-xl text-white/95 mb-10 max-w-2xl mx-auto"
+            style={{ textShadow: "0 1px 12px rgba(0,0,0,0.35)" }}
+          >
             Book stunning beachfront stays and world-class fishing charters on
             Kenya&rsquo;s most beautiful coastline.
           </p>
 
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-4 sm:p-6">
+          <div className="max-w-4xl mx-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl ring-1 ring-white/40 p-4 sm:p-6">
             <SearchFilters variant="hero" />
           </div>
         </div>
@@ -194,7 +216,7 @@ export default async function HomePage() {
                   location={property.city || 'Watamu'}
                   type={property.property_type?.replace('_', ' ') || 'House'}
                   coverImage={property.images?.[0]?.url || getPropertyImage(index)}
-                  rating={property.avg_rating || 0}
+                  rating={Number(property.avg_rating ?? 0)}
                   reviewCount={property.review_count || 0}
                   pricePerNight={property.base_price_per_night}
                   currency={property.currency || 'KES'}
@@ -245,10 +267,10 @@ export default async function HomePage() {
                     name={boat.name}
                     type={boat.boat_type?.replace('_', ' ') || 'Sport Fisher'}
                     coverImage={boat.images?.[0]?.url || getBoatImage(index)}
-                    captainName={boat.captain_name || 'TBA'}
+                    captainName={boat.captain_name || 'Local skipper'}
                     capacity={boat.capacity}
                     lengthFt={boat.length_ft}
-                    rating={boat.avg_rating || 0}
+                    rating={Number(boat.avg_rating ?? 0)}
                     reviewCount={boat.review_count || 0}
                     startingPrice={lowestTrip?.price_total || 0}
                     currency={boat.currency || 'KES'}

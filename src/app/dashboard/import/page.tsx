@@ -9,11 +9,27 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import toast from 'react-hot-toast';
 
-type ImportSource = 'airbnb' | 'fishingbooker' | null;
+type ImportSource = 'airbnb' | 'fishingbooker' | 'booking' | 'ai' | null;
 type Step = 'choose' | 'url' | 'preview' | 'saving' | 'done';
+type AiProvider = 'anthropic' | 'openai';
+type AiKind = 'property' | 'boat';
+
+const SOURCE_LABEL: Record<Exclude<ImportSource, null>, string> = {
+  airbnb: 'Airbnb',
+  fishingbooker: 'FishingBooker',
+  booking: 'Booking.com',
+  ai: 'your own website',
+};
+
+const SOURCE_PLACEHOLDER: Record<Exclude<ImportSource, null>, string> = {
+  airbnb: 'https://www.airbnb.com/rooms/12345678',
+  fishingbooker: 'https://www.fishingbooker.com/charter/12345',
+  booking: 'https://www.booking.com/hotel/ke/your-property.html',
+  ai: 'https://your-villa-website.com/',
+};
 
 export default function ImportPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [source, setSource] = useState<ImportSource>(null);
   const [step, setStep] = useState<Step>('choose');
@@ -22,10 +38,65 @@ export default function ImportPage() {
   const [importedData, setImportedData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  // AI importer fields — the API key is used once per request and never stored.
+  const [aiProvider, setAiProvider] = useState<AiProvider>('anthropic');
+  const [aiKind, setAiKind] = useState<AiKind>('property');
+  const [aiKey, setAiKey] = useState('');
+
+  // Gate the whole flow behind watamu-bookings auth. The /api/import/* endpoints
+  // verify the Supabase session and return 401 "Authentication required" if the
+  // user isn't signed in — which was surfacing as a confusing in-form error.
+  if (authLoading) {
+    return (
+      <div className="mx-auto max-w-3xl py-16 text-center text-gray-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Import a Listing</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Bring your existing listing from another platform.
+          </p>
+        </div>
+        <Card className="p-8 text-center border-teal-200 bg-teal-50/40">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            Sign in to import your listing
+          </h2>
+          <p className="text-sm text-gray-600 mb-5 max-w-lg mx-auto">
+            You need a Watamu Bookings host account to import. Good news:
+            you don&apos;t need to be signed into Airbnb or FishingBooker —
+            we read the public listing page directly.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/auth/login?redirect=/dashboard/import')}
+            >
+              Sign in
+            </Button>
+            <Button
+              onClick={() => router.push('/auth/register?role=owner')}
+            >
+              Create host account
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   async function handleImport() {
     if (!url.trim()) {
       setError('Please paste a listing URL');
+      return;
+    }
+    if (source === 'ai' && !aiKey.trim()) {
+      setError('Please paste your AI provider API key');
       return;
     }
 
@@ -33,14 +104,29 @@ export default function ImportPage() {
     setError(null);
 
     try {
-      const endpoint = source === 'airbnb'
-        ? '/api/import/airbnb'
-        : '/api/import/fishingbooker';
+      const endpoint =
+        source === 'airbnb'
+          ? '/api/import/airbnb'
+          : source === 'booking'
+            ? '/api/import/booking'
+            : source === 'ai'
+              ? '/api/import/ai'
+              : '/api/import/fishingbooker';
+
+      const body =
+        source === 'ai'
+          ? {
+              url: url.trim(),
+              apiKey: aiKey.trim(),
+              provider: aiProvider,
+              kind: aiKind,
+            }
+          : { url: url.trim() };
 
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify(body),
       });
 
       const result = await res.json();
@@ -56,6 +142,13 @@ export default function ImportPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Resolves whether the imported data should become a property or a boat.
+  function resolveKind(): 'property' | 'boat' {
+    if (source === 'fishingbooker') return 'boat';
+    if (source === 'ai') return aiKind;
+    return 'property'; // airbnb, booking
   }
 
   async function handleSave() {
@@ -83,8 +176,16 @@ export default function ImportPage() {
     try {
       const supabase = createClient();
 
-      if (source === 'airbnb') {
-        // Create property from imported data
+      const kind = resolveKind();
+      // Tag the import_source so we know where each row came from later. For the
+      // AI route we include the LLM provider so support can tell Anthropic vs
+      // OpenAI imports apart.
+      const importSourceTag =
+        source === 'ai' ? `ai:${aiProvider}` : source ?? 'manual';
+
+      if (kind === 'property') {
+        // Create property from imported data (Airbnb, Booking.com, and AI
+        // property imports share the same shape).
 
         const { data: property, error: propError } = await supabase
           .from('wb_properties')
@@ -109,7 +210,7 @@ export default function ImportPage() {
             is_published: false,
             status: 'pending_review',
             source_url: importedData.source_url || url.trim(),
-            import_source: 'airbnb',
+            import_source: importSourceTag,
           })
           .select('id')
           .single();
@@ -154,7 +255,7 @@ export default function ImportPage() {
             is_published: false,
             status: 'pending_review',
             source_url: importedData.source_url || url.trim(),
-            import_source: 'fishingbooker',
+            import_source: importSourceTag,
           })
           .select('id')
           .single();
@@ -219,7 +320,7 @@ export default function ImportPage() {
 
       {/* Step 1: Choose source */}
       {step === 'choose' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
             type="button"
             onClick={() => { setSource('airbnb'); setStep('url'); }}
@@ -241,6 +342,25 @@ export default function ImportPage() {
 
           <button
             type="button"
+            onClick={() => { setSource('booking'); setStep('url'); }}
+            className="group text-left border-2 border-gray-200 rounded-2xl p-6 hover:border-[#003580] hover:bg-blue-50/30 transition-all"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-xl bg-[#003580] flex items-center justify-center text-white font-bold text-lg">
+                B.
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-[#003580]">Booking.com</h3>
+                <p className="text-xs text-gray-500">Import a property listing</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              We&apos;ll import your property name, photos, description, pricing, location, and guest rating.
+            </p>
+          </button>
+
+          <button
+            type="button"
             onClick={() => { setSource('fishingbooker'); setStep('url'); }}
             className="group text-left border-2 border-gray-200 rounded-2xl p-6 hover:border-blue-500 hover:bg-blue-50/30 transition-all"
           >
@@ -257,6 +377,28 @@ export default function ImportPage() {
               We&apos;ll import your boat specs, trip packages, captain info, photos, and target species.
             </p>
           </button>
+
+          <button
+            type="button"
+            onClick={() => { setSource('ai'); setStep('url'); }}
+            className="group text-left border-2 border-gray-200 rounded-2xl p-6 hover:border-teal-500 hover:bg-teal-50/30 transition-all sm:col-span-2 lg:col-span-3"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg">
+                ✨
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-teal-700">
+                  Your own website <span className="text-xs font-normal text-gray-500">(AI-powered)</span>
+                </h3>
+                <p className="text-xs text-gray-500">Import from any property or boat website</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              Paste a link to your own website and bring your own Anthropic or OpenAI API key.
+              We&apos;ll use AI to read the page and draft a listing for you to review. Your key is used once and never stored.
+            </p>
+          </button>
         </div>
       )}
 
@@ -266,13 +408,21 @@ export default function ImportPage() {
           <div className="flex items-center gap-2 mb-4">
             <button
               type="button"
-              onClick={() => { setStep('choose'); setSource(null); setUrl(''); setError(null); }}
+              onClick={() => {
+                setStep('choose');
+                setSource(null);
+                setUrl('');
+                setAiKey('');
+                setError(null);
+              }}
               className="text-sm text-gray-500 hover:text-gray-700"
             >
               &larr; Back
             </button>
             <h2 className="text-lg font-semibold text-gray-900">
-              Paste your {source === 'airbnb' ? 'Airbnb' : 'FishingBooker'} listing URL
+              {source === 'ai'
+                ? 'Import from your own website'
+                : `Paste your ${source ? SOURCE_LABEL[source] : ''} listing URL`}
             </h2>
           </div>
 
@@ -281,19 +431,112 @@ export default function ImportPage() {
               <Input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder={
-                  source === 'airbnb'
-                    ? 'https://www.airbnb.com/rooms/12345678'
-                    : 'https://www.fishingbooker.com/charter/12345'
-                }
+                placeholder={source ? SOURCE_PLACEHOLDER[source] : ''}
                 className="text-base"
               />
               <p className="text-xs text-gray-500 mt-2">
-                {source === 'airbnb'
-                  ? 'Go to your Airbnb listing page and copy the URL from your browser.'
-                  : 'Go to your FishingBooker charter page and copy the URL from your browser.'}
+                {source === 'ai'
+                  ? 'Paste a public link to your own property or boat website — any page describing the listing will do.'
+                  : `Go to your ${source ? SOURCE_LABEL[source] : ''} listing page and copy the URL from your browser.`}
               </p>
             </div>
+
+            {source === 'ai' && (
+              <div className="space-y-4 rounded-xl border border-teal-200 bg-teal-50/40 p-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-2">What is this listing?</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAiKind('property')}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        aiKind === 'property'
+                          ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Property / stay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiKind('boat')}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        aiKind === 'boat'
+                          ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Boat charter
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-2">AI provider</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAiProvider('anthropic')}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        aiProvider === 'anthropic'
+                          ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Anthropic (Claude)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiProvider('openai')}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        aiProvider === 'openai'
+                          ? 'border-teal-600 bg-white text-teal-700 ring-1 ring-teal-600'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      OpenAI (GPT)
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-2">
+                    {aiProvider === 'anthropic' ? 'Anthropic API key' : 'OpenAI API key'}
+                  </p>
+                  <Input
+                    type="password"
+                    value={aiKey}
+                    onChange={(e) => setAiKey(e.target.value)}
+                    placeholder={aiProvider === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
+                    autoComplete="off"
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-600 mt-2">
+                    Your key is sent once to {aiProvider === 'anthropic' ? 'Anthropic' : 'OpenAI'} to read this
+                    page and is never stored on our servers.{' '}
+                    {aiProvider === 'anthropic' ? (
+                      <a
+                        href="https://console.anthropic.com/settings/keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-teal-700 hover:underline"
+                      >
+                        Get an Anthropic key →
+                      </a>
+                    ) : (
+                      <a
+                        href="https://platform.openai.com/api-keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-teal-700 hover:underline"
+                      >
+                        Get an OpenAI key →
+                      </a>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
@@ -303,7 +546,7 @@ export default function ImportPage() {
 
             <Button
               onClick={handleImport}
-              disabled={loading || !url.trim()}
+              disabled={loading || !url.trim() || (source === 'ai' && !aiKey.trim())}
               className="w-full"
             >
               {loading ? (
@@ -312,8 +555,10 @@ export default function ImportPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Importing...
+                  {source === 'ai' ? 'Reading your page with AI…' : 'Importing...'}
                 </span>
+              ) : source === 'ai' ? (
+                'Read with AI'
               ) : (
                 'Import Listing'
               )}
@@ -370,7 +615,9 @@ export default function ImportPage() {
             <p className="text-sm text-gray-600 mb-4 line-clamp-3">{importedData.description}</p>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-              {source === 'airbnb' && (
+              {(source === 'airbnb' ||
+                source === 'booking' ||
+                (source === 'ai' && aiKind === 'property')) && (
                 <>
                   <div>
                     <p className="text-xs text-gray-500">Type</p>
@@ -405,7 +652,8 @@ export default function ImportPage() {
                 </>
               )}
 
-              {source === 'fishingbooker' && (
+              {(source === 'fishingbooker' ||
+                (source === 'ai' && aiKind === 'boat')) && (
                 <>
                   <div>
                     <p className="text-xs text-gray-500">Boat Type</p>
@@ -438,7 +686,8 @@ export default function ImportPage() {
             </div>
 
             {/* Trip packages for boats */}
-            {source === 'fishingbooker' && importedData.trips?.length > 0 && (
+            {(source === 'fishingbooker' || (source === 'ai' && aiKind === 'boat')) &&
+              importedData.trips?.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <p className="text-xs font-medium text-gray-500 mb-2">Trip Packages</p>
                 <div className="space-y-2">
@@ -532,15 +781,18 @@ export default function ImportPage() {
                 setStep('choose');
                 setSource(null);
                 setUrl('');
+                setAiKey('');
                 setImportedData(null);
                 setCreatedId(null);
+                setError(null);
               }}
             >
               Import Another
             </Button>
             <Button
               onClick={() => {
-                if (source === 'airbnb') {
+                const kind = resolveKind();
+                if (kind === 'property') {
                   router.push(`/dashboard/properties/${createdId}`);
                 } else {
                   router.push(`/dashboard/boats/${createdId}`);

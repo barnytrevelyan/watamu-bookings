@@ -6,9 +6,10 @@ import toast from "react-hot-toast";
 import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import FeeInfoTooltip from "@/components/FeeInfoTooltip";
 // Select replaced with plain <select> for compatibility
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
-import type { Room } from "@/lib/types";
+import type { Room, CancellationPolicy } from "@/lib/types";
 
 interface AvailabilityDay {
   date: string;
@@ -25,7 +26,41 @@ interface Props {
   availability: AvailabilityDay[];
   cleaningFee?: number | null;
   serviceFeePercent?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  cancellationPolicy?: CancellationPolicy | null;
 }
+
+/**
+ * Format a time stored as "HH:MM" or "HH:MM:SS" into a friendly "3:00 PM".
+ * Falls back to the raw value if parsing fails.
+ */
+function formatTimeLabel(value: string | null | undefined, fallback: string): string {
+  if (!value) return fallback;
+  const m = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return value;
+  const hh = Number(m[1]);
+  const mm = m[2];
+  if (Number.isNaN(hh)) return value;
+  const period = hh >= 12 ? "PM" : "AM";
+  const display = hh % 12 === 0 ? 12 : hh % 12;
+  return `${display}:${mm} ${period}`;
+}
+
+const CANCELLATION_LABELS: Record<CancellationPolicy, { headline: string; detail: string }> = {
+  flexible: {
+    headline: "Free cancellation for 5 days",
+    detail: "Cancel up to 5 days before check-in for a full refund.",
+  },
+  moderate: {
+    headline: "Free cancellation for 48 hours",
+    detail: "After that, cancel up to 5 days before check-in for a 50% refund.",
+  },
+  strict: {
+    headline: "Partial refund only",
+    detail: "Cancel within 48 hours of booking for a 50% refund. Non-refundable after.",
+  },
+};
 
 export default function PropertyBookingSidebar({
   propertyId,
@@ -36,6 +71,9 @@ export default function PropertyBookingSidebar({
   availability,
   cleaningFee = 0,
   serviceFeePercent = 10,
+  checkInTime,
+  checkOutTime,
+  cancellationPolicy,
 }: Props) {
   const router = useRouter();
 
@@ -258,19 +296,25 @@ export default function PropertyBookingSidebar({
       {nights > 0 && (
         <div className="border-t border-gray-100 pt-4 mb-4 space-y-2 text-sm">
           <div className="flex justify-between text-gray-700">
-            <span>
-              KES {nightlyRate.toLocaleString()} x {nights} night{nights !== 1 ? "s" : ""}
+            <span className="underline underline-offset-2 decoration-gray-300">
+              KES {nightlyRate.toLocaleString()} × {nights} night{nights !== 1 ? "s" : ""}
             </span>
             <span>KES {accommodationTotal.toLocaleString()}</span>
           </div>
           {(cleaningFee ?? 0) > 0 && (
             <div className="flex justify-between text-gray-700">
-              <span>Cleaning fee</span>
+              <FeeInfoTooltip
+                label="Cleaning fee"
+                description="A one-time fee charged by the host to cover a professional clean before your arrival and after check-out."
+              />
               <span>KES {(cleaningFee ?? 0).toLocaleString()}</span>
             </div>
           )}
           <div className="flex justify-between text-gray-700">
-            <span>Service fee</span>
+            <FeeInfoTooltip
+              label="Service fee"
+              description="This helps us run Watamu Bookings: 24/7 support, secure payment handling and our booking guarantee. It's non-refundable."
+            />
             <span>
               KES{" "}
               {Math.round(
@@ -311,11 +355,15 @@ export default function PropertyBookingSidebar({
           <div className="flex-1">
             <div className="flex justify-between">
               <span>Check-in</span>
-              <span className="text-gray-900 font-medium">After 3:00 PM</span>
+              <span className="text-gray-900 font-medium">
+                After {formatTimeLabel(checkInTime, "3:00 PM")}
+              </span>
             </div>
             <div className="flex justify-between mt-0.5">
               <span>Check-out</span>
-              <span className="text-gray-900 font-medium">Before 11:00 AM</span>
+              <span className="text-gray-900 font-medium">
+                Before {formatTimeLabel(checkOutTime, "11:00 AM")}
+              </span>
             </div>
           </div>
         </div>
@@ -325,9 +373,11 @@ export default function PropertyBookingSidebar({
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
           <div className="flex-1">
-            <p className="text-gray-900 font-medium">Free cancellation for 48 hours</p>
+            <p className="text-gray-900 font-medium">
+              {CANCELLATION_LABELS[cancellationPolicy ?? "moderate"].headline}
+            </p>
             <p className="text-gray-500 mt-0.5">
-              After that, cancel before check-in for a partial refund.
+              {CANCELLATION_LABELS[cancellationPolicy ?? "moderate"].detail}
             </p>
           </div>
         </div>
