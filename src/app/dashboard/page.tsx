@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrand } from '@/lib/places/BrandProvider';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -69,6 +70,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 };
 
 export default function DashboardPage() {
+  const brand = useBrand();
   const { user } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
@@ -284,7 +286,7 @@ export default function DashboardPage() {
             </h1>
             <p className="mt-2 text-sm text-white/85 max-w-xl">
               {hasAnyListings
-                ? `You have ${stats.totalProperties + stats.totalBoats} listing${stats.totalProperties + stats.totalBoats === 1 ? '' : 's'} on Watamu Bookings${stats.enquiryCount > 0 ? ` and ${stats.enquiryCount} enquir${stats.enquiryCount === 1 ? 'y' : 'ies'} waiting for your reply` : ''}.`
+                ? `You have ${stats.totalProperties + stats.totalBoats} listing${stats.totalProperties + stats.totalBoats === 1 ? '' : 's'} on ${brand.name}${stats.enquiryCount > 0 ? ` and ${stats.enquiryCount} enquir${stats.enquiryCount === 1 ? 'y' : 'ies'} waiting for your reply` : ''}.`
                 : 'Let’s get your first listing up — paste any link and we’ll draft it for you in under a minute.'}
             </p>
           </div>

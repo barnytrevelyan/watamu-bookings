@@ -40,7 +40,32 @@ const footerColumns = [
   },
 ];
 
-export default function Footer() {
+interface FooterProps {
+  brandName?: string;
+  brandShort?: string;
+  /** Public support inbox. Falls back to Watamu Bookings address if unset. */
+  supportEmail?: string | null;
+  /** Human-readable location for the contact block, e.g. "Watamu, Kenya". */
+  placeLabel?: string;
+}
+
+function splitBrand(name: string): { first: string; accent: string | null } {
+  const trimmed = name.trim();
+  const idx = trimmed.lastIndexOf(' ');
+  if (idx === -1) return { first: trimmed, accent: null };
+  return { first: trimmed.slice(0, idx), accent: trimmed.slice(idx + 1) };
+}
+
+export default function Footer({
+  brandName = 'Watamu Bookings',
+  brandShort = 'Watamu',
+  supportEmail,
+  placeLabel,
+}: FooterProps) {
+  const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
+  const email = supportEmail || 'hello@watamubookings.com';
+  const contactLine = placeLabel || `${brandShort}, Kenya`;
+
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
@@ -50,28 +75,35 @@ export default function Footer() {
             <Link href="/" className="flex items-center gap-2 mb-4">
               <Waves className="h-7 w-7 text-[var(--color-primary-400)]" />
               <span className="text-xl font-bold text-white">
-                Watamu{' '}
-                <span className="text-[var(--color-primary-400)]">Bookings</span>
+                {brandLead}
+                {brandAccent && (
+                  <>
+                    {' '}
+                    <span className="text-[var(--color-primary-400)]">
+                      {brandAccent}
+                    </span>
+                  </>
+                )}
               </span>
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed max-w-sm mb-6">
-              Your local alternative to the big platforms. Book stunning beachfront
-              properties and unforgettable fishing charter experiences in Watamu,
-              Kenya.
+              Your local alternative to the big platforms. Book stunning
+              beachfront properties and unforgettable fishing charter
+              experiences on the Kenyan coast.
             </p>
 
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-gray-400">
                 <MapPin className="h-4 w-4 shrink-0" />
-                <span>Watamu, Kilifi County, Kenya</span>
+                <span>{contactLine}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-400">
                 <Mail className="h-4 w-4 shrink-0" />
                 <a
-                  href="mailto:hello@watamubookings.com"
+                  href={`mailto:${email}`}
                   className="hover:text-white transition-colors"
                 >
-                  hello@watamubookings.com
+                  {email}
                 </a>
               </div>
             </div>
@@ -102,8 +134,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Watamu Bookings. All rights
-            reserved.
+            &copy; {new Date().getFullYear()} {brandName}. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm text-gray-500">
             <Link href="/about" className="hover:text-white transition-colors">

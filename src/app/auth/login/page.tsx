@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 
 export default function LoginPage() {
   return (
@@ -14,6 +15,7 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
+  const brand = useBrand();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const urlError = searchParams.get('error');
@@ -68,7 +70,7 @@ function LoginForm() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="flex justify-center">
           <h1 className="text-3xl font-bold text-blue-600">
-            Watamu Bookings
+            {brand.name}
           </h1>
         </Link>
         <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">

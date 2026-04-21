@@ -15,14 +15,23 @@ import {
   Coins,
 } from 'lucide-react';
 import EarningsCalculator from './EarningsCalculator';
+import { getCurrentPlace } from '@/lib/places/context';
 
-export const metadata: Metadata = {
-  title: 'Become a host — Watamu Bookings',
-  description:
-    'List your villa, cottage, fishing boat or sunset cruise on Watamu Bookings. 8% flat commission or flat monthly subscription — your choice. Free to list, paid in 24 hours, M-Pesa supported.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  return {
+    title: `Become a host — ${brandName}`,
+    description: `List your villa, cottage, fishing boat or sunset cruise on ${brandName}. 8% flat commission or flat monthly subscription — your choice. Free to list, paid in 24 hours, M-Pesa supported.`,
+  };
+}
 
-export default function BecomeAHostPage() {
+export default async function BecomeAHostPage() {
+  const { place, host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  const placeName = place?.name ?? host.brand_short;
+  const supportEmail = host.support_email ?? 'hello@watamubookings.com';
+  const isWatamu = placeName === 'Watamu';
   return (
     <div className="min-h-screen bg-white">
       {/* ---------- HERO ---------- */}
@@ -34,12 +43,12 @@ export default function BecomeAHostPage() {
                 Hosts &amp; charter operators
               </p>
               <h1 className="mt-3 text-4xl font-bold leading-tight text-gray-900 sm:text-5xl">
-                Share your piece of Watamu.{' '}
+                Share your piece of {placeName}.{' '}
                 <span className="text-teal-600">Keep more of what you earn.</span>
               </h1>
               <p className="mt-5 max-w-xl text-lg text-gray-600">
-                Watamu Bookings is the home-grown marketplace for villas, cottages,
-                fishing boats, and sunset cruises on the Kilifi coast. Lower fees than
+                {brandName} is the home-grown marketplace for villas, cottages,
+                fishing boats, and sunset cruises on the Kenyan coast. Lower fees than
                 Airbnb and Booking.com, direct relationships with your guests, and real
                 support from people who live here too.
               </p>
@@ -76,7 +85,7 @@ export default function BecomeAHostPage() {
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-bold text-gray-900">Why host with us</h2>
           <p className="mx-auto mt-3 max-w-2xl text-gray-600">
-            Built for the Watamu coast, run by people who live here. Lower fees and
+            Built for the {placeName} coast, run by people who live here. Lower fees and
             tools that actually work for Kenyan hosts.
           </p>
         </div>
@@ -99,8 +108,10 @@ export default function BecomeAHostPage() {
           />
           <FeatureCard
             icon={<Waves className="h-5 w-5 text-teal-600" />}
-            title="Built for the Watamu coast"
-            body="Mida Creek, Marine Park diving, marlin season, dhow sunset sails — the platform knows the rhythms of the coast."
+            title={`Built for the ${placeName} coast`}
+            body={isWatamu
+              ? 'Mida Creek, Marine Park diving, marlin season, dhow sunset sails — the platform knows the rhythms of the coast.'
+              : 'Tide-aware charters, seasonal marlin runs, dhow sunset sails — the platform knows the rhythms of the Kenyan coast.'}
           />
         </div>
       </section>
@@ -196,7 +207,7 @@ export default function BecomeAHostPage() {
           </p>
         </div>
 
-        <EarningsCalculator />
+        <EarningsCalculator brandName={brandName} />
       </section>
 
       {/* ---------- AI IMPORT ---------- */}
@@ -289,7 +300,7 @@ export default function BecomeAHostPage() {
             <BenefitCard
               icon={<Calendar className="h-5 w-5 text-teal-600" />}
               title="Calendar sync &amp; availability"
-              body="Two-way iCal sync keeps Airbnb, Booking.com and Watamu Bookings in step. Block dates once, applied everywhere."
+              body={`Two-way iCal sync keeps Airbnb, Booking.com and ${brandName} in step. Block dates once, applied everywhere.`}
             />
             <BenefitCard
               icon={<Users className="h-5 w-5 text-teal-600" />}
@@ -313,37 +324,41 @@ export default function BecomeAHostPage() {
             />
             <BenefitCard
               icon={<MessageSquare className="h-5 w-5 text-teal-600" />}
-              title="Real Watamu support"
+              title={`Real ${placeName} support`}
               body="WhatsApp a human on the coast — not a chatbot in another continent. We answer evenings and weekends."
             />
           </div>
         </div>
       </section>
 
-      {/* ---------- TESTIMONIALS ---------- */}
-      <section className="mx-auto max-w-6xl px-4 py-16 lg:py-20">
-        <div className="mb-10 text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Hosts on Watamu Bookings</h2>
-        </div>
+      {/* ---------- TESTIMONIALS — only rendered on Watamu-scoped hosts;
+           these are real quotes tied to Watamu locations and we don't want
+           to fake them for other places. ---------- */}
+      {isWatamu && (
+        <section className="mx-auto max-w-6xl px-4 py-16 lg:py-20">
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-bold text-gray-900">Hosts on {brandName}</h2>
+          </div>
 
-        <div className="grid gap-5 md:grid-cols-3">
-          <TestimonialCard
-            quote="I moved Coral Breeze Villa over from Airbnb in one afternoon. My payout hits M-Pesa the day after check-out and I've already had two returning guests book direct."
-            name="Amina K."
-            role="Villa host · Watamu"
-          />
-          <TestimonialCard
-            quote="FishingBooker took 20% per charter. Watamu Bookings takes 8%. Same boat, same trips — I earn more and talk to my guests directly before they arrive."
-            name="Captain Juma"
-            role="Sport-fishing charter · Watamu Marina"
-          />
-          <TestimonialCard
-            quote="The team is in Watamu. When a guest had a question about Mida Creek tides at 10pm, someone actually knew the answer. That's never happened with Booking.com."
-            name="Sarah M."
-            role="Cottage host · Mida Creek"
-          />
-        </div>
-      </section>
+          <div className="grid gap-5 md:grid-cols-3">
+            <TestimonialCard
+              quote="I moved Coral Breeze Villa over from Airbnb in one afternoon. My payout hits M-Pesa the day after check-out and I've already had two returning guests book direct."
+              name="Amina K."
+              role="Villa host · Watamu"
+            />
+            <TestimonialCard
+              quote={`FishingBooker took 20% per charter. ${brandName} takes 8%. Same boat, same trips — I earn more and talk to my guests directly before they arrive.`}
+              name="Captain Juma"
+              role="Sport-fishing charter · Watamu Marina"
+            />
+            <TestimonialCard
+              quote="The team is in Watamu. When a guest had a question about Mida Creek tides at 10pm, someone actually knew the answer. That's never happened with Booking.com."
+              name="Sarah M."
+              role="Cottage host · Mida Creek"
+            />
+          </div>
+        </section>
+      )}
 
       {/* ---------- FAQ ---------- */}
       <section className="bg-gray-50 py-16 lg:py-20">
@@ -382,7 +397,7 @@ export default function BecomeAHostPage() {
             />
             <FaqItem
               q="What properties or boats can I list?"
-              a="Villas, apartments, cottages, bandas, bungalows, penthouses, guest houses, sport-fishing boats, dhows, catamarans, sunset cruise boats, diving boats — if it's on or near the Watamu coast and you own or legally manage it, you can list it."
+              a={`Villas, apartments, cottages, bandas, bungalows, penthouses, guest houses, sport-fishing boats, dhows, catamarans, sunset cruise boats, diving boats — if it's on or near the ${placeName} coast and you own or legally manage it, you can list it.`}
             />
             <FaqItem
               q="How do I get paid?"
@@ -431,7 +446,7 @@ export default function BecomeAHostPage() {
             </a>
           ) : (
             <a
-              href="mailto:hello@watamubookings.com?subject=Listing%20on%20Watamu%20Bookings"
+              href={`mailto:${supportEmail}?subject=${encodeURIComponent(`Listing on ${brandName}`)}`}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:border-gray-300"
             >
               <MessageSquare className="h-4 w-4" />

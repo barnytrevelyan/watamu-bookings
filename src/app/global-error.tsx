@@ -37,7 +37,7 @@ export default function GlobalError({
             Something went very wrong
           </h1>
           <p style={{ color: "#4b5563", marginBottom: "1.5rem" }}>
-            Watamu Bookings hit a critical error. Please refresh — if it keeps
+            The site hit a critical error. Please refresh — if it keeps
             happening, email us at{" "}
             <a href="mailto:hello@watamubookings.com" style={{ color: "#0f766e" }}>
               hello@watamubookings.com

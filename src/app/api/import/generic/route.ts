@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { getCurrentPlace } from '@/lib/places/context';
 import { resolveImportUser } from '@/lib/import/auth';
 import { sanitiseUrl, fetchSafe, buildPageBrief } from '@/lib/import/shared';
 
@@ -103,7 +104,8 @@ const TRIP_TYPES = ['half_day', 'half_day_morning', 'half_day_afternoon', 'full_
 // LLM call — OpenAI Chat Completions with JSON Schema response format.
 // ---------------------------------------------------------------------------
 
-const LLM_SYSTEM_PROMPT = `You are a data-extraction assistant for Watamu Bookings, a property and boat-charter booking marketplace in Watamu, Kenya.
+function buildSystemPrompt(brandName: string, placeName: string): string {
+  return `You are a data-extraction assistant for ${brandName}, a property and boat-charter booking marketplace in ${placeName}, Kenya.
 
 You will receive a condensed brief of a webpage (title, meta tags, JSON-LD blocks, image URLs, and body text) representing a rental listing or boat charter. Your job is to extract the canonical listing data as JSON.
 
@@ -127,6 +129,7 @@ Extraction rules:
 - "cancellation_policy" is one of: ${CANCELLATION_POLICIES.join(', ')}, or null if unclear.
 - "images" is the list of full https URLs from the IMAGES section pointing to the actual listing (skip logos, avatars, icons). Maximum 25.
 - Always return valid JSON matching the schema exactly.`;
+}
 
 // JSON schema with discriminator = listing_type.
 const LLM_RESPONSE_SCHEMA = {
@@ -240,7 +243,8 @@ const LLM_RESPONSE_SCHEMA = {
 
 async function extractWithLLM(
   brief: string,
-  forcedListingType?: 'property' | 'boat'
+  forcedListingType?: 'property' | 'boat',
+  brandContext?: { brandName: string; placeName: string }
 ): Promise<any> {
   const apiKey = process.env.WATAMU_AI_API_KEY;
   if (!apiKey) {
@@ -251,6 +255,8 @@ async function extractWithLLM(
   if (provider !== 'openai') {
     throw new Error(`Unsupported WATAMU_AI_PROVIDER: ${provider}`);
   }
+
+  const { brandName = 'Watamu Bookings', placeName = 'Watamu' } = brandContext ?? {};
 
   const userPrompt = forcedListingType
     ? `The user has hinted that this is a ${forcedListingType} listing. Use that as the listing_type unless the brief is flatly inconsistent with it.\n\nBrief:\n\n${brief}`
@@ -275,7 +281,7 @@ async function extractWithLLM(
           json_schema: LLM_RESPONSE_SCHEMA,
         },
         messages: [
-          { role: 'system', content: LLM_SYSTEM_PROMPT },
+          { role: 'system', content: buildSystemPrompt(brandName, placeName) },
           { role: 'user', content: userPrompt },
         ],
       }),
@@ -319,9 +325,11 @@ function toFiniteInt(v: any): number | null {
 
 async function scrapeGeneric(
   rawUrl: string,
-  forcedListingType?: 'property' | 'boat'
+  forcedListingType?: 'property' | 'boat',
+  brandContext?: { brandName: string; placeName: string }
 ): Promise<{ data: ImportedProperty | ImportedBoat; listing_type: 'property' | 'boat' }> {
   const { html, finalUrl } = await fetchSafe(rawUrl);
+  const { brandName = 'Watamu Bookings', placeName = 'Watamu' } = brandContext ?? {};
 
   const { brief, images: scrapedImages } = buildPageBrief(html, finalUrl);
 
@@ -332,7 +340,7 @@ async function scrapeGeneric(
     );
   }
 
-  const extracted = await extractWithLLM(brief, forcedListingType);
+  const extracted = await extractWithLLM(brief, forcedListingType, { brandName, placeName });
 
   const listingType: 'property' | 'boat' =
     extracted.listing_type === 'boat' ? 'boat' : 'property';
@@ -387,7 +395,7 @@ async function scrapeGeneric(
       images,
       rating: toFiniteNumber(extracted.rating),
       review_count: toFiniteInt(extracted.review_count),
-      location: 'Watamu, Kenya',
+      location: `${placeName}, Kenya`,
       source_url: finalUrl,
       source: 'generic',
     };
@@ -399,7 +407,7 @@ async function scrapeGeneric(
     description,
     property_type: (extracted.property_type && PROPERTY_TYPES.includes(extracted.property_type)) ? extracted.property_type : 'house',
     address: extracted.address ?? '',
-    city: extracted.city || 'Watamu',
+    city: extracted.city || placeName,
     latitude: toFiniteNumber(extracted.latitude),
     longitude: toFiniteNumber(extracted.longitude),
     price_per_night: toFiniteNumber(extracted.price_per_night),
@@ -451,7 +459,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, listing_type } = await scrapeGeneric(cleanUrl, listingTypeHint);
+    const { place, host } = await getCurrentPlace();
+    const brandContext = {
+      brandName: host.brand_name,
+      placeName: place?.name ?? host.brand_short,
+    };
+
+    const { data, listing_type } = await scrapeGeneric(cleanUrl, listingTypeHint, brandContext);
 
     await supabase.from('wb_import_logs').insert({
       owner_id: user.id,

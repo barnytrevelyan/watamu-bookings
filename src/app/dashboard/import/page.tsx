@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -173,7 +174,7 @@ function sourceUsesAI(source: DetectedSource): boolean {
   return source === 'generic';
 }
 
-function buildPreview(raw: any, listingType: ListingType, sourceUrl: string): PreviewState {
+function buildPreview(raw: any, listingType: ListingType, sourceUrl: string, placeName: string): PreviewState {
   const imgs: string[] = Array.isArray(raw.images) ? raw.images.filter((s: any) => typeof s === 'string') : [];
   return {
     name: String(raw.name || '').trim(),
@@ -186,7 +187,7 @@ function buildPreview(raw: any, listingType: ListingType, sourceUrl: string): Pr
 
     propertyType: raw.property_type || 'house',
     address: raw.address || '',
-    city: raw.city || 'Watamu',
+    city: raw.city || placeName,
     latitude: typeof raw.latitude === 'number' ? raw.latitude : null,
     longitude: typeof raw.longitude === 'number' ? raw.longitude : null,
     pricePerNight: typeof raw.price_per_night === 'number' ? raw.price_per_night : null,
@@ -215,7 +216,9 @@ function buildPreview(raw: any, listingType: ListingType, sourceUrl: string): Pr
     targetSpecies: Array.isArray(raw.target_species) ? raw.target_species.filter((s: any) => typeof s === 'string') : [],
     fishingTechniques: Array.isArray(raw.fishing_techniques) ? raw.fishing_techniques.filter((s: any) => typeof s === 'string') : [],
     trips: Array.isArray(raw.trips) ? raw.trips.filter((t: any) => t && typeof t.name === 'string') : [],
-    departurePoint: raw.departure_point ?? 'Watamu Marine Park Jetty',
+    departurePoint:
+      raw.departure_point ??
+      (placeName === 'Watamu' ? 'Watamu Marine Park Jetty' : `${placeName} Jetty`),
   };
 }
 
@@ -239,6 +242,7 @@ const SOURCE_META: Record<DetectedSource, { label: string; tag: string; accent: 
 };
 
 export default function ImportPage() {
+  const brand = useBrand();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState<Step>('url');
@@ -353,7 +357,7 @@ export default function ImportPage() {
           const only = listings[0];
           const resolvedType: ListingType = only.listing_type === 'boat' ? 'boat' : 'property';
           setListingType(resolvedType);
-          setPreview(buildPreview(only, resolvedType, only.source_url || cleanUrl));
+          setPreview(buildPreview(only, resolvedType, only.source_url || cleanUrl, brand.placeName));
           setStep('preview');
           return;
         }
@@ -383,7 +387,7 @@ export default function ImportPage() {
             : 'property';
 
       setListingType(resolvedListingType);
-      setPreview(buildPreview(result.data, resolvedListingType, cleanUrl));
+      setPreview(buildPreview(result.data, resolvedListingType, cleanUrl, brand.placeName));
       setStep('preview');
     } catch (err: any) {
       setError(err.message || 'Import failed');
@@ -399,7 +403,7 @@ export default function ImportPage() {
     if (!item) return;
     const resolvedType: ListingType = item.listing_type === 'boat' ? 'boat' : 'property';
     setListingType(resolvedType);
-    setPreview(buildPreview(item, resolvedType, item.source_url || url));
+    setPreview(buildPreview(item, resolvedType, item.source_url || url, brand.placeName));
     setError(null);
     setStep('preview');
   }
@@ -450,7 +454,7 @@ export default function ImportPage() {
             description: preview.description,
             property_type: preview.propertyType || 'house',
             address: preview.address || '',
-            city: preview.city || 'Watamu',
+            city: preview.city || brand.placeName,
             county: 'Kilifi',
             country: 'Kenya',
             latitude: preview.latitude,
@@ -506,7 +510,9 @@ export default function ImportPage() {
             captain_experience_years: preview.captainExperienceYears,
             target_species: preview.targetSpecies,
             fishing_techniques: preview.fishingTechniques,
-            departure_point: preview.departurePoint || 'Watamu Marine Park Jetty',
+            departure_point:
+              preview.departurePoint ||
+              (brand.placeName === 'Watamu' ? 'Watamu Marine Park Jetty' : `${brand.placeName} Jetty`),
             currency: preview.currency || 'KES',
             cancellation_policy: preview.cancellationPolicy || 'moderate',
             is_published: false,

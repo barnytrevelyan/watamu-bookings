@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -163,6 +164,7 @@ function MapPicker({
 }
 
 export default function NewBoatPage() {
+  const brand = useBrand();
   const { user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('basic');
@@ -203,7 +205,9 @@ export default function NewBoatPage() {
   const [safetyEquipment, setSafetyEquipment] = useState('');
 
   // Location
-  const [departurePoint, setDeparturePoint] = useState('Watamu Marine Park Jetty');
+  const [departurePoint, setDeparturePoint] = useState(
+    brand.placeName === 'Watamu' ? 'Watamu Marine Park Jetty' : `${brand.placeName} Jetty`
+  );
   const [latitude, setLatitude] = useState(-3.354);
   const [longitude, setLongitude] = useState(40.024);
   const [mapPinSet, setMapPinSet] = useState(false);

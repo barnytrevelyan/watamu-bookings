@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -51,6 +52,7 @@ function prettify(s: string) {
 }
 
 export default function EditPropertyPage() {
+  const brand = useBrand();
   const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
@@ -68,7 +70,7 @@ export default function EditPropertyPage() {
   const [propertyType, setPropertyType] = useState('villa');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Watamu');
+  const [city, setCity] = useState(brand.placeName);
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [bedrooms, setBedrooms] = useState('1');
@@ -128,7 +130,7 @@ export default function EditPropertyPage() {
         setPropertyType(property.property_type);
         setDescription(property.description || '');
         setAddress(property.address || '');
-        setCity(property.city || 'Watamu');
+        setCity(property.city || brand.placeName);
         setLatitude(property.latitude?.toString() || '');
         setLongitude(property.longitude?.toString() || '');
         setBedrooms(property.bedrooms?.toString() || '1');

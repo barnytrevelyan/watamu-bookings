@@ -11,17 +11,19 @@
 import type { EmailPayload } from './templates';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.watamubookings.com';
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings';
+const BRAND_PLACE = process.env.NEXT_PUBLIC_BRAND_PLACE ?? 'Watamu';
 
 function layout({ title, body }: { title: string; body: string }): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="margin:0;padding:0;background:#f6f7f8;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#111;">
   <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.04);">
-    <h1 style="margin:0 0 16px 0;font-size:20px;color:#0d7b6c;">Watamu Bookings</h1>
+    <h1 style="margin:0 0 16px 0;font-size:20px;color:#0d7b6c;">${BRAND_NAME}</h1>
     ${body}
     <hr style="margin:32px 0;border:none;border-top:1px solid #e5e7eb;">
     <p style="font-size:12px;color:#6b7280;margin:0;">
-      Watamu Bookings · <a href="${SITE_URL}" style="color:#0d7b6c;">${SITE_URL.replace(/^https?:\/\//, '')}</a>
+      ${BRAND_NAME} · <a href="${SITE_URL}" style="color:#0d7b6c;">${SITE_URL.replace(/^https?:\/\//, '')}</a>
     </p>
   </div>
 </body></html>`;
@@ -299,7 +301,7 @@ export function guestDeclinedEmail(ctx: EnquiryContext & { declineReason?: strin
         </blockquote>
       ` : ''}
 
-      <p>Good news — plenty of other hosts in Watamu would love to have you. Browse more options below.</p>
+      <p>Good news — plenty of other hosts in ${BRAND_PLACE} would love to have you. Browse more options below.</p>
 
       <p style="margin-top:24px;">
         <a href="${SITE_URL}/${ctx.listingType === 'property' ? 'properties' : 'boats'}" style="display:inline-block;background:#0d7b6c;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;">Browse ${ctx.listingType === 'property' ? 'properties' : 'fishing charters'}</a>

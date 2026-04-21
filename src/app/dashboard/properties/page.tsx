@@ -33,6 +33,7 @@ interface Property {
   cover_image: string | null;
   status: string;
   rejection_reason: string | null;
+  city: string | null;
 }
 
 type StatusFilter = 'all' | 'published' | 'pending_review' | 'draft' | 'rejected';
@@ -69,6 +70,7 @@ export default function PropertiesPage() {
           currency,
           status,
           rejection_reason,
+          city,
           avg_rating,
           review_count,
           wb_images(url)
@@ -95,6 +97,7 @@ export default function PropertiesPage() {
           cover_image: coverImg,
           status: p.status || 'draft',
           rejection_reason: p.rejection_reason || null,
+          city: p.city || null,
         };
       });
 
@@ -323,7 +326,7 @@ function PropertyListingCard({
             </Link>
             <p className="text-xs text-gray-500 mt-0.5 capitalize flex items-center gap-1">
               <MapPin className="h-3 w-3" />
-              {property.property_type} · Watamu
+              {property.property_type} · {property.city || 'Kenya coast'}
             </p>
           </div>
           {property.average_rating > 0 && (

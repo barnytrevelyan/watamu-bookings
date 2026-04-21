@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { getCurrentPlace } from '@/lib/places/context';
 import { resolveImportUser } from '@/lib/import/auth';
 import {
   sanitiseUrl,
@@ -127,7 +128,8 @@ type ImportedListing = ImportedProperty | ImportedBoat;
 // LLM call — multi-listing extraction.
 // ---------------------------------------------------------------------------
 
-const LLM_SYSTEM_PROMPT = `You are a data-extraction assistant for Watamu Bookings, a property and boat-charter booking marketplace in Watamu, Kenya.
+function buildSystemPrompt(brandName: string, placeName: string): string {
+  return `You are a data-extraction assistant for ${brandName}, a property and boat-charter booking marketplace in ${placeName}, Kenya.
 
 You will receive one or more condensed briefs from a single small-operator website (usually a homepage plus 1–4 sub-pages). Many of these operators advertise multiple distinct listings on their site — for example, a lodge with two cottages AND a fishing boat charter; or a guesthouse with a villa and an apartment. Your job is to identify every DISTINCT bookable listing and extract each one as its own record.
 
@@ -158,6 +160,7 @@ Extraction rules:
 - "cancellation_policy" is one of: ${CANCELLATION_POLICIES.join(', ')}, or null if unclear.
 - "images" is the list of https image URLs that clearly depict THIS listing (skip site logos, icons, avatars). Only include images you saw in an IMAGES section of one of the briefs. Max 12 per listing.
 - Always return valid JSON matching the schema exactly. Return an empty "listings" array if no distinct listings are identifiable.`;
+}
 
 const LLM_RESPONSE_SCHEMA = {
   name: 'MultiListingExtraction',
@@ -278,7 +281,10 @@ const LLM_RESPONSE_SCHEMA = {
   },
 };
 
-async function extractListingsWithLLM(combinedBrief: string): Promise<any[]> {
+async function extractListingsWithLLM(
+  combinedBrief: string,
+  brandContext?: { brandName: string; placeName: string }
+): Promise<any[]> {
   const apiKey = process.env.WATAMU_AI_API_KEY;
   if (!apiKey) {
     throw new Error('AI import is not configured on the server (missing WATAMU_AI_API_KEY).');
@@ -288,6 +294,7 @@ async function extractListingsWithLLM(combinedBrief: string): Promise<any[]> {
   if (provider !== 'openai') {
     throw new Error(`Unsupported WATAMU_AI_PROVIDER: ${provider}`);
   }
+  const { brandName = 'Watamu Bookings', placeName = 'Watamu' } = brandContext ?? {};
 
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 90_000);
@@ -308,7 +315,7 @@ async function extractListingsWithLLM(combinedBrief: string): Promise<any[]> {
           json_schema: LLM_RESPONSE_SCHEMA,
         },
         messages: [
-          { role: 'system', content: LLM_SYSTEM_PROMPT },
+          { role: 'system', content: buildSystemPrompt(brandName, placeName) },
           {
             role: 'user',
             content: `Identify every distinct bookable listing across these page briefs. The briefs come from the same website.\n\n${combinedBrief}`,
@@ -359,7 +366,8 @@ function toFiniteInt(v: any): number | null {
 function normaliseListing(
   raw: any,
   allScrapedImages: Set<string>,
-  fallbackSourceUrl: string
+  fallbackSourceUrl: string,
+  placeName: string = 'Watamu'
 ): ImportedListing | null {
   const listingType: 'property' | 'boat' = raw?.listing_type === 'boat' ? 'boat' : 'property';
 
@@ -416,7 +424,7 @@ function normaliseListing(
       images,
       rating: toFiniteNumber(raw?.rating),
       review_count: toFiniteInt(raw?.review_count),
-      location: 'Watamu, Kenya',
+      location: `${placeName}, Kenya`,
       source_url: sourceUrl,
       source: 'generic',
     };
@@ -429,7 +437,7 @@ function normaliseListing(
     description,
     property_type: raw?.property_type && PROPERTY_TYPES.includes(raw.property_type) ? raw.property_type : 'house',
     address: raw?.address ?? '',
-    city: raw?.city || 'Watamu',
+    city: raw?.city || placeName,
     latitude: toFiniteNumber(raw?.latitude),
     longitude: toFiniteNumber(raw?.longitude),
     price_per_night: toFiniteNumber(raw?.price_per_night),
@@ -528,13 +536,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { place, host } = await getCurrentPlace();
+    const brandContext = {
+      brandName: host.brand_name,
+      placeName: place?.name ?? host.brand_short,
+    };
+
     // 4. LLM extraction.
-    const rawListings = await extractListingsWithLLM(combinedBrief);
+    const rawListings = await extractListingsWithLLM(combinedBrief, brandContext);
 
     // 5. Normalise + dedupe.
     const listings = dedupe(
       rawListings
-        .map((r) => normaliseListing(r, allImages, entry.finalUrl))
+        .map((r) => normaliseListing(r, allImages, entry.finalUrl, brandContext.placeName))
         .filter((l): l is ImportedListing => l !== null)
     );
 

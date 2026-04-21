@@ -14,7 +14,23 @@ import {
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function Navbar() {
+interface NavbarProps {
+  /** Full brand name, e.g. "Watamu Bookings" or "Kwetu". */
+  brandName?: string;
+}
+
+/** Split a brand into leading + accent word so the two-tone logo keeps working
+ * ("Watamu Bookings" → first="Watamu", accent="Bookings"). Single-word brands
+ * collapse to first only (accent = null). */
+function splitBrand(name: string): { first: string; accent: string | null } {
+  const trimmed = name.trim();
+  const idx = trimmed.lastIndexOf(' ');
+  if (idx === -1) return { first: trimmed, accent: null };
+  return { first: trimmed.slice(0, idx), accent: trimmed.slice(idx + 1) };
+}
+
+export default function Navbar({ brandName = 'Watamu Bookings' }: NavbarProps) {
+  const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -65,8 +81,15 @@ export default function Navbar() {
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <Waves className="h-7 w-7 text-[var(--color-primary-500)]" />
             <span className="text-xl font-bold text-gray-900">
-              Watamu{' '}
-              <span className="text-[var(--color-primary-500)]">Bookings</span>
+              {brandLead}
+              {brandAccent && (
+                <>
+                  {' '}
+                  <span className="text-[var(--color-primary-500)]">
+                    {brandAccent}
+                  </span>
+                </>
+              )}
             </span>
           </Link>
 

@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentPlace } from '@/lib/places/context';
 import { adminDb } from '@/lib/subscriptions/server';
 import { formatKes } from '@/lib/subscriptions/pricing';
 import type { SubscriptionInvoice } from '@/lib/subscriptions/types';
@@ -11,6 +12,11 @@ export default async function InvoicePage({ params }: { params: { id: string } }
   const supa = await createClient();
   const { data: { user } } = await supa.auth.getUser();
   if (!user) redirect(`/auth/login?redirect=/invoice/${params.id}`);
+
+  const { host: hostCfg } = await getCurrentPlace();
+  const brandName = hostCfg.brand_name;
+  const hostname = hostCfg.host || 'watamubookings.com';
+  const billingEmail = `billing@${hostname}`;
 
   const db = adminDb();
   const { data: invoice } = await db.from('wb_subscription_invoices').select('*').eq('id', params.id).maybeSingle();
@@ -42,8 +48,8 @@ export default async function InvoicePage({ params }: { params: { id: string } }
         {/* Header */}
         <div className="flex items-start justify-between border-b border-gray-200 pb-6">
           <div>
-            <h1 className="text-2xl font-bold text-teal-700">Watamu Bookings</h1>
-            <p className="text-xs text-gray-500 mt-1">www.watamubookings.com</p>
+            <h1 className="text-2xl font-bold text-teal-700">{brandName}</h1>
+            <p className="text-xs text-gray-500 mt-1">{hostname}</p>
           </div>
           <div className="text-right">
             <div className="text-xs uppercase text-gray-500">Invoice</div>
@@ -128,7 +134,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
         )}
 
         <footer className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500">
-          Watamu Bookings · billing@watamubookings.com · Questions? Reply to the email this invoice arrived with.
+          {brandName} · {billingEmail} · Questions? Reply to the email this invoice arrived with.
         </footer>
       </article>
     </div>

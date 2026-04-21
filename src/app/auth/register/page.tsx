@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 
 export default function RegisterPage() {
   return (
@@ -14,6 +15,7 @@ export default function RegisterPage() {
 }
 
 function RegisterForm() {
+  const brand = useBrand();
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get('token');
@@ -204,7 +206,7 @@ function RegisterForm() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="flex justify-center">
           <h1 className="text-3xl font-bold text-blue-600">
-            Watamu Bookings
+            {brand.name}
           </h1>
         </Link>
         <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
@@ -274,7 +276,7 @@ function RegisterForm() {
                     value={formData.businessName}
                     onChange={(e) => updateField('businessName', e.target.value)}
                     className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g. Watamu Villas Ltd"
+                    placeholder={`e.g. ${brand.placeName} Villas Ltd`}
                   />
                 </div>
                 <div>

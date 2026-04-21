@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 
 export default function ResetPasswordPage() {
+  const brand = useBrand();
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -90,7 +92,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="flex justify-center">
-          <h1 className="text-3xl font-bold text-blue-600">Watamu Bookings</h1>
+          <h1 className="text-3xl font-bold text-blue-600">{brand.name}</h1>
         </Link>
         <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
           Set a new password

@@ -90,10 +90,12 @@ export async function createPaymentIntent({
     amount: toSmallestUnit(amount),
     currency: stripeCurrency(currency),
     receipt_email: customerEmail,
-    description: description ?? `Watamu Bookings — Booking ${bookingId}`,
+    description:
+      description ??
+      `${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings'} — Booking ${bookingId}`,
     metadata: {
       booking_id: bookingId,
-      platform: 'watamu_bookings',
+      platform: process.env.NEXT_PUBLIC_BRAND_SLUG ?? 'watamu_bookings',
       ...metadata,
     },
   });

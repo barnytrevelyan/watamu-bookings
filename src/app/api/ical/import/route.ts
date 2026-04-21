@@ -97,7 +97,7 @@ async function syncFeed(feedId: string, adminClient: any) {
   // Fetch the external calendar
   const response = await fetch(feed.external_url, {
     headers: {
-      'User-Agent': 'WatamuBookings/1.0 iCal Sync',
+      'User-Agent': `${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'WatamuBookings'}/1.0 iCal Sync`,
       'Accept': 'text/calendar',
     },
   });

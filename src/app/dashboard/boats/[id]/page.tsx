@@ -680,7 +680,7 @@ export default function EditBoatPage() {
         {activeTab === 'location' && (
           <div className="space-y-5">
             <Field label="Departure point">
-              <Input value={departurePoint} onChange={(e) => setDeparturePoint(e.target.value)} placeholder="Hemingways Jetty, Watamu Marine Park…" />
+              <Input value={departurePoint} onChange={(e) => setDeparturePoint(e.target.value)} placeholder="e.g. Hemingways Jetty or nearest marina…" />
             </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Latitude" hint="e.g. -3.3589">

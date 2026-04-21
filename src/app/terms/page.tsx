@@ -1,13 +1,23 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getCurrentPlace } from '@/lib/places/context';
 
-export const metadata: Metadata = {
-  title: 'Terms of Service — Watamu Bookings',
-  description:
-    'The terms and conditions that govern your use of Watamu Bookings, the local marketplace for Watamu properties and fishing charters.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { place, host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  const placeName = place?.name ?? host.brand_short;
+  return {
+    title: `Terms of Service — ${brandName}`,
+    description: `The terms and conditions that govern your use of ${brandName}, the local marketplace for ${placeName} properties and fishing charters.`,
+  };
+}
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const { place, host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  const hostname = host.host || 'watamubookings.com';
+  const placeName = place?.name ?? host.brand_short;
+  const isWatamu = placeName === 'Watamu';
   return (
     <div className="min-h-screen bg-white">
       <section className="mx-auto max-w-3xl px-4 py-16 lg:py-24">
@@ -24,16 +34,16 @@ export default function TermsPage() {
         <div className="prose prose-indigo max-w-none text-gray-700">
           <p>
             These Terms of Service (&ldquo;Terms&rdquo;) govern your use of
-            watamubookings.com (the &ldquo;Platform&rdquo;), operated by
-            Watamu Bookings (&ldquo;we&rdquo;, &ldquo;us&rdquo;,
+            {' '}{hostname} (the &ldquo;Platform&rdquo;), operated by
+            {' '}{brandName} (&ldquo;we&rdquo;, &ldquo;us&rdquo;,
             &ldquo;our&rdquo;). By creating an account, listing a property or
             charter, or making a booking, you agree to these Terms.
           </p>
 
           <h2>1. The Platform</h2>
           <p>
-            Watamu Bookings connects travellers with independent property
-            hosts and fishing-charter operators in Watamu, Kenya. We are a
+            {brandName} connects travellers with independent property
+            hosts and fishing-charter operators in {placeName}, Kenya. We are a
             marketplace: the contract for each stay or charter is between the
             guest and the host/operator. We facilitate discovery, booking and
             payment, but we do not own or operate the listed properties or
@@ -55,7 +65,7 @@ export default function TermsPage() {
             host/operator on the terms shown at checkout, including dates,
             guest count, price, cleaning fees, taxes and the host&rsquo;s
             cancellation policy. Payment is processed through our payment
-            partners (Stripe and M-Pesa). Watamu Bookings charges a service
+            partners (Stripe and M-Pesa). {brandName} charges a service
             fee (shown separately at checkout) and retains it from the
             payout.
           </p>
@@ -82,7 +92,7 @@ export default function TermsPage() {
           <p>
             Guests agree to use the property or vessel with reasonable care,
             to follow house rules and safety briefings, and to respect local
-            laws, the environment, and the Watamu Marine National Park.
+            laws, the environment{isWatamu ? ', and the Watamu Marine National Park' : ' and protected marine areas'}.
           </p>
 
           <h2>7. Prohibited conduct</h2>

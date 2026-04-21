@@ -1,25 +1,41 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Mail, MessageSquare, MapPin, Phone, Sparkles } from 'lucide-react';
+import { getCurrentPlace } from '@/lib/places/context';
 
-export const metadata: Metadata = {
-  title: 'Contact — Watamu Bookings',
-  description:
-    'Get in touch with the Watamu Bookings team. Support for guests, hosts and charter operators in Watamu, Kenya.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { place, host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  const placeName = place?.name ?? host.brand_short;
+  return {
+    title: `Contact — ${brandName}`,
+    description: `Get in touch with the ${brandName} team. Support for guests, hosts and charter operators in ${placeName}, Kenya.`,
+  };
+}
 
-const SUPPORT_EMAIL = 'hello@watamubookings.com';
+// WhatsApp + phone: prefer the host's configured support_whatsapp, fall back
+// to NEXT_PUBLIC_WHATSAPP_NUMBER env so demo hosts can still plumb a number.
+function resolveWhatsapp(rawHost: string | null, rawEnv: string | undefined) {
+  const raw = (rawHost ?? rawEnv ?? '').trim();
+  const digits = raw.replace(/[^\d]/g, '');
+  return {
+    number: raw || '',
+    link: digits ? `https://wa.me/${digits}` : '',
+    has: Boolean(digits),
+  };
+}
 
-// WhatsApp + phone are gated behind an env var so we never render the
-// `+254 700 000 000` placeholder in demos/prod. Set NEXT_PUBLIC_WHATSAPP_NUMBER
-// to e.g. "+254712345678" (digits only also fine) to enable the cards.
-const RAW_WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() || '';
-const WHATSAPP_DIGITS = RAW_WHATSAPP.replace(/[^\d]/g, '');
-const WHATSAPP_NUMBER = RAW_WHATSAPP || '';
-const WHATSAPP_LINK = WHATSAPP_DIGITS ? `https://wa.me/${WHATSAPP_DIGITS}` : '';
-const HAS_WHATSAPP = Boolean(WHATSAPP_DIGITS);
+export default async function ContactPage() {
+  const { place, host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  const placeName = place?.name ?? host.brand_short;
+  const supportEmail = host.support_email ?? 'hello@watamubookings.com';
 
-export default function ContactPage() {
+  const whatsapp = resolveWhatsapp(
+    host.support_whatsapp,
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
+  );
+
   return (
     <div className="min-h-screen bg-white">
       <section className="mx-auto max-w-5xl px-4 py-16 lg:py-24">
@@ -31,7 +47,7 @@ export default function ContactPage() {
           <p className="mx-auto mt-4 max-w-2xl text-gray-600">
             Questions about a booking, listing your property, or running a
             fishing charter on the platform? Reach out — a real person in
-            Watamu will reply, usually within a few hours.
+            {' '}{placeName} will reply, usually within a few hours.
           </p>
         </div>
 
@@ -41,28 +57,28 @@ export default function ContactPage() {
             title="Email"
             body={
               <a
-                href={`mailto:${SUPPORT_EMAIL}`}
+                href={`mailto:${supportEmail}`}
                 className="font-medium text-indigo-600 hover:underline"
               >
-                {SUPPORT_EMAIL}
+                {supportEmail}
               </a>
             }
             sub="For bookings, billing, refunds and anything else that needs a paper trail."
           />
 
-          {HAS_WHATSAPP ? (
+          {whatsapp.has ? (
             <>
               <ContactCard
                 icon={<MessageSquare className="h-5 w-5" />}
                 title="WhatsApp"
                 body={
                   <a
-                    href={WHATSAPP_LINK}
+                    href={whatsapp.link}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-indigo-600 hover:underline"
                   >
-                    {WHATSAPP_NUMBER}
+                    {whatsapp.number}
                   </a>
                 }
                 sub="Fastest for urgent arrival-day questions and tide-dependent charter changes."
@@ -71,7 +87,7 @@ export default function ContactPage() {
               <ContactCard
                 icon={<Phone className="h-5 w-5" />}
                 title="Phone"
-                body={<span className="font-medium text-gray-900">{WHATSAPP_NUMBER}</span>}
+                body={<span className="font-medium text-gray-900">{whatsapp.number}</span>}
                 sub="Mon–Sat, 08:00–18:00 EAT."
               />
             </>
@@ -80,14 +96,14 @@ export default function ContactPage() {
               icon={<MessageSquare className="h-5 w-5" />}
               title="Response time"
               body={<span className="font-medium text-gray-900">Usually within a few hours, 08:00–20:00 EAT</span>}
-              sub="Email first — we reply from a real Watamu address, not a ticketing bot."
+              sub={`Email first — we reply from a real ${placeName} address, not a ticketing bot.`}
             />
           )}
 
           <ContactCard
             icon={<MapPin className="h-5 w-5" />}
             title="Based in"
-            body={<span className="font-medium text-gray-900">Watamu, Kilifi County, Kenya</span>}
+            body={<span className="font-medium text-gray-900">{placeName}, Kenya</span>}
             sub="On the ground, on the beach — not a call centre abroad."
           />
         </div>
@@ -102,14 +118,14 @@ export default function ContactPage() {
                 Want to list your property or charter?
               </h2>
               <p className="mt-2 text-gray-700">
-                Watamu Bookings charges a flat 8% host fee — significantly
+                {brandName} charges a flat 8% host fee — significantly
                 less than the global platforms — and keeps your guests
                 local. Tell us a little about what you offer and we&rsquo;ll
                 come back with the next steps.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <a
-                  href={`mailto:${SUPPORT_EMAIL}?subject=List%20my%20property%20or%20charter`}
+                  href={`mailto:${supportEmail}?subject=List%20my%20property%20or%20charter`}
                   className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
                 >
                   Email us to get started

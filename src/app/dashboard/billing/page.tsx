@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentPlace } from '@/lib/places/context';
 import { adminDb, getHostBillingSummary } from '@/lib/subscriptions/server';
 import {
   computeMonthlyChargeKes,
@@ -19,6 +20,9 @@ export default async function BillingPage() {
   const supa = await createClient();
   const { data: { user } } = await supa.auth.getUser();
   if (!user) redirect('/auth/login?redirect=/dashboard/billing');
+
+  const { host } = await getCurrentPlace();
+  const brandName = host.brand_name;
 
   const db = adminDb();
 
@@ -51,7 +55,7 @@ export default async function BillingPage() {
       <header>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Billing</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Choose how Watamu Bookings charges you: a flat monthly fee or 8% commission on bookings.
+          Choose how {brandName} charges you: a flat monthly fee or 8% commission on bookings.
         </p>
       </header>
 

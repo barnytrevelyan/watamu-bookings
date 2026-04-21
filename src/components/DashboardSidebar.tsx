@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 
 interface DashboardSidebarProps {
   userName: string;
@@ -64,6 +65,7 @@ export default function DashboardSidebar({
   userAvatar,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const brand = useBrand();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAdmin, user } = useAuth();
   const [enquiryCount, setEnquiryCount] = useState(0);
@@ -139,7 +141,7 @@ export default function DashboardSidebar({
             <Waves className="h-5 w-5 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900 leading-tight">Watamu Bookings</p>
+            <p className="text-sm font-bold text-gray-900 leading-tight">{brand.name}</p>
             <p className="text-[10px] uppercase tracking-wider text-[var(--color-primary-600)] font-semibold">Host console</p>
           </div>
         </Link>

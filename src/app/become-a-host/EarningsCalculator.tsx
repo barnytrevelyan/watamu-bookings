@@ -16,13 +16,19 @@ interface Platform {
   highlight?: boolean;
 }
 
-const PLATFORMS: Platform[] = [
-  { name: 'Watamu Bookings', commission: 0.08, colour: 'teal', highlight: true },
-  { name: 'Airbnb', commission: 0.15, colour: 'rose' },
-  { name: 'Booking.com', commission: 0.16, colour: 'sky' },
-];
+interface EarningsCalculatorProps {
+  /** Brand name to render as the highlighted platform row. */
+  brandName?: string;
+}
 
-export default function EarningsCalculator() {
+export default function EarningsCalculator({
+  brandName = 'Watamu Bookings',
+}: EarningsCalculatorProps) {
+  const PLATFORMS: Platform[] = [
+    { name: brandName, commission: 0.08, colour: 'teal', highlight: true },
+    { name: 'Airbnb', commission: 0.15, colour: 'rose' },
+    { name: 'Booking.com', commission: 0.16, colour: 'sky' },
+  ];
   const [rate, setRate] = useState(15000);
   const [nights, setNights] = useState(18);
 
@@ -34,11 +40,14 @@ export default function EarningsCalculator() {
       const annualNet = monthlyNet * 12;
       return { ...p, monthlyNet, annualNet };
     });
+    // PLATFORMS depends only on brandName (stable prop), so monthlyGross is
+    // the effective dep here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthlyGross]);
 
-  const watamuAnnual = results[0].annualNet;
-  const savingsVsAirbnb = watamuAnnual - results[1].annualNet;
-  const savingsVsBooking = watamuAnnual - results[2].annualNet;
+  const brandAnnual = results[0].annualNet;
+  const savingsVsAirbnb = brandAnnual - results[1].annualNet;
+  const savingsVsBooking = brandAnnual - results[2].annualNet;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-10">

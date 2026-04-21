@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 
 interface Invitation {
   id: string;
@@ -23,6 +24,7 @@ export default function InvitePage() {
 }
 
 function InviteForm() {
+  const brand = useBrand();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -269,7 +271,7 @@ function InviteForm() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="flex justify-center">
           <h1 className="text-3xl font-bold text-blue-600">
-            Watamu Bookings
+            {brand.name}
           </h1>
         </Link>
         <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">

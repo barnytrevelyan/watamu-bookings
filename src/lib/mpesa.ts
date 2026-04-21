@@ -136,7 +136,7 @@ export async function initiateSTKPush(
     PhoneNumber: normalizePhone(phone),
     CallBackURL: process.env.MPESA_CALLBACK_URL!,
     AccountReference: bookingId,
-    TransactionDesc: `Watamu Bookings payment for ${bookingId}`,
+    TransactionDesc: `${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings'} payment for ${bookingId}`,
   };
 
   const res = await fetch(

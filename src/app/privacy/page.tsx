@@ -1,13 +1,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getCurrentPlace } from '@/lib/places/context';
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy — Watamu Bookings',
-  description:
-    'How Watamu Bookings collects, uses and protects your personal data, and the rights you have under the Kenya Data Protection Act and GDPR.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  return {
+    title: `Privacy Policy — ${brandName}`,
+    description: `How ${brandName} collects, uses and protects your personal data, and the rights you have under the Kenya Data Protection Act and GDPR.`,
+  };
+}
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const { host } = await getCurrentPlace();
+  const brandName = host.brand_name;
+  const hostname = host.host || 'watamubookings.com';
   return (
     <div className="min-h-screen bg-white">
       <section className="mx-auto max-w-3xl px-4 py-16 lg:py-24">
@@ -23,16 +30,16 @@ export default function PrivacyPage() {
 
         <div className="prose prose-indigo max-w-none text-gray-700">
           <p>
-            This Privacy Policy explains how Watamu Bookings collects, uses,
+            This Privacy Policy explains how {brandName} collects, uses,
             shares and protects personal data when you use
-            watamubookings.com. We comply with the Kenya Data Protection
+            {' '}{hostname}. We comply with the Kenya Data Protection
             Act 2019 and, where applicable, the EU/UK General Data
             Protection Regulation.
           </p>
 
           <h2>1. Who we are</h2>
           <p>
-            Watamu Bookings is the data controller for information collected
+            {brandName} is the data controller for information collected
             through the Platform. You can reach us at our{' '}
             <Link href="/contact" className="text-indigo-600 hover:underline">
               contact page

@@ -24,8 +24,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: PRIVATE_PATHS,
       },
       // AI search / training crawlers. Same privacy rules; we do want them
-      // to read our public pages so Watamu Bookings shows up in
-      // ChatGPT Search, Perplexity, Gemini, Claude etc.
+      // to read our public pages so we show up in ChatGPT Search,
+      // Perplexity, Gemini, Claude etc.
       { userAgent: 'GPTBot', allow: '/', disallow: PRIVATE_PATHS },
       { userAgent: 'OAI-SearchBot', allow: '/', disallow: PRIVATE_PATHS },
       { userAgent: 'ChatGPT-User', allow: '/', disallow: PRIVATE_PATHS },

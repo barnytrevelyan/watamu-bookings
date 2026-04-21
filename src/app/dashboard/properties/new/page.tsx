@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrand } from '@/lib/places/BrandProvider';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -169,6 +170,7 @@ function MapPicker({
 }
 
 export default function NewPropertyPage() {
+  const brand = useBrand();
   const { user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('basic');
@@ -183,7 +185,7 @@ export default function NewPropertyPage() {
   const [propertyType, setPropertyType] = useState('villa');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Watamu');
+  const [city, setCity] = useState(brand.placeName);
   const [country] = useState('Kenya');
   const [bedrooms, setBedrooms] = useState('1');
   const [bathrooms, setBathrooms] = useState('1');
@@ -595,7 +597,7 @@ export default function NewPropertyPage() {
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Bahari Villa Watamu"
+                  placeholder={`e.g. Bahari Villa ${brand.placeName}`}
                 />
                 {slug && (
                   <p className="mt-1 text-xs text-gray-500">
@@ -620,7 +622,7 @@ export default function NewPropertyPage() {
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your property, its unique features, the surrounding area, and what makes it special for guests visiting Watamu..."
+                placeholder={`Describe your property, its unique features, the surrounding area, and what makes it special for guests visiting ${brand.placeName}...`}
                 rows={6}
               />
               <p className="mt-1 text-xs text-gray-500">{description.length} characters</p>
@@ -634,7 +636,7 @@ export default function NewPropertyPage() {
                   <Input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Turtle Bay Road, Watamu"
+                    placeholder={`e.g. Turtle Bay Road, ${brand.placeName}`}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">

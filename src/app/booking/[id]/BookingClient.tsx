@@ -11,6 +11,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrand } from '@/lib/places/BrandProvider';
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
@@ -341,6 +342,7 @@ function MpesaPaymentForm({
 /* ------------------------------------------------------------------ */
 
 export default function BookingPaymentPage() {
+  const brand = useBrand();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -713,7 +715,7 @@ export default function BookingPaymentPage() {
 
             <p className="text-xs text-gray-400 text-center mt-4">
               Your payment is secured with industry-standard encryption.
-              Watamu Bookings will never store your card details.
+              {' '}{brand.name} will never store your card details.
             </p>
           </div>
         </div>

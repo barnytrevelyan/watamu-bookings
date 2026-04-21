@@ -7,6 +7,7 @@ import type { SubscriptionInvoice, HostSubscription } from '@/lib/subscriptions/
 import { formatKes } from '@/lib/subscriptions/pricing';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.watamubookings.com';
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings';
 
 export interface EmailPayload {
   subject: string;
@@ -19,11 +20,11 @@ function layout({ title, body }: { title: string; body: string }): string {
 <html><head><meta charset="utf-8"><title>${title}</title></head>
 <body style="margin:0;padding:0;background:#f6f7f8;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#111;">
   <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.04);">
-    <h1 style="margin:0 0 16px 0;font-size:20px;color:#0d7b6c;">Watamu Bookings</h1>
+    <h1 style="margin:0 0 16px 0;font-size:20px;color:#0d7b6c;">${BRAND_NAME}</h1>
     ${body}
     <hr style="margin:32px 0;border:none;border-top:1px solid #e5e7eb;">
     <p style="font-size:12px;color:#6b7280;margin:0;">
-      Watamu Bookings · <a href="${SITE_URL}" style="color:#0d7b6c;">${SITE_URL.replace(/^https?:\/\//, '')}</a>
+      ${BRAND_NAME} · <a href="${SITE_URL}" style="color:#0d7b6c;">${SITE_URL.replace(/^https?:\/\//, '')}</a>
     </p>
   </div>
 </body></html>`;

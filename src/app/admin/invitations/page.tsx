@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useBrand } from '@/lib/places/BrandProvider';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -29,6 +30,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function AdminInvitationsPage() {
+  const brand = useBrand();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -228,7 +230,7 @@ export default function AdminInvitationsPage() {
             No invitations sent yet
           </h2>
           <p className="mt-2 text-gray-500">
-            Invite property and boat owners to join the Watamu Bookings platform.
+            Invite property and boat owners to join the {brand.name} platform.
           </p>
           <Button onClick={() => setShowModal(true)} className="mt-4">
             Send First Invitation
@@ -330,7 +332,7 @@ export default function AdminInvitationsPage() {
             Send Invitation
           </h2>
           <p className="text-sm text-gray-500">
-            Invite a new property or boat owner to join Watamu Bookings.
+            Invite a new property or boat owner to join {brand.name}.
           </p>
 
           {formError && (

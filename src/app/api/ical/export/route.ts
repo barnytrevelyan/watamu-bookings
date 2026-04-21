@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/admin';
+import { getCurrentPlace } from '@/lib/places/context';
 
 /**
  * GET /api/ical/export?token=xxx
@@ -74,14 +75,18 @@ export async function GET(request: NextRequest) {
     .eq('id', feed.listing_id)
     .single();
 
-  const calendarName = listing?.name || 'Watamu Bookings Calendar';
+  const { host: hostCfg } = await getCurrentPlace();
+  const brandName = hostCfg.brand_name;
+  const hostname = hostCfg.host || 'watamubookings.com';
+
+  const calendarName = listing?.name || `${brandName} Calendar`;
   const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
   // Build iCal content
   let ical = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Watamu Bookings//Calendar//EN',
+    `PRODID:-//${brandName}//Calendar//EN`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeIcal(calendarName)}`,
@@ -91,7 +96,7 @@ export async function GET(request: NextRequest) {
   // Add booking events
   if (bookings) {
     for (const booking of bookings) {
-      const uid = `booking-${booking.id}@watamubookings.com`;
+      const uid = `booking-${booking.id}@${hostname}`;
       const summary = booking.status === 'confirmed'
         ? `Booked (${booking.guests_count} guest${booking.guests_count !== 1 ? 's' : ''})`
         : `Pending (${booking.guests_count} guest${booking.guests_count !== 1 ? 's' : ''})`;
@@ -105,7 +110,7 @@ export async function GET(request: NextRequest) {
         `SUMMARY:${escapeIcal(summary)}`,
         booking.special_requests
           ? `DESCRIPTION:${escapeIcal(booking.special_requests)}`
-          : 'DESCRIPTION:Booked via Watamu Bookings',
+          : `DESCRIPTION:Booked via ${brandName}`,
         'STATUS:CONFIRMED',
         'TRANSP:OPAQUE',
         'END:VEVENT',
