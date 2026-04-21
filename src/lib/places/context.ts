@@ -10,9 +10,37 @@
  * to filter queries, render copy, and emit per-place SEO.
  */
 
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Place, PlaceContext, PlaceHost } from '@/lib/types';
+
+/** Cookie name carrying a comma-separated list of place slugs the viewer has
+ * been granted preview access to (via /api/preview/unlock?token=...). */
+export const PREVIEW_COOKIE = 'kwetu-preview';
+
+/** Read the set of place slugs unlocked for preview in this request. */
+async function getPreviewSlugs(): Promise<Set<string>> {
+  try {
+    const jar = await cookies();
+    const raw = jar.get(PREVIEW_COOKIE)?.value ?? '';
+    if (!raw) return new Set();
+    return new Set(
+      raw
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+/** True when the viewer is allowed to see the place at this visibility. */
+function canSeePlace(place: Place, unlockedSlugs: Set<string>): boolean {
+  if (place.visibility === 'public') return true;
+  if (place.visibility === 'preview') return unlockedSlugs.has(place.slug);
+  return false; // hidden
+}
 
 // Must match middleware constants.
 export const PLACE_HEADER = 'x-wb-place';
@@ -126,6 +154,15 @@ export async function getCurrentPlace(): Promise<PlaceContext> {
     place = WATAMU_FALLBACK;
   }
 
+  // Visibility gate: hidden places are always invisible, preview places only
+  // for viewers whose kwetu-preview cookie opts them in.
+  if (place) {
+    const unlocked = await getPreviewSlugs();
+    if (!canSeePlace(place, unlocked)) {
+      place = null;
+    }
+  }
+
   return { place, host: hostCfg };
 }
 
@@ -149,16 +186,20 @@ export async function requireCurrentPlace(): Promise<{
   return { place: ctx.place, host: ctx.host };
 }
 
-/** Fetch all active places for the place picker. */
+/** Fetch all places that should appear in the public place picker. Includes
+ * places the viewer has unlocked via the preview cookie, so invited hosts
+ * still see their in-progress destination. */
 export async function listActivePlaces(): Promise<Place[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from('wb_places')
     .select('*')
-    .eq('is_active', true)
+    .in('visibility', ['public', 'preview'])
     .neq('kind', 'county')
     .order('sort_order', { ascending: true });
-  return (data as Place[] | null) ?? [];
+  const rows = (data as Place[] | null) ?? [];
+  const unlocked = await getPreviewSlugs();
+  return rows.filter((p) => canSeePlace(p, unlocked));
 }
 
 /** Fetch all places (for admin). */

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrand } from '@/lib/places/BrandProvider';
+import type { PlaceFeature } from '@/lib/types';
 
 interface NavbarProps {
   /** Full brand name, e.g. "Watamu Bookings" or "Kwetu". */
@@ -31,6 +33,7 @@ function splitBrand(name: string): { first: string; accent: string | null } {
 
 export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
+  const { features } = useBrand();
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -56,15 +59,23 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
     window.location.href = '/';
   };
 
-  const navLinks = [
-    { href: '/properties', label: 'Properties' },
-    { href: '/boats', label: 'Fishing Charters' },
-    { href: '/activities', label: 'Activities' },
-    { href: '/map', label: 'Map' },
-    { href: '/tides', label: 'Tides & Weather' },
-    { href: '/about', label: 'About' },
-    { href: '/become-a-host', label: 'Become a Host' },
+  // Nav links gated by place features. `requires: null` means always shown.
+  // When no features are known (multi-place shell / no place resolved), we
+  // default to showing every link so the marketing shell still lets people
+  // browse by topic.
+  const navCatalogue: Array<{ href: string; label: string; requires: PlaceFeature | null }> = [
+    { href: '/properties', label: 'Properties', requires: 'properties' },
+    { href: '/boats', label: 'Fishing Charters', requires: 'boats' },
+    { href: '/activities', label: 'Activities', requires: null },
+    { href: '/map', label: 'Map', requires: null },
+    { href: '/tides', label: 'Tides & Weather', requires: 'tides' },
+    { href: '/about', label: 'About', requires: null },
+    { href: '/become-a-host', label: 'Become a Host', requires: null },
   ];
+  const hasFeatures = features.length > 0;
+  const navLinks = navCatalogue.filter(
+    (link) => link.requires === null || !hasFeatures || features.includes(link.requires),
+  );
 
   // Use JWT metadata for instant display, profile as upgrade
   const displayName =

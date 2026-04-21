@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import TidesClient from './TidesClient';
 import { getCurrentPlace } from '@/lib/places/context';
 
@@ -8,5 +9,7 @@ import { getCurrentPlace } from '@/lib/places/context';
  */
 export default async function TidesPage() {
   const { place } = await getCurrentPlace();
+  // Feature gate: inland places without tidal data get a 404 here.
+  if (place && !place.features.includes('tides')) notFound();
   return <TidesClient place={place} />;
 }

@@ -135,9 +135,12 @@ const WHY_THIS_PLACE_FALLBACK = [
 export default async function HomePage() {
   const { place, host } = await getCurrentPlace();
 
+  // Boats section is only meaningful for places that offer boats — inland
+  // destinations get an empty array and the section drops out below.
+  const showBoats = !place || place.features.includes('boats');
   const [properties, boats] = await Promise.all([
     getFeaturedProperties(place),
-    getFeaturedBoats(place),
+    showBoats ? getFeaturedBoats(place) : Promise.resolve([] as Boat[]),
   ]);
 
   // Copy derived from the current place — falls back to Watamu defaults

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext } from 'react';
+import type { PlaceFeature } from '@/lib/types';
 
 interface Brand {
   name: string;
@@ -9,6 +10,10 @@ interface Brand {
   supportWhatsapp: string | null;
   /** Current place name, falls back to brand_short. */
   placeName: string;
+  /** Current place slug, null on multi-place shells. */
+  placeSlug: string | null;
+  /** Features available at the current place; used for nav gating. */
+  features: PlaceFeature[];
 }
 
 const BrandContext = createContext<Brand | null>(null);
@@ -35,5 +40,12 @@ export function useBrand(): Brand {
     supportEmail: 'hello@kwetu.ke',
     supportWhatsapp: null,
     placeName: 'Kenya',
+    placeSlug: null,
+    features: [],
   };
+}
+
+/** Convenience: does the current place expose this feature? */
+export function useHasFeature(feature: PlaceFeature): boolean {
+  return useBrand().features.includes(feature);
 }

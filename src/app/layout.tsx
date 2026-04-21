@@ -144,6 +144,8 @@ export default async function RootLayout({
             supportEmail: brand.supportEmail,
             supportWhatsapp: brand.supportWhatsapp,
             placeName: place?.name ?? brand.short,
+            placeSlug: place?.slug ?? null,
+            features: place?.features ?? [],
           }}
         >
           <Navbar brandName={brand.name} />

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
@@ -143,6 +144,10 @@ export default async function BoatsPage({
 }) {
   const params = await searchParams;
   const { place } = await getCurrentPlace();
+  // Feature gate: a place without the "boats" feature (inland, city, etc.)
+  // doesn't get the boats route. Multi-place shell (place == null) still
+  // shows the global boats index.
+  if (place && !place.features.includes('boats')) notFound();
   const { boats, total, page } = await getBoats(params, place);
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const placeName = place?.name ?? 'Watamu';

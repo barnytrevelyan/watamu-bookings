@@ -44,10 +44,18 @@ const PLACE_SLUGS = new Set([
 
 /** Hosts that resolve directly to a fixed place (single-place hosts). */
 const HOST_PLACE: Record<string, string> = {
-  'watamubookings.com': 'watamu',
-  'www.watamubookings.com': 'watamu',
   'localhost:3000': 'watamu',
   'localhost': 'watamu',
+};
+
+/**
+ * Legacy hosts that should 301 to kwetu.ke/<place>/<path>. The value is the
+ * destination place slug on kwetu.ke. Keeps any SEO built up on the old
+ * domain while funnelling humans + bots onto the canonical brand.
+ */
+const LEGACY_REDIRECTS: Record<string, string> = {
+  'watamubookings.com': 'watamu',
+  'www.watamubookings.com': 'watamu',
 };
 
 export const PLACE_HEADER = 'x-wb-place';
@@ -59,6 +67,27 @@ function normaliseHost(raw: string | null | undefined): string {
 }
 
 export async function middleware(request: NextRequest) {
+  // --- 0. Legacy host redirect (301 to kwetu.ke/<place>/<path>) ---
+  // Runs before any Supabase work so we don't spend a roundtrip on a request
+  // we're about to throw away. Skips /api/ and /_next/ so webhooks + assets
+  // keep working on the old host during the transition.
+  const rawHost = (request.headers.get('host') ?? request.nextUrl.hostname).toLowerCase();
+  const normalisedHost = rawHost.split(':')[0];
+  const legacyPlace = LEGACY_REDIRECTS[normalisedHost] ?? LEGACY_REDIRECTS[rawHost];
+  if (
+    legacyPlace &&
+    !request.nextUrl.pathname.startsWith('/api/') &&
+    !request.nextUrl.pathname.startsWith('/_next/')
+  ) {
+    const target = request.nextUrl.clone();
+    target.protocol = 'https:';
+    target.host = 'kwetu.ke';
+    target.port = '';
+    const path = request.nextUrl.pathname === '/' ? '' : request.nextUrl.pathname;
+    target.pathname = `/${legacyPlace}${path}`;
+    return NextResponse.redirect(target, 301);
+  }
+
   // --- 1. Refresh the Supabase auth session ---
   let supabaseResponse = NextResponse.next({ request });
 
