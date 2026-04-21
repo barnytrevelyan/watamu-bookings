@@ -109,9 +109,16 @@ export default function MapPage() {
       const container = document.getElementById('watamu-map');
       if (!container || (container as any)._leaflet_id) return;
 
+      // Esri World Imagery in Watamu has real imagery up to z18; z19 returns
+      // the "Map data not yet available" placeholder (verified 2026-04-21 by
+      // probing the tile server). Cap the map itself at 18 so the zoom UI
+      // cannot step past the last usable level.
+      const MAX_ZOOM = 18;
+
       const map = L.map('watamu-map', {
         center: [-3.3500, 40.0200],
         zoom: 14,
+        maxZoom: MAX_ZOOM,
         zoomControl: true,
       });
 
@@ -121,7 +128,8 @@ export default function MapPage() {
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         {
-          maxZoom: 19,
+          maxZoom: MAX_ZOOM,
+          maxNativeZoom: MAX_ZOOM,
           attribution:
             'Imagery &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community',
         }
@@ -132,7 +140,8 @@ export default function MapPage() {
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
         {
-          maxZoom: 19,
+          maxZoom: MAX_ZOOM,
+          maxNativeZoom: MAX_ZOOM,
           opacity: 0.9,
         }
       ).addTo(map);

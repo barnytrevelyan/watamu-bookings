@@ -63,7 +63,7 @@ const ACTIVITIES = [
   {
     id: 'places-to-eat',
     title: 'Places to Eat',
-    image: STOCK_IMAGES.scenery.fishMarket,
+    image: STOCK_IMAGES.food.iceCream,
     description: `Watamu punches well above its weight for food. Ocean Sports is the social hub — enjoy wood-fired pizza, fresh fish, and cold beers right on the beach. Pilipan is an upscale Italian-owned restaurant in the village with outstanding pasta and seafood. For the best ice cream on the Kenyan coast, visit Andrea's — a Watamu institution serving homemade Italian gelato with flavours like passion fruit and coconut. Other gems include Ascot Residence for Swahili cooking, Papa Remo for beachside grills, and Crab Shack for a rustic seafood feast on the sand.`,
     highlight: "Don't miss Andrea's Ice Cream!",
   },

@@ -128,8 +128,8 @@ export default function AboutPage() {
                 <h3 className="font-semibold text-gray-900 text-sm">By Air</h3>
                 <p className="text-sm text-gray-600 mt-1">
                   Fly into Malindi Airport (MAL), just 20 minutes south of Watamu. Daily flights from Nairobi
-                  Wilson (Safarilink, Fly540) take about 1 hour. Mombasa Moi International Airport (MBA) is
-                  approximately 2 hours by road.
+                  Wilson (Safarilink, Fly540) and from Nairobi JKIA (Jambojet) take about 1 hour. Mombasa Moi
+                  International Airport (MBA) is approximately 2 hours by road.
                 </p>
               </div>
             </div>

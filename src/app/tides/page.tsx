@@ -255,12 +255,15 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
   const svgRef = useRef<SVGSVGElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; time: Date; height: number } | null>(null);
 
+  // Plot spans edge-to-edge so the 7 day columns line up vertically with
+  // the 7-column weather grid in the card above (same parent width, no
+  // horizontal pad on either side).
   const chartW = 1100;
   const chartH = 320;
   const padTop = 30;
   const padBottom = 45;
-  const padLeft = 50;
-  const padRight = 20;
+  const padLeft = 0;
+  const padRight = 0;
   const plotW = chartW - padLeft - padRight;
   const plotH = chartH - padTop - padBottom;
 
@@ -348,13 +351,14 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
           </linearGradient>
         </defs>
 
-        {/* Y gridlines */}
+        {/* Y gridlines — tick labels float inside the plot so the chart
+            edge itself remains at x=0 and aligns with the weather grid. */}
         {yTicks.map(v => {
           const y = yOf(v);
           return (
             <g key={v}>
               <line x1={padLeft} y1={y} x2={chartW - padRight} y2={y} stroke="#e5e7eb" strokeWidth="1" strokeDasharray={v === 0 ? '' : '4,4'} />
-              <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#9ca3af">{v}</text>
+              <text x={6} y={y - 3} textAnchor="start" fontSize="11" fill="#9ca3af">{v}m</text>
             </g>
           );
         })}
@@ -418,11 +422,9 @@ function TideChart({ points, events, days }: { points: TidePoint[]; events: Tide
           </g>
         )}
 
-        {/* Y axis label */}
-        <text x={14} y={padTop + plotH / 2} textAnchor="middle" transform={`rotate(-90, 14, ${padTop + plotH / 2})`} fontSize="11" fill="#9ca3af">(m)</text>
       </svg>
 
-      <div className="flex items-center justify-center gap-6 mt-2 text-xs text-gray-400">
+      <div className="flex items-center justify-center gap-6 py-3 text-xs text-gray-400 border-t border-gray-100">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Tide height (m)</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-600 inline-block" /> High tide</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-600 inline-block" /> Low tide</span>
@@ -443,8 +445,9 @@ export default function TidesPage() {
   const moonPhase = getMoonPhase(now);
   const moonIllum = getMoonIllumination(moonPhase);
 
-  // Generate 5-day tide prediction
-  const FORECAST_DAYS = 5;
+  // Generate 7-day tide prediction — matches the 7-day weather forecast
+  // so the columns in both cards cover the same days and line up visually.
+  const FORECAST_DAYS = 7;
   const tideStart = useMemo(() => {
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
@@ -722,12 +725,16 @@ export default function TidesPage() {
           )}
         </section>
 
-        {/* ── Tide Chart ── */}
-        <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Tide Times Chart for Watamu</h2>
-          <p className="text-sm text-gray-400 mb-5">Hover for exact height. Heights in metres above chart datum.</p>
+        {/* ── Tide Chart ──
+            Structured to mirror the 7-Day Forecast card above so the day
+            columns in both line up edge-to-edge inside max-w-7xl. */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Tide Times Chart for Watamu</h2>
+            <span className="text-xs text-gray-400">Hover for exact height &middot; metres above chart datum</span>
+          </div>
           <TideChart points={tideCurve} events={tideEvents} days={FORECAST_DAYS} />
-        </div>
+        </section>
 
         {/* ── Tide Table (day-by-day) ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

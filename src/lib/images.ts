@@ -89,6 +89,12 @@ export const STOCK_IMAGES = {
     fishMarket: 'https://images.unsplash.com/photo-1505441716189-50b06af1f43b?w=800&q=80&fit=crop',
   },
 
+  // Food — for places-to-eat / dining imagery on the activities page
+  food: {
+    // Classic ice cream cone — Andrea's gelato on the Watamu activities page
+    iceCream: 'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=800&q=80&fit=crop',
+  },
+
   // Fishing / Activities — deep sea fishing, marlin, snorkeling, kite surfing
   fishing: {
     // Deep sea sport fishing boat on open ocean
