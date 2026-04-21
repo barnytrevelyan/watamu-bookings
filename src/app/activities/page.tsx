@@ -2,29 +2,47 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { STOCK_IMAGES } from '@/lib/images';
+import { getCurrentPlace } from '@/lib/places/context';
+import type { PlaceActivity } from '@/lib/types';
 
-export const metadata: Metadata = {
-  title: 'Things to do in Watamu — fishing, marine park, beaches',
-  description:
-    "Deep-sea fishing, snorkelling in Watamu Marine National Park, kite surfing, turtle conservation, Mida Creek boardwalk, Gede ruins and more — a local guide to the best activities in Watamu, Kenya.",
-  keywords: [
-    'Watamu activities',
-    'Watamu Marine National Park',
-    'Mida Creek',
-    'Gede ruins',
-    'kite surfing Kenya',
-    'snorkelling Watamu',
-    'turtle conservation Watamu',
-  ],
-  openGraph: {
-    title: 'Things to do in Watamu',
-    description:
-      'Deep-sea fishing, snorkelling, kite surfing, marine park visits and cultural tours on the Kenyan coast.',
-    type: 'website',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { place, host } = await getCurrentPlace();
+  const placeName = place?.name ?? host.brand_short;
+  return {
+    title: `Things to do in ${placeName} — fishing, marine park, beaches`,
+    description: `Deep-sea fishing, snorkelling, kite surfing, turtle conservation and more — a local guide to the best activities in ${placeName}, Kenya.`,
+    keywords: [
+      `${placeName} activities`,
+      `${placeName} Marine National Park`,
+      `snorkelling ${placeName}`,
+      `kite surfing Kenya`,
+    ],
+    openGraph: {
+      title: `Things to do in ${placeName}`,
+      description: 'Deep-sea fishing, snorkelling, kite surfing, marine park visits and cultural tours on the Kenyan coast.',
+      type: 'website',
+    },
+  };
+}
 
-const ACTIVITIES = [
+interface ActivityCard {
+  id: string;
+  title: string;
+  image: string;
+  description: string;
+  highlight?: string;
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Activities sourced from place.activities_json when populated. Falls back
+ * to the legacy Watamu content below when a place has no activities seeded
+ * yet — so watamubookings.com keeps rendering identical content.
+ */
+const WATAMU_FALLBACK_ACTIVITIES: ActivityCard[] = [
   {
     id: 'deep-sea-fishing',
     title: 'Deep-Sea Fishing',
@@ -69,7 +87,22 @@ const ACTIVITIES = [
   },
 ];
 
-export default function ActivitiesPage() {
+export default async function ActivitiesPage() {
+  const { place } = await getCurrentPlace();
+  const placeName = place?.name ?? 'Watamu';
+
+  // Prefer place-level activities when the place has curated any.
+  const placeActivities: ActivityCard[] =
+    Array.isArray(place?.activities_json) && place!.activities_json.length > 0
+      ? place!.activities_json.map((a: PlaceActivity): ActivityCard => ({
+          id: slugify(a.title),
+          title: a.title,
+          image: a.image,
+          description: a.description,
+          highlight: a.tags?.[0],
+        }))
+      : WATAMU_FALLBACK_ACTIVITIES;
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero */}
@@ -78,18 +111,18 @@ export default function ActivitiesPage() {
         <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/10 blur-2xl" />
         <div className="relative max-w-4xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Things to Do in Watamu
+            Things to Do in {placeName}
           </h1>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
             From world-class deep-sea fishing to pristine coral reefs, mangrove
-            creeks, and incredible food — Watamu has it all.
+            creeks, and incredible food — {placeName} has it all.
           </p>
         </div>
       </section>
 
       {/* Activities */}
       <div className="max-w-7xl mx-auto px-4 py-16 space-y-20">
-        {ACTIVITIES.map((activity, index) => (
+        {placeActivities.map((activity, index) => (
           <section
             key={activity.id}
             id={activity.id}
@@ -132,29 +165,33 @@ export default function ActivitiesPage() {
         ))}
       </div>
 
-      {/* KWS Fees callout */}
-      <section className="max-w-7xl mx-auto px-4 pb-8">
-        <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center gap-6">
-          <div className="flex-1">
-            <h3 className="text-lg font-bold mb-1">KWS Marine Park Entry Fees</h3>
-            <p className="text-white/85 text-sm">
-              Entry to Watamu Marine National Park requires a KWS fee. Non-resident adults KES 1,770 (~$13),
-              residents KES 300. Pay online to skip the queue.
-            </p>
+      {/* KWS Fees callout — Watamu-specific (Marine National Park). Shown on
+          watamubookings.com and for Watamu place; hidden elsewhere until we
+          extend the place schema with place-specific callouts. */}
+      {placeName === 'Watamu' && (
+        <section className="max-w-7xl mx-auto px-4 pb-8">
+          <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex-1">
+              <h3 className="text-lg font-bold mb-1">KWS Marine Park Entry Fees</h3>
+              <p className="text-white/85 text-sm">
+                Entry to Watamu Marine National Park requires a KWS fee. Non-resident adults KES 1,770 (~$13),
+                residents KES 300. Pay online to skip the queue.
+              </p>
+            </div>
+            <a
+              href="https://kwspay.ecitizen.go.ke/single-park-entry/watamu-marine-park/guests"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors shrink-0"
+            >
+              Pay Fees Online
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            </a>
           </div>
-          <a
-            href="https://kwspay.ecitizen.go.ke/single-park-entry/watamu-marine-park/guests"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors shrink-0"
-          >
-            Pay Fees Online
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-          </a>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Quick links nav */}
       <section className="bg-gray-50 py-12 px-4">
@@ -163,7 +200,7 @@ export default function ActivitiesPage() {
             Jump to Activity
           </h2>
           <div className="flex flex-wrap justify-center gap-3">
-            {ACTIVITIES.map((activity) => (
+            {placeActivities.map((activity) => (
               <a
                 key={activity.id}
                 href={`#${activity.id}`}
@@ -180,11 +217,11 @@ export default function ActivitiesPage() {
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Ready to Experience Watamu?
+            Ready to Experience {placeName}?
           </h2>
           <p className="text-gray-600 mb-10 max-w-lg mx-auto">
             Book your accommodation and fishing charter to make the most of
-            everything Watamu has to offer.
+            everything {placeName} has to offer.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
