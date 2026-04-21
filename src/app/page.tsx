@@ -9,8 +9,19 @@ import { Button } from "@/components/ui/Button";
 import JsonLd from "@/components/JsonLd";
 import { organizationSchema, websiteSchema, touristDestinationSchema } from "@/lib/jsonld";
 import { STOCK_IMAGES, getPropertyImage, getBoatImage } from "@/lib/images";
-import { getCurrentPlace } from "@/lib/places/context";
-import type { Property, Boat, Place } from "@/lib/types";
+import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
+import type { Property, Boat, Place, PlaceFeature, PlaceContext } from "@/lib/types";
+
+const FEATURE_LABELS: Record<PlaceFeature, string> = {
+  properties: "Stays",
+  boats: "Boats",
+  tides: "Tides",
+  "marine-park": "Marine Park",
+  safari: "Safari",
+  adventure: "Adventure",
+  lakes: "Lakes",
+  cultural: "Cultural",
+};
 
 async function getFeaturedProperties(place: Place | null): Promise<Property[]> {
   const supabase = await createServerClient();
@@ -135,9 +146,19 @@ const WHY_THIS_PLACE_FALLBACK = [
 export default async function HomePage() {
   const { place, host } = await getCurrentPlace();
 
+  // Multi-place shell (kwetu.ke root) — render the destination picker
+  // instead of the place-scoped home. Funnels every guest into a concrete
+  // place first, which is how the rest of the site is designed to work.
+  if (!place) {
+    const destinations = await listActivePlaces();
+    return (
+      <ShellLanding host={host} destinations={destinations} />
+    );
+  }
+
   // Boats section is only meaningful for places that offer boats — inland
   // destinations get an empty array and the section drops out below.
-  const showBoats = !place || place.features.includes('boats');
+  const showBoats = place.features.includes('boats');
   const [properties, boats] = await Promise.all([
     getFeaturedProperties(place),
     showBoats ? getFeaturedBoats(place) : Promise.resolve([] as Boat[]),
@@ -387,6 +408,183 @@ export default async function HomePage() {
                   List Your Boat
                 </Link>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/**
+ * Multi-place shell landing (kwetu.ke root). Funnels guests into a concrete
+ * destination before they see any listings, since every search, property,
+ * boat and calendar in the rest of the site is scoped to a place.
+ */
+function ShellLanding({
+  host,
+  destinations,
+}: {
+  host: PlaceContext['host'];
+  destinations: Place[];
+}) {
+  const shellHero = STOCK_IMAGES.hero.tropicalBeach;
+  return (
+    <>
+      <JsonLd id="ld-org" data={organizationSchema(host)} />
+      <JsonLd id="ld-website" data={websiteSchema(host)} />
+
+      {/* HERO — brand-level, no search widget (search is place-scoped) */}
+      <section className="relative min-h-[520px] lg:min-h-[620px] flex items-center justify-center overflow-hidden">
+        <Image
+          src={shellHero}
+          alt="White coral sand beach and turquoise ocean on Kenya's coast"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
+
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg viewBox="0 0 1440 120" fill="none" className="w-full">
+            <path d="M0 60L48 54C96 48 192 36 288 36C384 36 480 48 576 54C672 60 768 60 864 54C960 48 1056 36 1152 30C1248 24 1344 24 1392 24L1440 24V120H0V60Z" fill="white" />
+          </svg>
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
+            Your Kenyan coast, simply booked
+          </h1>
+          <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto">
+            Hand-picked stays, boat charters and local experiences across the
+            north coast — Watamu, Kilifi and beyond.
+          </p>
+          <a
+            href="#destinations"
+            className="mt-8 inline-flex items-center gap-2 bg-white text-teal-700 font-semibold px-6 py-3 rounded-lg hover:bg-teal-50 transition-colors shadow-lg"
+          >
+            Choose a destination
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </a>
+        </div>
+      </section>
+
+      {/* DESTINATIONS */}
+      <section id="destinations" className="py-16 lg:py-24 px-4 scroll-mt-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900">Pick your destination</h2>
+            <p className="mt-2 text-gray-600 max-w-xl mx-auto">
+              Each {host.brand_short} destination has its own stays, boats,
+              tides, and local guides. Pick one to start.
+            </p>
+          </div>
+
+          {destinations.length === 0 ? (
+            <p className="text-center text-gray-500">No destinations available yet — check back soon.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+              {destinations.map((dest) => (
+                <Link
+                  key={dest.id}
+                  href={`/${dest.slug}`}
+                  className="group relative block overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 hover:shadow-xl transition-all"
+                >
+                  <div className="relative h-64 w-full overflow-hidden">
+                    <Image
+                      src={dest.hero_image_url ?? STOCK_IMAGES.placeholder}
+                      alt={`${dest.name} hero`}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    {dest.visibility === 'preview' && (
+                      <span className="absolute top-3 right-3 bg-amber-400 text-amber-950 text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded">
+                        Preview
+                      </span>
+                    )}
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <h3 className="text-2xl font-bold">{dest.name}</h3>
+                      {dest.short_tagline && (
+                        <p className="text-sm text-white/85 line-clamp-1">{dest.short_tagline}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    {dest.description && (
+                      <p className="text-sm text-gray-600 line-clamp-3">{dest.description}</p>
+                    )}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {dest.features.slice(0, 4).map((f) => (
+                        <span
+                          key={f}
+                          className="inline-block text-[11px] font-medium uppercase tracking-wide text-teal-700 bg-teal-50 px-2 py-1 rounded"
+                        >
+                          {FEATURE_LABELS[f] ?? f}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-5 inline-flex items-center gap-1 text-teal-600 font-semibold text-sm group-hover:text-teal-700">
+                      Explore {dest.name}
+                      <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                      </svg>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="py-16 lg:py-24 px-4 bg-gray-50">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl font-bold text-gray-900">How {host.brand_short} works</h2>
+            <p className="mt-2 text-gray-600">Three simple steps to your perfect Kenya coast getaway</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {HOW_IT_WORKS.map((item, index) => (
+              <div key={item.step} className="relative text-center">
+                {index < HOW_IT_WORKS.length - 1 && (
+                  <div className="hidden md:block absolute top-8 left-[60%] w-[80%] border-t-2 border-dashed border-teal-200" />
+                )}
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-600 text-white text-xl font-bold mb-5">
+                  {item.step}
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOST CTA */}
+      <section className="py-16 lg:py-24 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 to-emerald-700 px-8 py-14 sm:px-14 sm:py-20 text-center">
+            <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative z-10">
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                Host with {host.brand_name}
+              </h2>
+              <p className="text-white/85 mb-10 max-w-lg mx-auto text-lg">
+                List your property or boat and reach travellers looking to
+                explore the Kenyan coast.
+              </p>
+              <Link
+                href="/become-a-host"
+                className="inline-block bg-white text-teal-700 hover:bg-gray-100 font-semibold text-lg px-8 py-3 rounded-lg transition-colors shadow-lg"
+              >
+                Become a host
+              </Link>
             </div>
           </div>
         </div>
