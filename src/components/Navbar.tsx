@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Waves,
   Menu,
@@ -35,9 +36,24 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
   const { features, placeSlug, destinations } = useBrand();
   const { user, profile, loading, signOut } = useAuth();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Switch to another destination. Plain Next.js Link navigation doesn't
+   * trigger a Server Component re-render when the middleware rewrite
+   * target is identical (both /watamu and /kilifi rewrite to /), so the
+   * URL bar updates but the page stays on the old place. We push + refresh
+   * to force the RSC payload to be re-fetched with the new x-wb-place
+   * header.
+   */
+  const switchDestination = (slug: string) => {
+    router.push(`/${slug}`);
+    router.refresh();
+    setMobileOpen(false);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -140,11 +156,12 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
                 {destinations.map((dest) => {
                   const active = dest.slug === placeSlug;
                   return (
-                    <Link
+                    <button
                       key={dest.slug}
-                      href={`/${dest.slug}`}
+                      type="button"
                       role="tab"
                       aria-selected={active}
+                      onClick={() => switchDestination(dest.slug)}
                       className={
                         (active
                           ? 'bg-white text-[var(--color-primary-700)] shadow-sm ring-1 ring-[var(--color-primary-200)] font-semibold'
@@ -153,7 +170,7 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
                       }
                     >
                       {dest.name}
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -266,12 +283,12 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
                 {destinations.map((dest) => {
                   const active = dest.slug === placeSlug;
                   return (
-                    <Link
+                    <button
                       key={dest.slug}
-                      href={`/${dest.slug}`}
+                      type="button"
                       role="tab"
                       aria-selected={active}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() => switchDestination(dest.slug)}
                       className={
                         (active
                           ? 'bg-white text-[var(--color-primary-700)] shadow-sm ring-1 ring-[var(--color-primary-200)] font-semibold'
@@ -280,7 +297,7 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
                       }
                     >
                       {dest.name}
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
