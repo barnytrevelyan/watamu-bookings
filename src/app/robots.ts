@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://watamubookings.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kwetu.ke';
 
 // Private paths that should never be crawled.
 const PRIVATE_PATHS = [

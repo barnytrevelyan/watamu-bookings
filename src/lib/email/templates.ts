@@ -6,8 +6,8 @@
 import type { SubscriptionInvoice, HostSubscription } from '@/lib/subscriptions/types';
 import { formatKes } from '@/lib/subscriptions/pricing';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.watamubookings.com';
-const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kwetu.ke';
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Kwetu';
 
 export interface EmailPayload {
   subject: string;

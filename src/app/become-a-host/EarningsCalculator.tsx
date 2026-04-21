@@ -22,7 +22,7 @@ interface EarningsCalculatorProps {
 }
 
 export default function EarningsCalculator({
-  brandName = 'Watamu Bookings',
+  brandName = 'Kwetu',
 }: EarningsCalculatorProps) {
   const PLATFORMS: Platform[] = [
     { name: brandName, commission: 0.08, colour: 'teal', highlight: true },

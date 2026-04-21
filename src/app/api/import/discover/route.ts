@@ -294,7 +294,7 @@ async function extractListingsWithLLM(
   if (provider !== 'openai') {
     throw new Error(`Unsupported WATAMU_AI_PROVIDER: ${provider}`);
   }
-  const { brandName = 'Watamu Bookings', placeName = 'Watamu' } = brandContext ?? {};
+  const { brandName = 'Kwetu', placeName = 'Kenya' } = brandContext ?? {};
 
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 90_000);

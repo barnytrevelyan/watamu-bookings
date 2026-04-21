@@ -15,7 +15,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
 
   const { host: hostCfg } = await getCurrentPlace();
   const brandName = hostCfg.brand_name;
-  const hostname = hostCfg.host || 'watamubookings.com';
+  const hostname = hostCfg.host || 'kwetu.ke';
   const billingEmail = `billing@${hostname}`;
 
   const db = adminDb();

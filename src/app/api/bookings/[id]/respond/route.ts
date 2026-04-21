@@ -4,7 +4,7 @@ import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { sendTransactional } from '@/lib/email/zeptomail';
 import { guestConfirmedEmail, guestDeclinedEmail, type EnquiryContext } from '@/lib/email/enquiry-templates';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.watamubookings.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kwetu.ke';
 
 /**
  * POST /api/bookings/[id]/respond

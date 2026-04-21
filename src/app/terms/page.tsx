@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function TermsPage() {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
-  const hostname = host.host || 'watamubookings.com';
+  const hostname = host.host || 'kwetu.ke';
   const placeName = place?.name ?? host.brand_short;
   const isWatamu = placeName === 'Watamu';
   return (

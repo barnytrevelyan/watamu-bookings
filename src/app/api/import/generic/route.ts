@@ -256,7 +256,7 @@ async function extractWithLLM(
     throw new Error(`Unsupported WATAMU_AI_PROVIDER: ${provider}`);
   }
 
-  const { brandName = 'Watamu Bookings', placeName = 'Watamu' } = brandContext ?? {};
+  const { brandName = 'Kwetu', placeName = 'Kenya' } = brandContext ?? {};
 
   const userPrompt = forcedListingType
     ? `The user has hinted that this is a ${forcedListingType} listing. Use that as the listing_type unless the brief is flatly inconsistent with it.\n\nBrief:\n\n${brief}`
@@ -329,7 +329,7 @@ async function scrapeGeneric(
   brandContext?: { brandName: string; placeName: string }
 ): Promise<{ data: ImportedProperty | ImportedBoat; listing_type: 'property' | 'boat' }> {
   const { html, finalUrl } = await fetchSafe(rawUrl);
-  const { brandName = 'Watamu Bookings', placeName = 'Watamu' } = brandContext ?? {};
+  const { brandName = 'Kwetu', placeName = 'Kenya' } = brandContext ?? {};
 
   const { brief, images: scrapedImages } = buildPageBrief(html, finalUrl);
 

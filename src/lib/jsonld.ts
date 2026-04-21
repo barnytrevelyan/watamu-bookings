@@ -9,7 +9,7 @@
 
 import type { Place, PlaceContext } from './types';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://watamubookings.com';
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://kwetu.ke';
 
 /** Shallow brand-config shape accepted by org / website / activity schemas. */
 type BrandHost = Pick<PlaceContext['host'], 'brand_name' | 'brand_short' | 'host'>;
@@ -195,7 +195,7 @@ export function boatSchema(b: BoatLike, place?: Place | null) {
 
 export function organizationSchema(host?: BrandHost | null) {
   const url = siteUrl(host);
-  const brand = host?.brand_name ?? 'Watamu Bookings';
+  const brand = host?.brand_name ?? 'Kwetu';
   const locality = host?.brand_short ?? 'Watamu';
   return {
     '@context': 'https://schema.org',
@@ -216,7 +216,7 @@ export function organizationSchema(host?: BrandHost | null) {
 
 export function websiteSchema(host?: BrandHost | null) {
   const url = siteUrl(host);
-  const brand = host?.brand_name ?? 'Watamu Bookings';
+  const brand = host?.brand_name ?? 'Kwetu';
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',

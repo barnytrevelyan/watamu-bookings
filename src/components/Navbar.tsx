@@ -29,7 +29,7 @@ function splitBrand(name: string): { first: string; accent: string | null } {
   return { first: trimmed.slice(0, idx), accent: trimmed.slice(idx + 1) };
 }
 
-export default function Navbar({ brandName = 'Watamu Bookings' }: NavbarProps) {
+export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);

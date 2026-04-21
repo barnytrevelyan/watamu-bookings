@@ -30,7 +30,7 @@ export default async function BecomeAHostPage() {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
   const placeName = place?.name ?? host.brand_short;
-  const supportEmail = host.support_email ?? 'hello@watamubookings.com';
+  const supportEmail = host.support_email ?? 'hello@kwetu.ke';
   const isWatamu = placeName === 'Watamu';
   return (
     <div className="min-h-screen bg-white">

@@ -36,8 +36,8 @@ export interface SendEmailResult {
 
 export async function sendTransactional(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.ZEPTOMAIL_API_KEY;
-  const fromEmail = process.env.ZEPTOMAIL_FROM ?? 'billing@watamubookings.com';
-  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Watamu Bookings';
+  const fromEmail = process.env.ZEPTOMAIL_FROM ?? 'billing@kwetu.ke';
+  const fromName = process.env.ZEPTOMAIL_FROM_NAME ?? 'Kwetu';
   const host = process.env.ZEPTOMAIL_HOST ?? 'api.zeptomail.com';
 
   const recipients = Array.isArray(input.to) ? input.to : [input.to];

@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentPlace } from '@/lib/places/context';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://watamubookings.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://kwetu.ke';
 
 export const revalidate = 3600; // rebuild hourly
 

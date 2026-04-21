@@ -45,6 +45,8 @@ const WATAMU_FALLBACK: Place = {
     'Discover and book stunning beachfront properties and world-class fishing boat charters in Watamu, Kenya. Your gateway to paradise on the Kenyan coast.',
   activities_json: [],
   map_pois_json: [],
+  visibility: 'public',
+  features: ['properties', 'boats', 'tides', 'marine-park'],
   is_active: true,
   sort_order: 20,
   created_at: new Date().toISOString(),
@@ -52,17 +54,17 @@ const WATAMU_FALLBACK: Place = {
 };
 
 const WATAMU_FALLBACK_HOST: PlaceContext['host'] = {
-  host: 'watamubookings.com',
-  brand_name: 'Watamu Bookings',
-  brand_short: 'Watamu',
+  host: 'kwetu.ke',
+  brand_name: 'Kwetu',
+  brand_short: 'Kwetu',
   is_multi_place: false,
-  support_email: 'hello@watamubookings.com',
+  support_email: 'hello@kwetu.ke',
   support_whatsapp: null,
 };
 
 /** Strip :port, trim, lowercase. */
 export function normaliseHost(raw: string | null | undefined): string {
-  if (!raw) return 'watamubookings.com';
+  if (!raw) return 'kwetu.ke';
   return raw.split(',')[0]!.trim().toLowerCase();
 }
 
@@ -113,8 +115,14 @@ export async function getCurrentPlace(): Promise<PlaceContext> {
     place = (data as Place | null) ?? null;
   }
 
-  // Safety net for watamubookings.com when DB is unreachable
-  if (!place && !hostCfg.is_multi_place && host.includes('watamu')) {
+  // Safety net: if DB is unreachable on a single-place host that looks
+  // like Watamu (watamubookings.com or kwetu.ke with /watamu path),
+  // keep rendering Watamu rather than throwing.
+  if (
+    !place &&
+    !hostCfg.is_multi_place &&
+    (host.includes('watamu') || placeSlug === 'watamu')
+  ) {
     place = WATAMU_FALLBACK;
   }
 

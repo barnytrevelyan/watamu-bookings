@@ -18,7 +18,7 @@ export default async function AboutPage() {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
   const placeName = place?.name ?? host.brand_short;
-  const supportEmail = host.support_email ?? 'hello@watamubookings.com';
+  const supportEmail = host.support_email ?? 'hello@kwetu.ke';
 
   // Watamu-specific practical content (emergency numbers, getting here) is
   // only surfaced when we're on a Watamu-scoped host. Other places get a

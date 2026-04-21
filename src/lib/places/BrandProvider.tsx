@@ -24,16 +24,16 @@ export function BrandProvider({
 }
 
 /** Read brand from context. Safe to call outside a provider — returns sensible
- * Watamu Bookings defaults so pages still render on server if the provider
- * is absent (e.g. during storybook/tests). */
+ * Kwetu defaults so pages still render on server if the provider is absent
+ * (e.g. during storybook/tests). */
 export function useBrand(): Brand {
   const ctx = useContext(BrandContext);
   if (ctx) return ctx;
   return {
-    name: 'Watamu Bookings',
-    short: 'Watamu',
-    supportEmail: 'hello@watamubookings.com',
+    name: 'Kwetu',
+    short: 'Kwetu',
+    supportEmail: 'hello@kwetu.ke',
     supportWhatsapp: null,
-    placeName: 'Watamu',
+    placeName: 'Kenya',
   };
 }

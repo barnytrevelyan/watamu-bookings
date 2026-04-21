@@ -54,7 +54,7 @@ export const PLACE_HEADER = 'x-wb-place';
 export const HOST_HEADER = 'x-wb-host';
 
 function normaliseHost(raw: string | null | undefined): string {
-  if (!raw) return 'watamubookings.com';
+  if (!raw) return 'kwetu.ke';
   return raw.split(',')[0]!.trim().toLowerCase();
 }
 

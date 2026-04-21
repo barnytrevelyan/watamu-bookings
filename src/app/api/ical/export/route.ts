@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
   const { host: hostCfg } = await getCurrentPlace();
   const brandName = hostCfg.brand_name;
-  const hostname = hostCfg.host || 'watamubookings.com';
+  const hostname = hostCfg.host || 'kwetu.ke';
 
   const calendarName = listing?.name || `${brandName} Calendar`;
   const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';

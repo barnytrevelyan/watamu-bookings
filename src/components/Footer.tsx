@@ -57,13 +57,13 @@ function splitBrand(name: string): { first: string; accent: string | null } {
 }
 
 export default function Footer({
-  brandName = 'Watamu Bookings',
-  brandShort = 'Watamu',
+  brandName = 'Kwetu',
+  brandShort = 'Kwetu',
   supportEmail,
   placeLabel,
 }: FooterProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
-  const email = supportEmail || 'hello@watamubookings.com';
+  const email = supportEmail || 'hello@kwetu.ke';
   const contactLine = placeLabel || `${brandShort}, Kenya`;
 
   return (

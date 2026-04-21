@@ -86,6 +86,19 @@ export type InvitationStatus = 'pending' | 'accepted' | 'expired';
 
 export type PlaceKind = 'country' | 'region' | 'county' | 'town' | 'neighbourhood' | 'marina';
 
+export type PlaceVisibility = 'hidden' | 'preview' | 'public';
+
+/** Product surfaces a place can expose. Drives nav + route visibility. */
+export type PlaceFeature =
+  | 'properties'
+  | 'boats'
+  | 'tides'
+  | 'marine-park'
+  | 'safari'
+  | 'adventure'
+  | 'lakes'
+  | 'cultural';
+
 // ----- Places -----
 
 export interface Place {
@@ -110,6 +123,11 @@ export interface Place {
   seo_description: string | null;
   activities_json: PlaceActivity[];
   map_pois_json: PlaceMapPoi[];
+  /** Publication state. 'preview' is visible only via magic-link / admin. */
+  visibility: PlaceVisibility;
+  /** Product surfaces this place exposes (boats, tides, etc.). */
+  features: PlaceFeature[];
+  /** @deprecated Use `visibility === 'public'`. Kept in sync by DB trigger. */
   is_active: boolean;
   sort_order: number;
   created_at: string;

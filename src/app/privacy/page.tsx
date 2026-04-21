@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function PrivacyPage() {
   const { host } = await getCurrentPlace();
   const brandName = host.brand_name;
-  const hostname = host.host || 'watamubookings.com';
+  const hostname = host.host || 'kwetu.ke';
   return (
     <div className="min-h-screen bg-white">
       <section className="mx-auto max-w-3xl px-4 py-16 lg:py-24">

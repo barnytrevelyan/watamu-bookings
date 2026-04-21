@@ -10,9 +10,9 @@
 
 import type { EmailPayload } from './templates';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.watamubookings.com';
-const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings';
-const BRAND_PLACE = process.env.NEXT_PUBLIC_BRAND_PLACE ?? 'Watamu';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://kwetu.ke';
+const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Kwetu';
+const BRAND_PLACE = process.env.NEXT_PUBLIC_BRAND_PLACE ?? 'Kenya';
 
 function layout({ title, body }: { title: string; body: string }): string {
   return `<!doctype html>

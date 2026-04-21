@@ -92,10 +92,10 @@ export async function createPaymentIntent({
     receipt_email: customerEmail,
     description:
       description ??
-      `${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Watamu Bookings'} — Booking ${bookingId}`,
+      `${process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Kwetu'} — Booking ${bookingId}`,
     metadata: {
       booking_id: bookingId,
-      platform: process.env.NEXT_PUBLIC_BRAND_SLUG ?? 'watamu_bookings',
+      platform: process.env.NEXT_PUBLIC_BRAND_SLUG ?? 'kwetu',
       ...metadata,
     },
   });
