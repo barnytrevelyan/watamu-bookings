@@ -4,10 +4,12 @@ import { createServerClient } from '@supabase/ssr';
 /**
  * Middleware that handles:
  * 1. Supabase auth session refresh (keeps cookies fresh)
- * 2. Subdomain routing for watamu.ke
+ * 2. Host + path → place resolution (sets x-wb-host, x-wb-place)
+ * 3. Subdomain rewriting for watamu.ke listing subdomains (e.g.
+ *    unreel.watamu.ke → /s/unreel)
  */
 
-// Subdomains that should never be treated as listing slugs
+// Subdomains that should never be treated as listing slugs or place slugs.
 const RESERVED_SUBDOMAINS = new Set([
   'www',
   'api',
@@ -21,8 +23,40 @@ const RESERVED_SUBDOMAINS = new Set([
   'preview',
 ]);
 
-// Root domains we support subdomains on
+// Root domains we support legacy listing-slug subdomains on.
 const SUBDOMAIN_HOSTS = ['watamu.ke'];
+
+/**
+ * Hosts that are multi-place shells. On these hosts the path's first
+ * segment may be a place slug, e.g. `/watamu/properties`. Kept in code
+ * (not just in the DB) so middleware can resolve without a DB hit.
+ */
+const MULTI_PLACE_HOSTS = new Set(['kwetu.ke', 'www.kwetu.ke']);
+
+/** Place slugs recognised on the kwetu.ke path (must match wb_places.slug). */
+const PLACE_SLUGS = new Set([
+  'watamu',
+  'malindi',
+  'kilifi',
+  'kilifi-county',
+  'vipingo',
+]);
+
+/** Hosts that resolve directly to a fixed place (single-place hosts). */
+const HOST_PLACE: Record<string, string> = {
+  'watamubookings.com': 'watamu',
+  'www.watamubookings.com': 'watamu',
+  'localhost:3000': 'watamu',
+  'localhost': 'watamu',
+};
+
+export const PLACE_HEADER = 'x-wb-place';
+export const HOST_HEADER = 'x-wb-host';
+
+function normaliseHost(raw: string | null | undefined): string {
+  if (!raw) return 'watamubookings.com';
+  return raw.split(',')[0]!.trim().toLowerCase();
+}
 
 export async function middleware(request: NextRequest) {
   // --- 1. Refresh the Supabase auth session ---
@@ -49,18 +83,40 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh the session. getUser() is authoritative (validates JWT with
-  // Supabase servers) but adds latency. getSession() just reads cookies
-  // and refreshes locally if expired — much faster and sufficient here
-  // since the client-side handles the real auth gating.
   await supabase.auth.getSession();
 
-  // --- 2. Subdomain routing for watamu.ke ---
+  // --- 2. Place resolution ---
+  // Expose the request host to server components via a header so
+  // `getCurrentPlace()` can read it without another round trip.
   const { hostname, pathname } = request.nextUrl;
+  const hostPort = request.headers.get('host') ?? hostname;
+  const host = normaliseHost(hostPort);
 
-  const rootDomain = SUBDOMAIN_HOSTS.find((domain) =>
-    hostname.endsWith(domain)
-  );
+  request.headers.set(HOST_HEADER, host);
+  supabaseResponse.headers.set(HOST_HEADER, host);
+
+  // Default place for the host (single-place hosts). Empty = multi-place
+  // shell, the place will come from the path segment (below).
+  let placeSlug: string | null = HOST_PLACE[host] ?? null;
+
+  // On multi-place hosts, look for a place slug as the first path segment:
+  //   kwetu.ke/watamu/properties → place = watamu
+  if (MULTI_PLACE_HOSTS.has(host)) {
+    const seg = pathname.split('/').filter(Boolean)[0];
+    if (seg && PLACE_SLUGS.has(seg)) {
+      placeSlug = seg;
+    } else {
+      placeSlug = null;
+    }
+  }
+
+  if (placeSlug) {
+    request.headers.set(PLACE_HEADER, placeSlug);
+    supabaseResponse.headers.set(PLACE_HEADER, placeSlug);
+  }
+
+  // --- 3. Legacy listing-slug subdomains on watamu.ke ---
+  const rootDomain = SUBDOMAIN_HOSTS.find((domain) => hostname.endsWith(domain));
 
   if (rootDomain) {
     const sub = hostname.replace(`.${rootDomain}`, '');
@@ -75,7 +131,7 @@ export async function middleware(request: NextRequest) {
         if (pathname === '/' || pathname === '') {
           const url = request.nextUrl.clone();
           url.pathname = `/s/${sub}`;
-          const response = NextResponse.rewrite(url);
+          const response = NextResponse.rewrite(url, { request });
 
           supabaseResponse.cookies.getAll().forEach((cookie) => {
             response.cookies.set(cookie.name, cookie.value);
@@ -83,6 +139,8 @@ export async function middleware(request: NextRequest) {
 
           response.headers.set('x-subdomain-slug', sub);
           response.headers.set('x-subdomain-host', hostname);
+          response.headers.set(HOST_HEADER, host);
+          if (placeSlug) response.headers.set(PLACE_HEADER, placeSlug);
           return response;
         }
       }

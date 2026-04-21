@@ -84,6 +84,91 @@ export type RoomType = 'bedroom' | 'suite' | 'studio' | 'dormitory' | 'entire_un
 
 export type InvitationStatus = 'pending' | 'accepted' | 'expired';
 
+export type PlaceKind = 'country' | 'region' | 'county' | 'town' | 'neighbourhood' | 'marina';
+
+// ----- Places -----
+
+export interface Place {
+  id: string;
+  slug: string;
+  name: string;
+  parent_place_id: string | null;
+  kind: PlaceKind;
+  country_code: string;
+  centroid_lat: number | null;
+  centroid_lng: number | null;
+  bbox_north: number | null;
+  bbox_south: number | null;
+  bbox_east: number | null;
+  bbox_west: number | null;
+  default_zoom: number;
+  timezone: string;
+  hero_image_url: string | null;
+  short_tagline: string | null;
+  description: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  activities_json: PlaceActivity[];
+  map_pois_json: PlaceMapPoi[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlaceActivity {
+  title: string;
+  image: string;
+  description: string;
+  tags?: string[];
+  featured?: boolean;
+}
+
+export interface PlaceMapPoi {
+  name: string;
+  category: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  icon?: string;
+  colour?: string;
+}
+
+export interface PlaceHost {
+  host: string;
+  place_id: string | null;
+  brand_name: string;
+  brand_short: string;
+  is_multi_place: boolean;
+  default_og_image: string | null;
+  support_email: string | null;
+  support_whatsapp: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Resolved place context for a given request host — produced by `getCurrentPlace()`. */
+export interface PlaceContext {
+  /** null when the host is a multi-place shell (e.g. kwetu.ke) and no specific place is selected */
+  place: Place | null;
+  /** Brand + host config — always present */
+  host: {
+    host: string;
+    brand_name: string;
+    brand_short: string;
+    is_multi_place: boolean;
+    support_email: string | null;
+    support_whatsapp: string | null;
+  };
+}
+
+export interface BoatPlace {
+  boat_id: string;
+  place_id: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
 // ----- Database row types -----
 
 export interface Profile {
@@ -140,6 +225,7 @@ export interface Property {
   import_source: string | null;
   billing_mode: 'commission' | 'subscription';
   deposit_percent: number;
+  place_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -385,6 +471,7 @@ export interface PropertyWithAmenities extends Property {
   images: Image[];
   rooms: Room[];
   owner: Profile;
+  place?: Place | null;
 }
 
 export interface BoatWithFeatures extends Boat {
@@ -392,6 +479,8 @@ export interface BoatWithFeatures extends Boat {
   images: Image[];
   trips: BoatTrip[];
   owner: Profile;
+  places?: Place[];
+  primary_place?: Place | null;
 }
 
 export interface BookingWithDetails extends Booking {
@@ -446,6 +535,8 @@ export interface SearchFilters {
   longitude?: number;
   radius_km?: number;
   is_featured?: boolean;
+  place_id?: string;
+  place_slug?: string;
   sort_by?: 'price_asc' | 'price_desc' | 'rating' | 'newest';
   page?: number;
   per_page?: number;
