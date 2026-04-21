@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, Users, Home, Anchor, SlidersHorizontal } from 'lucide-react';
+import { Search, Calendar, Users, Home, Anchor } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
+import PriceRangeSlider from '@/components/PriceRangeSlider';
+import AmenityFilterPopover, { AmenityOption } from '@/components/AmenityFilterPopover';
 
 type FilterTab = 'properties' | 'boats';
 
@@ -15,7 +17,23 @@ interface SearchFiltersProps {
   defaultTab?: FilterTab;
   variant?: FilterVariant;
   onSearch?: (filters: Record<string, unknown>) => void;
+  /** Amenities to expose in the property filter popover (optional). */
+  amenities?: AmenityOption[];
+  /** Initial values for controlled filters (used when restoring from URL). */
+  initial?: {
+    check_in?: string;
+    check_out?: string;
+    guests?: string;
+    property_type?: string;
+    min_price?: string;
+    max_price?: string;
+    amenities?: string[];
+  };
 }
+
+const PRICE_MIN = 3000;
+const PRICE_MAX = 300000;
+const PRICE_STEP = 1000;
 
 const propertyTypes = [
   { value: '', label: 'All Types' },
@@ -54,32 +72,52 @@ const tripTypes = [
   { value: 'sunset_cruise', label: 'Sunset Cruise' },
 ];
 
-const priceRanges = [
-  { value: '', label: 'Any Price' },
-  { value: '0-5000', label: 'Under KES 5,000' },
-  { value: '5000-10000', label: 'KES 5,000 - 10,000' },
-  { value: '10000-20000', label: 'KES 10,000 - 20,000' },
-  { value: '20000-50000', label: 'KES 20,000 - 50,000' },
-  { value: '50000+', label: 'KES 50,000+' },
-];
-
 export default function SearchFilters({
   defaultTab,
   variant,
   onSearch,
+  amenities = [],
+  initial,
 }: SearchFiltersProps) {
   const router = useRouter();
-  // variant maps to a sensible default tab
   const resolvedDefault: FilterTab =
     defaultTab ?? (variant === 'boats' ? 'boats' : 'properties');
   const [activeTab, setActiveTab] = useState<FilterTab>(resolvedDefault);
 
-  // Property filters
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [propertyGuests, setPropertyGuests] = useState('');
-  const [propertyType, setPropertyType] = useState('');
-  const [priceRange, setPriceRange] = useState('');
+  // Property filters (controlled, seeded from URL if provided)
+  const [checkIn, setCheckIn] = useState(initial?.check_in ?? '');
+  const [checkOut, setCheckOut] = useState(initial?.check_out ?? '');
+  const [propertyGuests, setPropertyGuests] = useState(initial?.guests ?? '');
+  const [propertyType, setPropertyType] = useState(initial?.property_type ?? '');
+  const [priceRange, setPriceRange] = useState<[number, number]>([
+    initial?.min_price ? Math.max(PRICE_MIN, Number(initial.min_price)) : PRICE_MIN,
+    initial?.max_price ? Math.min(PRICE_MAX, Number(initial.max_price)) : PRICE_MAX,
+  ]);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
+    initial?.amenities ?? []
+  );
+
+  // Re-seed from URL when parent updates (useful for back/forward nav)
+  useEffect(() => {
+    if (!initial) return;
+    setCheckIn(initial.check_in ?? '');
+    setCheckOut(initial.check_out ?? '');
+    setPropertyGuests(initial.guests ?? '');
+    setPropertyType(initial.property_type ?? '');
+    setPriceRange([
+      initial.min_price ? Math.max(PRICE_MIN, Number(initial.min_price)) : PRICE_MIN,
+      initial.max_price ? Math.min(PRICE_MAX, Number(initial.max_price)) : PRICE_MAX,
+    ]);
+    setSelectedAmenities(initial.amenities ?? []);
+  }, [
+    initial?.check_in,
+    initial?.check_out,
+    initial?.guests,
+    initial?.property_type,
+    initial?.min_price,
+    initial?.max_price,
+    initial?.amenities?.join(','),
+  ]);
 
   // Boat filters
   const [tripDate, setTripDate] = useState('');
@@ -87,8 +125,6 @@ export default function SearchFilters({
   const [boatType, setBoatType] = useState('');
   const [tripType, setTripType] = useState('');
 
-  // Default behaviour: navigate to the matching index with query string.
-  // If a parent passes `onSearch`, prefer that (e.g. embedded list filtering).
   const handleSearch = () => {
     if (onSearch) {
       if (activeTab === 'properties') {
@@ -98,7 +134,9 @@ export default function SearchFilters({
           checkOut,
           guests: propertyGuests,
           propertyType,
-          priceRange,
+          minPrice: priceRange[0],
+          maxPrice: priceRange[1],
+          amenities: selectedAmenities,
         });
       } else {
         onSearch({
@@ -118,15 +156,9 @@ export default function SearchFilters({
       if (checkOut) params.set('check_out', checkOut);
       if (propertyGuests) params.set('guests', propertyGuests);
       if (propertyType) params.set('property_type', propertyType);
-      if (priceRange) {
-        if (priceRange.endsWith('+')) {
-          params.set('min_price', priceRange.replace('+', ''));
-        } else {
-          const [min, max] = priceRange.split('-');
-          if (min) params.set('min_price', min);
-          if (max) params.set('max_price', max);
-        }
-      }
+      if (priceRange[0] > PRICE_MIN) params.set('min_price', String(priceRange[0]));
+      if (priceRange[1] < PRICE_MAX) params.set('max_price', String(priceRange[1]));
+      if (selectedAmenities.length > 0) params.set('amenities', selectedAmenities.join(','));
       router.push(`/properties${params.toString() ? `?${params}` : ''}`);
     } else {
       if (tripDate) params.set('trip_date', tripDate);
@@ -172,44 +204,61 @@ export default function SearchFilters({
       {/* Filter fields */}
       <div className="p-4 sm:p-6">
         {activeTab === 'properties' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <Input
-              label="Check-in"
-              type="date"
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              leftIcon={<Calendar className="h-4 w-4" />}
-            />
-            <Input
-              label="Check-out"
-              type="date"
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-              leftIcon={<Calendar className="h-4 w-4" />}
-            />
-            <Input
-              label="Guests"
-              type="number"
-              min={1}
-              max={20}
-              placeholder="2"
-              value={propertyGuests}
-              onChange={(e) => setPropertyGuests(e.target.value)}
-              leftIcon={<Users className="h-4 w-4" />}
-            />
-            <Select
-              label="Property Type"
-              options={propertyTypes}
-              value={propertyType}
-              onChange={(e) => setPropertyType(e.target.value)}
-            />
-            <Select
-              label="Price Range"
-              options={priceRanges}
-              value={priceRange}
-              onChange={(e) => setPriceRange(e.target.value)}
-            />
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Input
+                label="Check-in"
+                type="date"
+                value={checkIn}
+                onChange={(e) => setCheckIn(e.target.value)}
+                leftIcon={<Calendar className="h-4 w-4" />}
+              />
+              <Input
+                label="Check-out"
+                type="date"
+                value={checkOut}
+                onChange={(e) => setCheckOut(e.target.value)}
+                leftIcon={<Calendar className="h-4 w-4" />}
+              />
+              <Input
+                label="Guests"
+                type="number"
+                min={1}
+                max={20}
+                placeholder="2"
+                value={propertyGuests}
+                onChange={(e) => setPropertyGuests(e.target.value)}
+                leftIcon={<Users className="h-4 w-4" />}
+              />
+              <Select
+                label="Property Type"
+                options={propertyTypes}
+                value={propertyType}
+                onChange={(e) => setPropertyType(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 items-end">
+              <div className="lg:col-span-2 px-1">
+                <PriceRangeSlider
+                  min={PRICE_MIN}
+                  max={PRICE_MAX}
+                  step={PRICE_STEP}
+                  value={priceRange}
+                  onChange={setPriceRange}
+                  currency="KES"
+                  label="Price per night"
+                />
+              </div>
+              {amenities.length > 0 && (
+                <AmenityFilterPopover
+                  amenities={amenities}
+                  selected={selectedAmenities}
+                  onChange={setSelectedAmenities}
+                />
+              )}
+            </div>
+          </>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Input

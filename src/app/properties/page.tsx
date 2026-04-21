@@ -20,11 +20,22 @@ interface SearchParams {
   guests?: string;
   check_in?: string;
   check_out?: string;
+  amenities?: string;
   sort?: string;
   page?: string;
 }
 
 const PAGE_SIZE = 12;
+
+async function getAmenities() {
+  const supabase = await createServerClient();
+  const { data } = await supabase
+    .from("wb_amenities")
+    .select("id, name, icon, category")
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("name", { ascending: true });
+  return data ?? [];
+}
 
 async function getProperties(searchParams: SearchParams) {
   const supabase = await createServerClient();
@@ -56,6 +67,35 @@ async function getProperties(searchParams: SearchParams) {
   }
   if (searchParams.guests) {
     query = query.gte("max_guests", Number(searchParams.guests));
+  }
+
+  // Amenity intersect filter: only include properties that have ALL requested
+  // amenities attached via the junction table. We do this by pulling the
+  // property_ids that match and restricting the main query to that set.
+  const amenityIds = (searchParams.amenities ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (amenityIds.length > 0) {
+    const { data: links } = await supabase
+      .from("wb_property_amenities")
+      .select("property_id, amenity_id")
+      .in("amenity_id", amenityIds);
+
+    const countByProperty: Record<string, number> = {};
+    (links ?? []).forEach((r: { property_id: string; amenity_id: string }) => {
+      countByProperty[r.property_id] = (countByProperty[r.property_id] ?? 0) + 1;
+    });
+    const matchingIds = Object.keys(countByProperty).filter(
+      (pid) => countByProperty[pid] === amenityIds.length
+    );
+
+    if (matchingIds.length === 0) {
+      // No property has all selected amenities — short-circuit.
+      return { properties: [] as Property[], total: 0, page: Math.max(1, Number(searchParams.page) || 1) };
+    }
+    query = query.in("id", matchingIds);
   }
 
   // Date availability filtering: exclude properties that have blocked dates
@@ -114,8 +154,15 @@ export default async function PropertiesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { properties, total, page } = await getProperties(params);
+  const [{ properties, total, page }, amenities] = await Promise.all([
+    getProperties(params),
+    getAmenities(),
+  ]);
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const selectedAmenities = (params.amenities ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -137,7 +184,19 @@ export default async function PropertiesPage({
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <SearchFilters variant="properties" />
+          <SearchFilters
+            variant="properties"
+            amenities={amenities}
+            initial={{
+              check_in: params.check_in,
+              check_out: params.check_out,
+              guests: params.guests,
+              property_type: params.property_type,
+              min_price: params.min_price,
+              max_price: params.max_price,
+              amenities: selectedAmenities,
+            }}
+          />
         </div>
       </div>
 
