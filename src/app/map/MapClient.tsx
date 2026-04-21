@@ -124,7 +124,9 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; dot: string }>
   nature: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
   dining: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
   activity: { bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
+  landmark: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
 };
+const FALLBACK_CATEGORY = { bg: 'bg-gray-50', text: 'text-gray-700', dot: 'bg-gray-500' };
 
 interface MapClientProps {
   place: Place | null;
@@ -420,11 +422,14 @@ export default function MapClient({ place }: MapClientProps) {
           {[
             { key: 'beach', label: 'Beaches' },
             { key: 'nature', label: 'Nature & Heritage' },
+            { key: 'landmark', label: 'Landmarks' },
             { key: 'dining', label: 'Dining' },
             { key: 'activity', label: 'Activities' },
-          ].map((cat) => {
+          ]
+            .filter((cat) => placePois.some((l) => l.category === cat.key))
+            .map((cat) => {
             const count = placePois.filter((l) => l.category === cat.key).length;
-            const colors = CATEGORY_COLORS[cat.key];
+            const colors = CATEGORY_COLORS[cat.key] ?? FALLBACK_CATEGORY;
             return (
               <button
                 key={cat.key}
@@ -447,7 +452,7 @@ export default function MapClient({ place }: MapClientProps) {
         <div className="mt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredLocations.map((loc) => {
-              const colors = CATEGORY_COLORS[loc.category] || CATEGORY_COLORS.beach;
+              const colors = CATEGORY_COLORS[loc.category] ?? FALLBACK_CATEGORY;
               return (
                 <div
                   key={loc.name}
