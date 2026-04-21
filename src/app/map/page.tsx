@@ -3,92 +3,91 @@
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-// Coordinates sourced from Wikipedia / official sites / OpenStreetMap (2026-04-21).
-// Gede & Marine Park cross-referenced against Wikipedia infoboxes; coastal
-// businesses against their own websites and plus codes. Village-centre shops
-// (Andrea's, Pilipan) are approximate to within ~50-100m.
+// Coordinates from the Google Places API (text search), fetched 2026-04-21.
+// These resolve the actual establishment pins rather than village-centre
+// approximations, so they're accurate to within a few metres of the real door.
 const WATAMU_LOCATIONS = [
   {
     name: 'Watamu Beach',
-    lat: -3.3660,
-    lng: 40.0250,
+    lat: -3.357782,
+    lng: 40.018439,
     description: 'The main beach — white coral sand stretching south from the village.',
     category: 'beach',
   },
   {
     name: 'Turtle Bay Beach',
-    lat: -3.3702,
-    lng: 40.0160,
+    lat: -3.362774,
+    lng: 40.004073,
     description: 'Sheltered bay famous for sea turtles, between the headlands.',
     category: 'beach',
   },
   {
     name: 'Garoda Beach',
-    lat: -3.3450,
-    lng: 40.0290,
-    description: 'Quiet, pristine beach north of Watamu village — great for long walks.',
+    lat: -3.385326,
+    lng: 39.980840,
+    description: 'Quiet, pristine beach south of Watamu village — great for long walks.',
     category: 'beach',
   },
   {
     name: 'Mida Creek',
-    lat: -3.3667,
-    lng: 40.0367,
+    lat: -3.372656,
+    lng: 39.967790,
     description: 'Tidal inlet with mangroves — dhow trips, bird watching, and the famous Dabaso boardwalk.',
     category: 'nature',
   },
   {
     name: 'Ocean Sports Resort',
-    lat: -3.3594,
-    lng: 40.0200,
+    lat: -3.361031,
+    lng: 40.007989,
     description: 'Iconic waterfront resort, restaurant, and deep-sea fishing departure point.',
     category: 'dining',
   },
   {
     name: 'Watamu Marine National Park',
-    lat: -3.3678,
-    lng: 40.0164,
+    lat: -3.385635,
+    lng: 39.973519,
     description: 'Protected marine reserve — snorkelling, glass-bottom boats, and vibrant coral reefs.',
     category: 'nature',
   },
   {
     name: 'Local Ocean Conservation',
-    lat: -3.3600,
-    lng: 40.0200,
+    lat: -3.375846,
+    lng: 39.985273,
     description: 'Sea turtle rescue and rehabilitation centre. Visit to see turtles up close.',
     category: 'nature',
   },
   {
     name: 'Bio-Ken Snake Farm',
-    lat: -3.3580,
-    lng: 40.0210,
+    lat: -3.344635,
+    lng: 40.029151,
     description: 'Snake research centre with the largest collection of snakes in East Africa.',
     category: 'nature',
   },
   {
     name: 'Pilipan Restaurant',
-    lat: -3.3568,
-    lng: 40.0220,
+    lat: -3.370157,
+    lng: 39.994841,
     description: 'Asian fusion restaurant overlooking Prawn Lake — famous curries and sunset cocktails.',
     category: 'dining',
   },
   {
     name: "Andrea's Ice Cream",
-    lat: -3.3553,
-    lng: 40.0230,
+    lat: -3.356009,
+    lng: 40.020794,
     description: 'Italian ice cream, pastries, and coffee in the heart of Watamu village.',
     category: 'dining',
   },
   {
     name: 'Tribe Watersports',
-    lat: -3.3470,
-    lng: 40.0280,
+    lat: -3.375182,
+    lng: 39.986927,
     description: 'Kite surfing, wakeboarding, SUP, and all watersports in Watamu.',
     category: 'activity',
   },
   {
     name: 'Gede Ruins',
-    lat: -3.3094,
-    lng: 40.0172,
+    lat: -3.310020,
+    lng: 40.017203,
     description: 'Mysterious 12th-century Swahili town ruins in the forest — a must-visit.',
     category: 'nature',
   },
@@ -138,9 +137,12 @@ export default function MapPage() {
       // cannot step past the last usable level.
       const MAX_ZOOM = 18;
 
+      // Centre on the Watamu peninsula — roughly the midpoint between
+      // Garoda Beach (south) and Watamu Beach (north), sitting over the land
+      // rather than the ocean so the first frame shows the village.
       const map = L.map('watamu-map', {
-        center: [-3.3500, 40.0200],
-        zoom: 14,
+        center: [-3.370, 40.003],
+        zoom: 13,
         maxZoom: MAX_ZOOM,
         zoomControl: true,
       });
@@ -180,7 +182,9 @@ export default function MapPage() {
       WATAMU_LOCATIONS.forEach((loc) => {
         const color = markerColors[loc.category] || '#0d9488';
         const icon = L.divIcon({
-          html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          // 50% opacity on the whole SVG so the satellite imagery stays
+          // readable through clusters of pins.
+          html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.5">
             <path d="M15 0C6.716 0 0 6.716 0 15c0 11.25 15 27 15 27s15-15.75 15-27C30 6.716 23.284 0 15 0z" fill="${color}"/>
             <circle cx="15" cy="15" r="6" fill="white"/>
           </svg>`,
@@ -218,7 +222,9 @@ export default function MapPage() {
           // Small teal circle — visually distinct from the pin icons used
           // for landmarks, so the two layers don't read as the same thing.
           const propIcon = L.divIcon({
-            html: `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            // 50% opacity to match the landmark pins — stays visible but
+            // lets the satellite imagery breathe through.
+            html: `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="opacity:0.5">
               <circle cx="10" cy="10" r="8" fill="#0d9488" stroke="white" stroke-width="2.5"/>
               <circle cx="10" cy="10" r="2.5" fill="white"/>
             </svg>`,
