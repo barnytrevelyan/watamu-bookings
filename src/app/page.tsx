@@ -4,6 +4,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import PropertyCard from "@/components/PropertyCard";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
+import ShellSearch from "@/components/ShellSearch";
 import WeatherWidget from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/Button";
 import JsonLd from "@/components/JsonLd";
@@ -451,7 +452,7 @@ function ShellLanding({
           </svg>
         </div>
 
-        <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
             Your Kenyan coast, simply booked
           </h1>
@@ -459,11 +460,16 @@ function ShellLanding({
             Hand-picked stays, boat charters and local experiences across the
             north coast — Watamu, Kilifi and beyond.
           </p>
+          <div className="mt-8 max-w-4xl mx-auto text-left">
+            <ShellSearch
+              destinations={destinations.map((d) => ({ slug: d.slug, name: d.name }))}
+            />
+          </div>
           <a
             href="#destinations"
-            className="mt-8 inline-flex items-center gap-2 bg-white text-teal-700 font-semibold px-6 py-3 rounded-lg hover:bg-teal-50 transition-colors shadow-lg"
+            className="mt-6 inline-flex items-center gap-2 text-white/90 hover:text-white text-sm font-medium"
           >
-            Choose a destination
+            Or browse destinations
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
