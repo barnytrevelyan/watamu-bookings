@@ -133,7 +133,7 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
             </Link>
             {showDestinationTabs && (
               <div
-                className="hidden sm:flex items-center gap-1 pl-3 border-l border-gray-200"
+                className="hidden sm:flex items-center gap-1 ml-3 p-1 bg-gray-100 rounded-full"
                 role="tablist"
                 aria-label="Destinations"
               >
@@ -146,9 +146,10 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
                       role="tab"
                       aria-selected={active}
                       className={
-                        active
-                          ? 'px-3 py-1.5 text-sm font-semibold rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
-                          : 'px-3 py-1.5 text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-full transition-colors'
+                        (active
+                          ? 'bg-white text-[var(--color-primary-700)] shadow-sm ring-1 ring-[var(--color-primary-200)] font-semibold'
+                          : 'text-gray-600 hover:text-gray-900 font-medium') +
+                        ' px-3 py-1 text-sm rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-400)]'
                       }
                     >
                       {dest.name}
@@ -256,24 +257,33 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white animate-slide-down">
           {showDestinationTabs && (
-            <div className="px-4 py-3 border-b border-gray-100 flex gap-2">
-              {destinations.map((dest) => {
-                const active = dest.slug === placeSlug;
-                return (
-                  <Link
-                    key={dest.slug}
-                    href={`/${dest.slug}`}
-                    onClick={() => setMobileOpen(false)}
-                    className={
-                      active
-                        ? 'flex-1 text-center px-3 py-2 text-sm font-semibold rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
-                        : 'flex-1 text-center px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 bg-gray-50 rounded-full'
-                    }
-                  >
-                    {dest.name}
-                  </Link>
-                );
-              })}
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div
+                className="flex gap-1 p-1 bg-gray-100 rounded-full"
+                role="tablist"
+                aria-label="Destinations"
+              >
+                {destinations.map((dest) => {
+                  const active = dest.slug === placeSlug;
+                  return (
+                    <Link
+                      key={dest.slug}
+                      href={`/${dest.slug}`}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setMobileOpen(false)}
+                      className={
+                        (active
+                          ? 'bg-white text-[var(--color-primary-700)] shadow-sm ring-1 ring-[var(--color-primary-200)] font-semibold'
+                          : 'text-gray-600 hover:text-gray-900 font-medium') +
+                        ' flex-1 text-center px-3 py-2 text-sm rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-400)]'
+                      }
+                    >
+                      {dest.name}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           )}
           <div className="px-4 py-3 space-y-1">

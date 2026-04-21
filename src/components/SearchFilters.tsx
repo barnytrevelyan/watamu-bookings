@@ -261,42 +261,53 @@ export default function SearchFilters({
         </button>
       </div>
 
-      {/* Destination pills — only shown when more than one destination is available */}
+      {/* Destination pills — segmented control, only shown when >1 destination */}
       {destinations.length > 1 && (
-        <div className="px-4 sm:px-6 pt-4 pb-4 flex flex-wrap items-center gap-2 border-b border-gray-50">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 mr-1">
+        <div className="px-4 sm:px-6 pt-4 pb-4 flex flex-wrap items-center gap-3 border-b border-gray-50">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
             Destinations
           </span>
-          <button
-            type="button"
-            onClick={setAllDestinations}
-            aria-pressed={selectedDestinations.length === destinations.length}
-            className={
-              selectedDestinations.length === destinations.length
-                ? 'px-3 py-1.5 text-sm font-semibold rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
-                : 'px-3 py-1.5 text-sm font-medium rounded-full text-gray-600 hover:bg-gray-50'
-            }
-          >
-            All
-          </button>
-          {destinations.map((d) => {
-            const active = selectedDestinations.includes(d.slug);
-            return (
-              <button
-                key={d.slug}
-                type="button"
-                onClick={() => toggleDestination(d.slug)}
-                aria-pressed={active}
-                className={
-                  active
-                    ? 'px-3 py-1.5 text-sm font-semibold rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
-                    : 'px-3 py-1.5 text-sm font-medium rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                }
-              >
-                {d.name}
-              </button>
-            );
-          })}
+          <div className="inline-flex items-center gap-1 p-1 bg-gray-100 rounded-full">
+            {(() => {
+              const allActive = selectedDestinations.length === destinations.length;
+              return (
+                <button
+                  type="button"
+                  onClick={setAllDestinations}
+                  aria-pressed={allActive}
+                  className={
+                    (allActive
+                      ? 'bg-white text-[var(--color-primary-700)] shadow-sm ring-1 ring-[var(--color-primary-200)] font-semibold'
+                      : 'text-gray-600 hover:text-gray-900 font-medium') +
+                    ' px-3 py-1 text-sm rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-400)]'
+                  }
+                >
+                  All
+                </button>
+              );
+            })()}
+            {destinations.map((d) => {
+              const active =
+                selectedDestinations.includes(d.slug) &&
+                selectedDestinations.length !== destinations.length;
+              return (
+                <button
+                  key={d.slug}
+                  type="button"
+                  onClick={() => toggleDestination(d.slug)}
+                  aria-pressed={active}
+                  className={
+                    (active
+                      ? 'bg-white text-[var(--color-primary-700)] shadow-sm ring-1 ring-[var(--color-primary-200)] font-semibold'
+                      : 'text-gray-600 hover:text-gray-900 font-medium') +
+                    ' px-3 py-1 text-sm rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-400)]'
+                  }
+                >
+                  {d.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
