@@ -4,7 +4,7 @@ import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
 import SortSelect from "@/components/SortSelect";
 import { getBoatImage } from "@/lib/images";
-import { getCurrentPlace } from "@/lib/places/context";
+import { getCurrentPlace, resolvePlaceSlugs, listActivePlaces } from "@/lib/places/context";
 import type { Boat, Place } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -23,13 +23,19 @@ interface SearchParams {
   min_price?: string;
   max_price?: string;
   capacity?: string;
+  /** Comma-separated destination slugs; overrides the path-resolved place. */
+  places?: string;
   sort?: string;
   page?: string;
 }
 
 const PAGE_SIZE = 12;
 
-async function getBoats(searchParams: SearchParams, place: Place | null) {
+async function getBoats(
+  searchParams: SearchParams,
+  place: Place | null,
+  selectedPlaces: Place[] | null
+) {
   const supabase = await createServerClient();
 
   // Build base select; when a place is active we inner-join wb_boat_places so the
@@ -41,13 +47,24 @@ async function getBoats(searchParams: SearchParams, place: Place | null) {
       trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, description)
     `;
 
+  // Explicit ?places= wins over the path-resolved place. Empty = no scope.
+  const scope =
+    selectedPlaces && selectedPlaces.length > 0
+      ? selectedPlaces
+      : place
+        ? [place]
+        : [];
+
   let query: any;
-  if (place) {
+  if (scope.length > 0) {
     const joinFragment = 'wb_boat_places!inner(place_id, is_primary)';
     query = supabase
       .from("wb_boats")
       .select(`${selectColumns}, ${joinFragment}`, { count: "exact" })
-      .eq("wb_boat_places.place_id", place.id)
+      .in(
+        "wb_boat_places.place_id",
+        scope.map((p) => p.id)
+      )
       .eq("is_published", true);
   } else {
     query = supabase
@@ -143,14 +160,26 @@ export default async function BoatsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { place } = await getCurrentPlace();
+  const [{ place }, selectedPlaces, activePlaces] = await Promise.all([
+    getCurrentPlace(),
+    resolvePlaceSlugs(params.places),
+    listActivePlaces(),
+  ]);
   // Feature gate: a place without the "boats" feature (inland, city, etc.)
   // doesn't get the boats route. Multi-place shell (place == null) still
-  // shows the global boats index.
-  if (place && !place.features.includes('boats')) notFound();
-  const { boats, total, page } = await getBoats(params, place);
+  // shows the global boats index. When the user has explicitly picked a set
+  // of destinations via ?places=, honour that even if the path place doesn't
+  // support boats.
+  if (place && !place.features.includes('boats') && !selectedPlaces) notFound();
+  const { boats, total, page } = await getBoats(params, place, selectedPlaces);
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const placeName = place?.name ?? 'Watamu';
+  const placeName = (() => {
+    if (selectedPlaces && selectedPlaces.length === 1) return selectedPlaces[0]!.name;
+    if (selectedPlaces && selectedPlaces.length > 1) {
+      return selectedPlaces.map((p) => p.name).join(' & ');
+    }
+    return place?.name ?? 'Kenyan';
+  })();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -172,7 +201,12 @@ export default async function BoatsPage({
       {/* Filters */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <SearchFilters variant="boats" />
+          <SearchFilters
+            variant="boats"
+            destinations={activePlaces.map((p) => ({ slug: p.slug, name: p.name }))}
+            currentPlaceSlug={place?.slug ?? null}
+            initial={{ places: params.places }}
+          />
         </div>
       </div>
 

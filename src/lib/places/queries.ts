@@ -22,6 +22,25 @@ export function filterPropertiesByPlace<Q extends { eq: (col: string, val: strin
 }
 
 /**
+ * Same as filterPropertiesByPlace but for a set of places (e.g. when the
+ * user picks multiple destinations via the cross-place filter). Empty array
+ * = no filter (show all). One place = same as the single-place helper.
+ */
+export function filterPropertiesByPlaces<
+  Q extends {
+    eq: (col: string, val: string) => Q;
+    in: (col: string, values: string[]) => Q;
+  }
+>(query: Q, places: Place[] | null | undefined): Q {
+  if (!places || places.length === 0) return query;
+  if (places.length === 1) return query.eq('place_id', places[0]!.id);
+  return query.in(
+    'place_id',
+    places.map((p) => p.id)
+  );
+}
+
+/**
  * Boats can span multiple places via wb_boat_places. To filter we embed
  * wb_boat_places!inner and filter on the embedded column, which makes
  * PostgREST rewrite the query to an inner join.

@@ -3,8 +3,8 @@ import PropertyCard from "@/components/PropertyCard";
 import SearchFilters from "@/components/SearchFilters";
 import SortSelect from "@/components/SortSelect";
 import { getPropertyImage } from "@/lib/images";
-import { getCurrentPlace } from "@/lib/places/context";
-import { filterPropertiesByPlace } from "@/lib/places/queries";
+import { getCurrentPlace, resolvePlaceSlugs, listActivePlaces } from "@/lib/places/context";
+import { filterPropertiesByPlace, filterPropertiesByPlaces } from "@/lib/places/queries";
 import type { Place, Property } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -26,6 +26,11 @@ interface SearchParams {
   check_in?: string;
   check_out?: string;
   amenities?: string;
+  /**
+   * Comma-separated destination slugs (e.g. "watamu,kilifi"). When set,
+   * overrides the path-scoped place so users can search across destinations.
+   */
+  places?: string;
   sort?: string;
   page?: string;
 }
@@ -42,7 +47,11 @@ async function getAmenities() {
   return data ?? [];
 }
 
-async function getProperties(searchParams: SearchParams, place: Place | null) {
+async function getProperties(
+  searchParams: SearchParams,
+  place: Place | null,
+  selectedPlaces: Place[] | null
+) {
   const supabase = await createServerClient();
 
   let query = supabase
@@ -57,8 +66,13 @@ async function getProperties(searchParams: SearchParams, place: Place | null) {
     )
     .eq("is_published", true);
 
-  // Scope to current place (no-op on multi-place shells with no path segment)
-  query = filterPropertiesByPlace(query, place);
+  // If the user explicitly picked a set of destinations via ?places=, honour
+  // that. Otherwise scope to the current path-resolved place.
+  if (selectedPlaces && selectedPlaces.length > 0) {
+    query = filterPropertiesByPlaces(query, selectedPlaces);
+  } else {
+    query = filterPropertiesByPlace(query, place);
+  }
 
   // Apply filters
   if (searchParams.property_type) {
@@ -162,12 +176,24 @@ export default async function PropertiesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { place } = await getCurrentPlace();
+  const [{ place }, selectedPlaces, activePlaces] = await Promise.all([
+    getCurrentPlace(),
+    resolvePlaceSlugs(params.places),
+    listActivePlaces(),
+  ]);
   const [{ properties, total, page }, amenities] = await Promise.all([
-    getProperties(params, place),
+    getProperties(params, place, selectedPlaces),
     getAmenities(),
   ]);
-  const placeName = place?.name ?? 'Watamu';
+  // Heading label: picked destinations override path place, and "all" shows
+  // the broad Kenyan-coast label rather than a single-place name.
+  const placeName = (() => {
+    if (selectedPlaces && selectedPlaces.length === 1) return selectedPlaces[0]!.name;
+    if (selectedPlaces && selectedPlaces.length > 1) {
+      return selectedPlaces.map((p) => p.name).join(' & ');
+    }
+    return place?.name ?? 'the Kenyan coast';
+  })();
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const selectedAmenities = (params.amenities ?? "")
     .split(",")
@@ -197,6 +223,8 @@ export default async function PropertiesPage({
           <SearchFilters
             variant="properties"
             amenities={amenities}
+            destinations={activePlaces.map((p) => ({ slug: p.slug, name: p.name }))}
+            currentPlaceSlug={place?.slug ?? null}
             initial={{
               check_in: params.check_in,
               check_out: params.check_out,
@@ -205,6 +233,7 @@ export default async function PropertiesPage({
               min_price: params.min_price,
               max_price: params.max_price,
               amenities: selectedAmenities,
+              places: params.places,
             }}
           />
         </div>

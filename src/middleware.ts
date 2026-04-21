@@ -146,7 +146,8 @@ export async function middleware(request: NextRequest) {
 
   // --- 2b. Strip /<place-slug> prefix on multi-place hosts so /watamu/xxx
   // resolves the same file-based route as /xxx. Place is still available
-  // server-side via the x-wb-place header.
+  // server-side via the x-wb-place header (propagated explicitly via
+  // request.headers so Server Components see it through next/headers).
   if (MULTI_PLACE_HOSTS.has(host)) {
     const seg = pathname.split('/').filter(Boolean)[0];
     if (seg && PLACE_SLUGS.has(seg)) {
@@ -154,7 +155,13 @@ export async function middleware(request: NextRequest) {
       const rest = pathname.slice(`/${seg}`.length) || '/';
       rewritten.pathname = rest;
 
-      const response = NextResponse.rewrite(rewritten, { request });
+      const forwardedHeaders = new Headers(request.headers);
+      forwardedHeaders.set(HOST_HEADER, host);
+      forwardedHeaders.set(PLACE_HEADER, seg);
+
+      const response = NextResponse.rewrite(rewritten, {
+        request: { headers: forwardedHeaders },
+      });
       supabaseResponse.cookies.getAll().forEach((cookie) => {
         response.cookies.set(cookie.name, cookie.value);
       });

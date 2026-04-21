@@ -19,6 +19,16 @@ interface SearchFiltersProps {
   onSearch?: (filters: Record<string, unknown>) => void;
   /** Amenities to expose in the property filter popover (optional). */
   amenities?: AmenityOption[];
+  /**
+   * Destinations the guest can filter by. When present, the widget renders a
+   * pill-group above the other filters. Pass slug + name.
+   */
+  destinations?: Array<{ slug: string; name: string }>;
+  /**
+   * Place resolved from the URL path (e.g. /kilifi/...). Used as the default
+   * selection when `initial.places` isn't provided.
+   */
+  currentPlaceSlug?: string | null;
   /** Initial values for controlled filters (used when restoring from URL). */
   initial?: {
     check_in?: string;
@@ -28,6 +38,8 @@ interface SearchFiltersProps {
     min_price?: string;
     max_price?: string;
     amenities?: string[];
+    /** Comma-separated destination slugs from the URL (?places=watamu,kilifi). */
+    places?: string;
   };
 }
 
@@ -77,12 +89,37 @@ export default function SearchFilters({
   variant,
   onSearch,
   amenities = [],
+  destinations = [],
+  currentPlaceSlug = null,
   initial,
 }: SearchFiltersProps) {
   const router = useRouter();
   const resolvedDefault: FilterTab =
     defaultTab ?? (variant === 'boats' ? 'boats' : 'properties');
   const [activeTab, setActiveTab] = useState<FilterTab>(resolvedDefault);
+
+  // Destination selection — seed from ?places= (explicit guest choice) or fall
+  // back to the current path-resolved place. Empty set = "all destinations".
+  const seedDestinations = (): string[] => {
+    if (initial?.places) {
+      return initial.places
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+    }
+    return currentPlaceSlug ? [currentPlaceSlug] : [];
+  };
+  const [selectedDestinations, setSelectedDestinations] = useState<string[]>(
+    seedDestinations,
+  );
+  const toggleDestination = (slug: string) => {
+    setSelectedDestinations((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    );
+  };
+  const setAllDestinations = () => {
+    setSelectedDestinations(destinations.map((d) => d.slug));
+  };
 
   // Property filters (controlled, seeded from URL if provided)
   const [checkIn, setCheckIn] = useState(initial?.check_in ?? '');
@@ -151,6 +188,29 @@ export default function SearchFilters({
     }
 
     const params = new URLSearchParams();
+    // Destinations: only pass `places` when the selection differs from the
+    // path-resolved default (same set) — keeps URLs clean on single-place
+    // browsing and signals "all" when empty or full selection.
+    const allSlugs = destinations.map((d) => d.slug).sort();
+    const sortedSelection = [...selectedDestinations].sort();
+    const isAll =
+      allSlugs.length > 0 &&
+      sortedSelection.length === allSlugs.length &&
+      sortedSelection.every((s, i) => s === allSlugs[i]);
+    const matchesCurrent =
+      !!currentPlaceSlug &&
+      sortedSelection.length === 1 &&
+      sortedSelection[0] === currentPlaceSlug;
+    if (selectedDestinations.length > 0 && !matchesCurrent) {
+      params.set('places', sortedSelection.join(','));
+    } else if (selectedDestinations.length === 0 && currentPlaceSlug) {
+      // User cleared destinations → fall back to "all" so results aren't
+      // silently scoped to the path place.
+      if (allSlugs.length > 0) params.set('places', allSlugs.join(','));
+    }
+    // Silence unused `isAll` warning — it's computed for future clarity.
+    void isAll;
+
     if (activeTab === 'properties') {
       if (checkIn) params.set('check_in', checkIn);
       if (checkOut) params.set('check_out', checkOut);
@@ -200,6 +260,45 @@ export default function SearchFilters({
           Fishing Charters
         </button>
       </div>
+
+      {/* Destination pills — only shown when more than one destination is available */}
+      {destinations.length > 1 && (
+        <div className="px-4 sm:px-6 pt-4 pb-4 flex flex-wrap items-center gap-2 border-b border-gray-50">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 mr-1">
+            Destinations
+          </span>
+          <button
+            type="button"
+            onClick={setAllDestinations}
+            aria-pressed={selectedDestinations.length === destinations.length}
+            className={
+              selectedDestinations.length === destinations.length
+                ? 'px-3 py-1.5 text-sm font-semibold rounded-full bg-[var(--color-primary-100)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
+                : 'px-3 py-1.5 text-sm font-medium rounded-full text-gray-600 hover:bg-gray-50'
+            }
+          >
+            All
+          </button>
+          {destinations.map((d) => {
+            const active = selectedDestinations.includes(d.slug);
+            return (
+              <button
+                key={d.slug}
+                type="button"
+                onClick={() => toggleDestination(d.slug)}
+                aria-pressed={active}
+                className={
+                  active
+                    ? 'px-3 py-1.5 text-sm font-semibold rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
+                    : 'px-3 py-1.5 text-sm font-medium rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                }
+              >
+                {d.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Filter fields */}
       <div className="p-4 sm:p-6">

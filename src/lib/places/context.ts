@@ -212,6 +212,28 @@ export async function listAllPlaces(): Promise<Place[]> {
   return (data as Place[] | null) ?? [];
 }
 
+/**
+ * Resolve a comma-separated list of place slugs against the visible-places
+ * catalogue. Invalid / hidden / unknown slugs are dropped silently — we
+ * never trust what the user typed in the URL. Returns null if no valid
+ * slugs remain so callers can fall back to single-place default.
+ */
+export async function resolvePlaceSlugs(
+  slugsParam: string | undefined | null
+): Promise<Place[] | null> {
+  if (!slugsParam) return null;
+  const wanted = new Set(
+    slugsParam
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (wanted.size === 0) return null;
+  const active = await listActivePlaces();
+  const matched = active.filter((p) => wanted.has(p.slug));
+  return matched.length > 0 ? matched : null;
+}
+
 /** Fetch a place by slug. */
 export async function getPlaceBySlug(slug: string): Promise<Place | null> {
   const supabase = await createClient();

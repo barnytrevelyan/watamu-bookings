@@ -3,6 +3,11 @@
 import { createContext, useContext } from 'react';
 import type { PlaceFeature } from '@/lib/types';
 
+export interface BrandDestination {
+  slug: string;
+  name: string;
+}
+
 interface Brand {
   name: string;
   short: string;
@@ -14,6 +19,8 @@ interface Brand {
   placeSlug: string | null;
   /** Features available at the current place; used for nav gating. */
   features: PlaceFeature[];
+  /** All user-visible destinations, for the navbar destination switcher. */
+  destinations: BrandDestination[];
 }
 
 const BrandContext = createContext<Brand | null>(null);
@@ -42,6 +49,7 @@ export function useBrand(): Brand {
     placeName: 'Kenya',
     placeSlug: null,
     features: [],
+    destinations: [],
   };
 }
 

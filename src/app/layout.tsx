@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { getCurrentPlace } from "@/lib/places/context";
+import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
 import { BrandProvider } from "@/lib/places/BrandProvider";
 import "./globals.css";
 
@@ -103,7 +103,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { place, host } = await getCurrentPlace();
+  const [{ place, host }, allPlaces] = await Promise.all([
+    getCurrentPlace(),
+    listActivePlaces(),
+  ]);
   const brand = {
     name: host.brand_name,
     short: host.brand_short,
@@ -113,6 +116,7 @@ export default async function RootLayout({
   const placeLabel = place
     ? `${place.name}, Kenya`
     : `${host.brand_short}, Kenya`;
+  const destinations = allPlaces.map((p) => ({ slug: p.slug, name: p.name }));
 
   return (
     <html lang="en" className={inter.variable}>
@@ -146,6 +150,7 @@ export default async function RootLayout({
             placeName: place?.name ?? brand.short,
             placeSlug: place?.slug ?? null,
             features: place?.features ?? [],
+            destinations,
           }}
         >
           <Navbar brandName={brand.name} />

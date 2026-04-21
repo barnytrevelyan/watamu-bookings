@@ -33,7 +33,7 @@ function splitBrand(name: string): { first: string; accent: string | null } {
 
 export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
-  const { features, placeSlug, placeName } = useBrand();
+  const { features, placeSlug, destinations } = useBrand();
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -100,9 +100,9 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
       href: link.scoped && placeSlug ? `/${placeSlug}${link.href}` : link.href,
     }));
 
-  // Place home link (shown when in a place) — lets users jump back to the
-  // destination landing, distinct from the shell /.
-  const placeHomeHref = placeSlug ? `/${placeSlug}` : null;
+  // Destination tab switcher — visible once a place is active. Clicking the
+  // inactive tab hops to the matching landing in the sibling destination.
+  const showDestinationTabs = inPlace && destinations.length > 1;
 
   // Use JWT metadata for instant display, profile as upgrade
   const displayName =
@@ -131,18 +131,31 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
                 )}
               </span>
             </Link>
-            {inPlace && placeHomeHref && (
-              <>
-                <span className="text-gray-300 text-lg select-none" aria-hidden>
-                  /
-                </span>
-                <Link
-                  href={placeHomeHref}
-                  className="text-sm font-medium text-gray-700 hover:text-[var(--color-primary-600)]"
-                >
-                  {placeName}
-                </Link>
-              </>
+            {showDestinationTabs && (
+              <div
+                className="hidden sm:flex items-center gap-1 pl-3 border-l border-gray-200"
+                role="tablist"
+                aria-label="Destinations"
+              >
+                {destinations.map((dest) => {
+                  const active = dest.slug === placeSlug;
+                  return (
+                    <Link
+                      key={dest.slug}
+                      href={`/${dest.slug}`}
+                      role="tab"
+                      aria-selected={active}
+                      className={
+                        active
+                          ? 'px-3 py-1.5 text-sm font-semibold rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
+                          : 'px-3 py-1.5 text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-full transition-colors'
+                      }
+                    >
+                      {dest.name}
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </div>
 
@@ -242,6 +255,27 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white animate-slide-down">
+          {showDestinationTabs && (
+            <div className="px-4 py-3 border-b border-gray-100 flex gap-2">
+              {destinations.map((dest) => {
+                const active = dest.slug === placeSlug;
+                return (
+                  <Link
+                    key={dest.slug}
+                    href={`/${dest.slug}`}
+                    onClick={() => setMobileOpen(false)}
+                    className={
+                      active
+                        ? 'flex-1 text-center px-3 py-2 text-sm font-semibold rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-700)] ring-1 ring-[var(--color-primary-200)]'
+                        : 'flex-1 text-center px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 bg-gray-50 rounded-full'
+                    }
+                  >
+                    {dest.name}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
           <div className="px-4 py-3 space-y-1">
             {navLinks.map((link) => (
               <Link
