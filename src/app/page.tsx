@@ -149,7 +149,14 @@ export default async function HomePage() {
   const heroImage =
     place?.hero_image_url ??
     "https://jiyoxdeiyydyxjymahrh.supabase.co/storage/v1/object/public/watamu-images/hero/watamu-hero.jpg";
-  const heroHeadline = place?.short_tagline ?? `Your stay in ${placeName} starts here.`;
+  // "in Watamu" reads well; "in Kwetu" doesn't (Kwetu is the brand, not a
+  // place). On the multi-place shell we swap to "at Kwetu" so the copy works
+  // until a real place is selected.
+  const heroHeadline =
+    place?.short_tagline ??
+    (place
+      ? `Your stay in ${placeName} starts here.`
+      : `Your stay at ${placeName} starts here.`);
   const heroSubcopy =
     place
       ? `Book stunning beachfront stays and world-class fishing charters in ${placeName}, on Kenya's most beautiful coastline.`
