@@ -144,6 +144,26 @@ export async function middleware(request: NextRequest) {
     supabaseResponse.headers.set(PLACE_HEADER, placeSlug);
   }
 
+  // --- 2b. Strip /<place-slug> prefix on multi-place hosts so /watamu/xxx
+  // resolves the same file-based route as /xxx. Place is still available
+  // server-side via the x-wb-place header.
+  if (MULTI_PLACE_HOSTS.has(host)) {
+    const seg = pathname.split('/').filter(Boolean)[0];
+    if (seg && PLACE_SLUGS.has(seg)) {
+      const rewritten = request.nextUrl.clone();
+      const rest = pathname.slice(`/${seg}`.length) || '/';
+      rewritten.pathname = rest;
+
+      const response = NextResponse.rewrite(rewritten, { request });
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        response.cookies.set(cookie.name, cookie.value);
+      });
+      response.headers.set(HOST_HEADER, host);
+      response.headers.set(PLACE_HEADER, seg);
+      return response;
+    }
+  }
+
   // --- 3. Legacy listing-slug subdomains on watamu.ke ---
   const rootDomain = SUBDOMAIN_HOSTS.find((domain) => hostname.endsWith(domain));
 
