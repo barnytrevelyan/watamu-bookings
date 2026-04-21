@@ -69,15 +69,15 @@ export default function EarningsCalculator() {
             <input
               type="range"
               min={3000}
-              max={60000}
-              step={500}
+              max={300000}
+              step={1000}
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
               className="mt-3 w-full accent-teal-600"
             />
             <div className="mt-1 flex justify-between text-xs text-slate-500">
               <span>KSh 3,000</span>
-              <span>KSh 60,000</span>
+              <span>KSh 300,000</span>
             </div>
           </div>
 
