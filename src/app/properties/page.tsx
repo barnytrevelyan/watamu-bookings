@@ -3,14 +3,19 @@ import PropertyCard from "@/components/PropertyCard";
 import SearchFilters from "@/components/SearchFilters";
 import SortSelect from "@/components/SortSelect";
 import { getPropertyImage } from "@/lib/images";
-import type { Property } from "@/lib/types";
+import { getCurrentPlace } from "@/lib/places/context";
+import { filterPropertiesByPlace } from "@/lib/places/queries";
+import type { Place, Property } from "@/lib/types";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Properties in Watamu",
-  description:
-    "Browse and book beachfront villas, apartments, and holiday homes in Watamu, Kenya. Filter by price, bedrooms, guests, and more.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { place, host } = await getCurrentPlace();
+  const placeName = place?.name ?? host.brand_short;
+  return {
+    title: `Properties in ${placeName}`,
+    description: `Browse and book beachfront villas, apartments, and holiday homes in ${placeName}, Kenya. Filter by price, bedrooms, guests, and more.`,
+  };
+}
 
 interface SearchParams {
   property_type?: string;
@@ -37,7 +42,7 @@ async function getAmenities() {
   return data ?? [];
 }
 
-async function getProperties(searchParams: SearchParams) {
+async function getProperties(searchParams: SearchParams, place: Place | null) {
   const supabase = await createServerClient();
 
   let query = supabase
@@ -51,6 +56,9 @@ async function getProperties(searchParams: SearchParams) {
       { count: "exact" }
     )
     .eq("is_published", true);
+
+  // Scope to current place (no-op on multi-place shells with no path segment)
+  query = filterPropertiesByPlace(query, place);
 
   // Apply filters
   if (searchParams.property_type) {
@@ -154,10 +162,12 @@ export default async function PropertiesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const { place } = await getCurrentPlace();
   const [{ properties, total, page }, amenities] = await Promise.all([
-    getProperties(params),
+    getProperties(params, place),
     getAmenities(),
   ]);
+  const placeName = place?.name ?? 'Watamu';
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const selectedAmenities = (params.amenities ?? "")
     .split(",")
@@ -174,7 +184,7 @@ export default async function PropertiesPage({
           <span className="inline-block rounded-full bg-white/80 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[var(--color-primary-700)]">
             Stays
           </span>
-          <h1 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl">Properties in Watamu</h1>
+          <h1 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl">Properties in {placeName}</h1>
           <p className="mt-2 max-w-2xl text-gray-600">
             Beachfront villas, apartments, and holiday homes on the Kenyan coast — all vetted by local hosts.
           </p>
@@ -224,7 +234,7 @@ export default async function PropertiesPage({
                 key={property.id}
                 slug={property.slug}
                 name={property.name}
-                location={property.city || 'Watamu'}
+                location={property.city || placeName}
                 type={property.property_type?.replace('_', ' ') || 'House'}
                 coverImage={property.images?.[0]?.url || getPropertyImage(index)}
                 rating={Number(property.avg_rating) || 0}

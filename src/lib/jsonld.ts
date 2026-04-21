@@ -7,7 +7,19 @@
  *   <JsonLd data={propertySchema(property)} />
  */
 
+import type { Place, PlaceContext } from './types';
+
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://watamubookings.com';
+
+/** Shallow brand-config shape accepted by org / website / activity schemas. */
+type BrandHost = Pick<PlaceContext['host'], 'brand_name' | 'brand_short' | 'host'>;
+
+function siteUrl(host?: BrandHost | null): string {
+  if (host?.host && host.host !== 'localhost' && host.host !== 'localhost:3000') {
+    return `https://${host.host.replace(/^www\./, '')}`;
+  }
+  return SITE;
+}
 
 interface PropertyLike {
   id: string;
@@ -50,7 +62,7 @@ interface BoatLike {
   trips?: Array<{ price_total?: number | string | null }> | null;
 }
 
-export function propertySchema(p: PropertyLike) {
+export function propertySchema(p: PropertyLike, place?: Place | null) {
   const url = `${SITE}/properties/${p.slug}`;
   const imgs = (p.images ?? [])
     .slice()
@@ -72,7 +84,7 @@ export function propertySchema(p: PropertyLike) {
     address: {
       '@type': 'PostalAddress',
       streetAddress: p.address || undefined,
-      addressLocality: p.city || 'Watamu',
+      addressLocality: p.city || place?.name || 'Watamu',
       addressRegion: p.county || 'Kilifi',
       addressCountry: p.country || 'Kenya',
     },
@@ -103,7 +115,7 @@ export function propertySchema(p: PropertyLike) {
   return schema;
 }
 
-export function boatSchema(b: BoatLike) {
+export function boatSchema(b: BoatLike, place?: Place | null) {
   const url = `${SITE}/boats/${b.slug}`;
   const imgs = (b.images ?? [])
     .slice()
@@ -131,23 +143,31 @@ export function boatSchema(b: BoatLike) {
     image: imgs.length ? imgs : undefined,
     provider: {
       '@type': 'LocalBusiness',
-      name: b.captain_name ? `Captain ${b.captain_name.replace(/^captain\s+/i, '')}` : 'Watamu charter',
+      name: b.captain_name
+        ? `Captain ${b.captain_name.replace(/^captain\s+/i, '')}`
+        : `${place?.name || 'Watamu'} charter`,
       address: {
         '@type': 'PostalAddress',
-        addressLocality: b.home_port || 'Watamu',
+        addressLocality: b.home_port || place?.name || 'Watamu',
         addressCountry: 'Kenya',
       },
     },
     areaServed: {
       '@type': 'Place',
-      name: 'Watamu, Kenya',
+      name: place ? `${place.name}, Kenya` : 'Watamu, Kenya',
       geo: b.latitude && b.longitude
         ? {
             '@type': 'GeoCoordinates',
             latitude: Number(b.latitude),
             longitude: Number(b.longitude),
           }
-        : undefined,
+        : place?.centroid_lat && place?.centroid_lng
+          ? {
+              '@type': 'GeoCoordinates',
+              latitude: Number(place.centroid_lat),
+              longitude: Number(place.centroid_lng),
+            }
+          : undefined,
     },
     offers: minPrice && Number.isFinite(minPrice)
       ? {
@@ -173,61 +193,60 @@ export function boatSchema(b: BoatLike) {
   return schema;
 }
 
-export function organizationSchema() {
+export function organizationSchema(host?: BrandHost | null) {
+  const url = siteUrl(host);
+  const brand = host?.brand_name ?? 'Watamu Bookings';
+  const locality = host?.brand_short ?? 'Watamu';
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'Watamu Bookings',
-    url: SITE,
-    logo: `${SITE}/icon-512.png`,
-    description:
-      'Local marketplace for beachfront accommodation and fishing charters in Watamu, Kenya.',
-    sameAs: [
-      // add when live
-    ],
+    name: brand,
+    url,
+    logo: `${url}/icon-512.png`,
+    description: `Local marketplace for beachfront accommodation and fishing charters in ${locality}, Kenya.`,
+    sameAs: [],
     address: {
       '@type': 'PostalAddress',
-      addressLocality: 'Watamu',
+      addressLocality: locality,
       addressRegion: 'Kilifi',
       addressCountry: 'Kenya',
     },
   };
 }
 
-export function websiteSchema() {
+export function websiteSchema(host?: BrandHost | null) {
+  const url = siteUrl(host);
+  const brand = host?.brand_name ?? 'Watamu Bookings';
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Watamu Bookings',
-    url: SITE,
+    name: brand,
+    url,
     potentialAction: {
       '@type': 'SearchAction',
-      target: `${SITE}/properties?q={search_term_string}`,
+      target: `${url}/properties?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
   };
 }
 
-export function touristDestinationSchema() {
+export function touristDestinationSchema(place: Place) {
   return {
     '@context': 'https://schema.org',
     '@type': 'TouristDestination',
-    name: 'Watamu',
+    name: place.name,
     url: `${SITE}/`,
     description:
-      'Watamu is a coastal village in Kilifi County on the Kenyan Indian Ocean coast, famous for the Watamu Marine National Park, deep-sea fishing, white-sand beaches and sea turtles.',
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: -3.354,
-      longitude: 40.019,
-    },
-    containsPlace: [
-      { '@type': 'TouristAttraction', name: 'Watamu Marine National Park' },
-      { '@type': 'TouristAttraction', name: 'Mida Creek' },
-      { '@type': 'TouristAttraction', name: 'Gede Ruins' },
-      { '@type': 'Beach', name: 'Watamu Beach' },
-      { '@type': 'Beach', name: 'Turtle Bay' },
-    ],
+      place.description ??
+      `${place.name} is a coastal town in Kilifi County, Kenya.`,
+    geo: place.centroid_lat && place.centroid_lng
+      ? {
+          '@type': 'GeoCoordinates',
+          latitude: Number(place.centroid_lat),
+          longitude: Number(place.centroid_lng),
+        }
+      : undefined,
+    // Tourist attractions live in place.map_pois_json when we populate them.
   };
 }
 

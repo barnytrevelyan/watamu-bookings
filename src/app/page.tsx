@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/Button";
 import JsonLd from "@/components/JsonLd";
 import { organizationSchema, websiteSchema, touristDestinationSchema } from "@/lib/jsonld";
 import { STOCK_IMAGES, getPropertyImage, getBoatImage } from "@/lib/images";
-import type { Property, Boat } from "@/lib/types";
+import { getCurrentPlace } from "@/lib/places/context";
+import type { Property, Boat, Place } from "@/lib/types";
 
-async function getFeaturedProperties(): Promise<Property[]> {
+async function getFeaturedProperties(place: Place | null): Promise<Property[]> {
   const supabase = await createServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("wb_properties")
     .select(
       `
@@ -23,7 +24,9 @@ async function getFeaturedProperties(): Promise<Property[]> {
     `
     )
     .eq("is_featured", true)
-    .eq("is_published", true)
+    .eq("is_published", true);
+  if (place) query = query.eq("place_id", place.id);
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(6);
 
@@ -34,20 +37,27 @@ async function getFeaturedProperties(): Promise<Property[]> {
   return data ?? [];
 }
 
-async function getFeaturedBoats(): Promise<Boat[]> {
+async function getFeaturedBoats(place: Place | null): Promise<Boat[]> {
   const supabase = await createServerClient();
-  const { data, error } = await supabase
-    .from("wb_boats")
-    .select(
-      `
+  const baseSelect = `
       *,
       images:wb_images(id, url, alt_text, sort_order),
       reviews:wb_reviews(rating),
       trips:wb_boat_trips(id, name, duration_hours, price_total)
-    `
-    )
+    `;
+
+  const select = place
+    ? `${baseSelect.replace(/\s+$/, '')}, wb_boat_places!inner(place_id)`
+    : baseSelect;
+
+  let query = supabase
+    .from("wb_boats")
+    .select(select)
     .eq("is_featured", true)
-    .eq("is_published", true)
+    .eq("is_published", true);
+  if (place) query = query.eq("wb_boat_places.place_id", place.id);
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(6);
 
@@ -55,51 +65,8 @@ async function getFeaturedBoats(): Promise<Boat[]> {
     console.error("Error fetching featured boats:", error);
     return [];
   }
-  return data ?? [];
+  return (data as unknown as Boat[]) ?? [];
 }
-
-const WHY_WATAMU = [
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.264.26-2.467.732-3.558" />
-      </svg>
-    ),
-    title: "Watamu Marine National Park",
-    description:
-      "Explore one of Kenya's most pristine marine reserves with vibrant coral reefs, sea turtles, and over 600 species of fish.",
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-      </svg>
-    ),
-    title: "Deep-Sea Fishing Capital",
-    description:
-      "Watamu is East Africa's premier sport fishing destination. Target marlin, sailfish, yellowfin tuna, and wahoo year-round.",
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-      </svg>
-    ),
-    title: "Pristine Beaches",
-    description:
-      "White sandy beaches stretching for kilometres, turquoise waters, and hidden coves make Watamu a tropical paradise.",
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-      </svg>
-    ),
-    title: "Authentic Local Culture",
-    description:
-      "Experience the warmth of Swahili hospitality, savour fresh seafood, and explore the historic ruins of Gede and the Mida Creek boardwalk.",
-  },
-];
 
 const HOW_IT_WORKS = [
   {
@@ -118,35 +85,91 @@ const HOW_IT_WORKS = [
     step: "03",
     title: "Experience",
     description:
-      "Arrive in Watamu and enjoy your stay or charter. Our local hosts ensure everything is perfect.",
+      "Arrive and enjoy your stay or charter. Our local hosts ensure everything is perfect.",
+  },
+];
+
+const WHY_THIS_PLACE_FALLBACK = [
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.264.26-2.467.732-3.558" />
+      </svg>
+    ),
+    title: "Marine National Park",
+    description:
+      "Pristine coral reefs, sea turtles, and 600+ species of fish right on your doorstep.",
+  },
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+      </svg>
+    ),
+    title: "Deep-Sea Fishing",
+    description:
+      "East Africa's premier sport fishing grounds. Target marlin, sailfish, tuna and wahoo year-round.",
+  },
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+      </svg>
+    ),
+    title: "Pristine Beaches",
+    description:
+      "White sand beaches stretching for kilometres, turquoise waters, and hidden coves.",
+  },
+  {
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+      </svg>
+    ),
+    title: "Authentic Swahili Culture",
+    description:
+      "Swahili hospitality, fresh seafood, and deep-rooted coastal history and heritage.",
   },
 ];
 
 export default async function HomePage() {
+  const { place, host } = await getCurrentPlace();
+
   const [properties, boats] = await Promise.all([
-    getFeaturedProperties(),
-    getFeaturedBoats(),
+    getFeaturedProperties(place),
+    getFeaturedBoats(place),
   ]);
+
+  // Copy derived from the current place — falls back to Watamu defaults
+  // so the watamubookings.com host still reads as before.
+  const placeName = place?.name ?? host.brand_short;
+  const heroImage =
+    place?.hero_image_url ??
+    "https://jiyoxdeiyydyxjymahrh.supabase.co/storage/v1/object/public/watamu-images/hero/watamu-hero.jpg";
+  const heroHeadline = place?.short_tagline ?? `Your stay in ${placeName} starts here.`;
+  const heroSubcopy =
+    place
+      ? `Book stunning beachfront stays and world-class fishing charters in ${placeName}, on Kenya's most beautiful coastline.`
+      : "Book stunning beachfront stays and world-class fishing charters on Kenya's coast.";
 
   return (
     <>
       {/* SEO: Organization, WebSite + SearchAction, TouristDestination */}
-      <JsonLd id="ld-org" data={organizationSchema()} />
-      <JsonLd id="ld-website" data={websiteSchema()} />
-      <JsonLd id="ld-destination" data={touristDestinationSchema()} />
+      <JsonLd id="ld-org" data={organizationSchema(host)} />
+      <JsonLd id="ld-website" data={websiteSchema(host)} />
+      {place ? <JsonLd id="ld-destination" data={touristDestinationSchema(place)} /> : null}
+
       {/* ===== HERO SECTION ===== */}
       <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center overflow-hidden">
-        {/* Hero background image */}
         <Image
-          src="https://jiyoxdeiyydyxjymahrh.supabase.co/storage/v1/object/public/watamu-images/hero/watamu-hero.jpg"
-          alt="White sand beach and turquoise ocean in Watamu, Kenya"
+          src={heroImage}
+          alt={`White sand beach and turquoise ocean in ${placeName}, Kenya`}
           fill
           className="object-cover"
           priority
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/50" />
 
-        {/* Decorative wave */}
         <div className="absolute bottom-0 left-0 right-0">
           <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
             <path
@@ -158,11 +181,10 @@ export default async function HomePage() {
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 tracking-tight">
-            Your Stay in Watamu Starts Here
+            {heroHeadline.replace(/\.$/, '')}
           </h1>
           <p className="text-lg sm:text-xl text-white/90 mb-10 max-w-2xl mx-auto">
-            Book stunning beachfront stays and world-class fishing charters on
-            Kenya&rsquo;s most beautiful coastline.
+            {heroSubcopy}
           </p>
 
           <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-4 sm:p-6">
@@ -178,7 +200,7 @@ export default async function HomePage() {
             <div className="flex items-end justify-between mb-10">
               <div>
                 <h2 className="text-3xl font-bold text-gray-900">Featured Properties</h2>
-                <p className="mt-2 text-gray-600">Hand-picked stays for an unforgettable Watamu experience</p>
+                <p className="mt-2 text-gray-600">Hand-picked stays for an unforgettable {placeName} experience</p>
               </div>
               <Link
                 href="/properties"
@@ -197,7 +219,7 @@ export default async function HomePage() {
                   key={property.id}
                   slug={property.slug}
                   name={property.name}
-                  location={property.city || 'Watamu'}
+                  location={property.city || placeName}
                   type={property.property_type?.replace('_', ' ') || 'House'}
                   coverImage={property.images?.[0]?.url || getPropertyImage(index)}
                   rating={property.avg_rating || 0}
@@ -273,18 +295,18 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ===== WHY WATAMU ===== */}
+      {/* ===== WHY THIS PLACE ===== */}
       <section className="py-16 lg:py-24 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-gray-900">Why Watamu?</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Why {placeName}?</h2>
             <p className="mt-2 text-gray-600 max-w-xl mx-auto">
-              A world-renowned destination on the Kenyan coast offering something for everyone.
+              {place?.description ?? "A world-renowned destination on the Kenyan coast offering something for everyone."}
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {WHY_WATAMU.map((item) => (
+            {WHY_THIS_PLACE_FALLBACK.map((item) => (
               <div key={item.title} className="text-center group">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-50 text-teal-600 mb-5 group-hover:bg-teal-100 transition-colors">
                   {item.icon}
@@ -298,14 +320,14 @@ export default async function HomePage() {
       </section>
 
       {/* ===== WEATHER WIDGET ===== */}
-      <WeatherWidget />
+      <WeatherWidget place={place} />
 
       {/* ===== HOW IT WORKS ===== */}
       <section className="py-16 lg:py-24 px-4 bg-gray-50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-gray-900">How It Works</h2>
-            <p className="mt-2 text-gray-600">Three simple steps to your perfect Watamu getaway</p>
+            <p className="mt-2 text-gray-600">Three simple steps to your perfect {placeName} getaway</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -337,7 +359,7 @@ export default async function HomePage() {
                 Earn from your property or boat
               </h2>
               <p className="text-white/80 mb-10 max-w-lg mx-auto text-lg">
-                Join Watamu&rsquo;s growing community of hosts. List your beachfront
+                Join {placeName}&rsquo;s growing community of hosts. List your beachfront
                 property or fishing charter and reach travellers from around the world.
               </p>
 

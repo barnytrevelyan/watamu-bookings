@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { Place } from '@/lib/types';
 
 interface WeatherData {
   current_weather: {
@@ -56,16 +57,23 @@ function getDayName(dateStr: string, index: number): string {
   return date.toLocaleDateString('en-US', { weekday: 'short' });
 }
 
-export default function WeatherWidget() {
+interface WeatherWidgetProps {
+  place?: Place | null;
+}
+
+export default function WeatherWidget({ place }: WeatherWidgetProps = {}) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const seaTemp = SEA_TEMPS[new Date().getMonth() + 1] || 27;
+  const lat = place?.centroid_lat != null ? Number(place.centroid_lat) : -3.354;
+  const lng = place?.centroid_lng != null ? Number(place.centroid_lng) : 40.024;
+  const placeName = place?.name ?? 'Watamu';
 
   useEffect(() => {
     const url =
-      'https://api.open-meteo.com/v1/forecast?latitude=-3.354&longitude=40.024&daily=temperature_2m_max,temperature_2m_min,weathercode&current_weather=true&timezone=Africa/Nairobi&forecast_days=5';
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&current_weather=true&timezone=Africa/Nairobi&forecast_days=5`;
 
     fetch(url)
       .then((res) => {
@@ -80,7 +88,7 @@ export default function WeatherWidget() {
         setError(true);
         setLoading(false);
       });
-  }, []);
+  }, [lat, lng]);
 
   if (error) {
     return null; // Silently fail — weather is supplementary
@@ -90,7 +98,7 @@ export default function WeatherWidget() {
     <section className="py-16 lg:py-24 px-4 bg-gradient-to-br from-teal-600 to-cyan-700">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-white">Watamu Weather</h2>
+          <h2 className="text-3xl font-bold text-white">{placeName} Weather</h2>
           <p className="mt-2 text-white/80 max-w-xl mx-auto">
             Plan your trip with live weather conditions on the Kenyan coast
           </p>

@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/Badge";
 import JsonLd from "@/components/JsonLd";
 import { propertySchema, breadcrumbSchema } from "@/lib/jsonld";
 import PropertyBookingSidebar from "./PropertyBookingSidebar";
-import type { Property, Room, Amenity, Review, Image } from "@/lib/types";
+import { getCurrentPlace } from "@/lib/places/context";
+import type { Place, Property, Room, Amenity, Review, Image } from "@/lib/types";
 
 /* ---------- Data fetching ---------- */
 
@@ -19,6 +20,7 @@ interface PropertyDetail extends Property {
   rooms: Room[];
   amenities: { amenity: Amenity }[];
   reviews: Review[];
+  place: Place | null;
   owner: {
     id: string;
     full_name: string;
@@ -27,10 +29,10 @@ interface PropertyDetail extends Property {
   } | null;
 }
 
-async function getProperty(slug: string): Promise<PropertyDetail | null> {
+async function getProperty(slug: string, currentPlace: Place | null): Promise<PropertyDetail | null> {
   const supabase = await createServerClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("wb_properties")
     .select(
       `
@@ -43,12 +45,19 @@ async function getProperty(slug: string): Promise<PropertyDetail | null> {
         cleanliness_rating, location_rating, value_rating, communication_rating,
         author:wb_profiles!guest_id(id, full_name, avatar_url)
       ),
-      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at)
+      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at),
+      place:wb_places(*)
     `
     )
     .eq("slug", slug)
-    .eq("is_published", true)
-    .single();
+    .eq("is_published", true);
+
+  // Scope lookup to the current place so a stay in Kilifi isn't served on
+  // watamubookings.com. On a multi-place shell with no place resolved
+  // (kwetu.ke root) we skip the filter so slugs still resolve there.
+  if (currentPlace) query = query.eq("place_id", currentPlace.id);
+
+  const { data, error } = await query.single();
 
   if (error || !data) return null;
   return data as unknown as PropertyDetail;
@@ -76,7 +85,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const property = await getProperty(slug);
+  const { place } = await getCurrentPlace();
+  const property = await getProperty(slug, place);
   if (!property) return { title: "Property Not Found" };
 
   const coverImage = property.images?.sort((a, b) => a.sort_order - b.sort_order)[0];
@@ -100,10 +110,13 @@ export default async function PropertyDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const property = await getProperty(slug);
+  const { place } = await getCurrentPlace();
+  const property = await getProperty(slug, place);
   if (!property) notFound();
 
   const availability = await getAvailability(property.id);
+  const propertyPlace = property.place ?? place;
+  const placeName = propertyPlace?.name ?? 'Watamu';
 
   const sortedImages = (property.images ?? []).sort((a, b) => a.sort_order - b.sort_order);
   const amenities = (property.amenities ?? []).map((pa) => pa.amenity);
@@ -132,7 +145,7 @@ export default async function PropertyDetailPage({
       {/* SEO: structured data for Google / AI search */}
       <JsonLd
         id={`ld-property-${property.id}`}
-        data={propertySchema({ ...property, images: sortedImages })}
+        data={propertySchema({ ...property, images: sortedImages }, propertyPlace)}
       />
       <JsonLd
         id={`ld-breadcrumb-${property.id}`}
@@ -164,7 +177,7 @@ export default async function PropertyDetailPage({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                   </svg>
-                  {[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}
+                  {[property.city || placeName, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ')}
                 </span>
                 {totalReviews > 0 && (
                   <span className="flex items-center gap-1">
@@ -273,7 +286,7 @@ export default async function PropertyDetailPage({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                     </svg>
-                    <p className="text-sm font-medium">{[property.city, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ') || "Watamu, Kenya"}</p>
+                    <p className="text-sm font-medium">{[property.city || placeName, property.county || 'Kilifi', property.country || 'Kenya'].filter(Boolean).join(', ')}</p>
                     <p className="text-xs text-gray-400 mt-1">
                       {property.latitude != null ? Number(property.latitude).toFixed(4) : '—'}, {property.longitude != null ? Number(property.longitude).toFixed(4) : '—'}
                     </p>

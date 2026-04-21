@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import JsonLd from "@/components/JsonLd";
 import { boatSchema, breadcrumbSchema } from "@/lib/jsonld";
 import BoatBookingSidebar from "./BoatBookingSidebar";
-import type { Boat, BoatTrip, Review, Image, TripType } from "@/lib/types";
+import { getCurrentPlace } from "@/lib/places/context";
+import type { Boat, BoatTrip, Place, Review, Image, TripType } from "@/lib/types";
 import { TRIP_TYPE_LABELS, MONTH_LABELS } from "@/lib/types";
 
 /* ---------- Types ---------- */
@@ -25,6 +26,8 @@ interface BoatDetail extends Boat {
   trips: BoatTrip[];
   reviews: Review[];
   features: { feature: BoatFeature }[];
+  places: { place: Place; is_primary: boolean }[];
+  primary_place?: Place | null;
   owner: {
     id: string;
     full_name: string;
@@ -35,13 +38,14 @@ interface BoatDetail extends Boat {
 
 /* ---------- Data ---------- */
 
-async function getBoat(slug: string): Promise<BoatDetail | null> {
+async function getBoat(slug: string, currentPlace: Place | null): Promise<BoatDetail | null> {
   const supabase = await createServerClient();
 
-  const { data, error } = await supabase
-    .from("wb_boats")
-    .select(
-      `
+  // If we know which place the visitor is on, require the boat to be
+  // available in that place (join wb_boat_places). Otherwise just load the
+  // boat — the multi-place shell (kwetu.ke root) will show whichever boat
+  // the slug resolves to, which is acceptable for deep links.
+  const select = `
       *,
       images:wb_images(id, url, alt_text, sort_order),
       trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, price_per_person, description, max_guests, includes, departure_time, target_species, seasonal_months),
@@ -51,15 +55,37 @@ async function getBoat(slug: string): Promise<BoatDetail | null> {
         author:wb_profiles(id, full_name, avatar_url)
       ),
       features:wb_boat_feature_links(feature:wb_boat_features(id, name, icon, category)),
-      owner:wb_profiles!wb_boats_owner_id_fkey(id, full_name, avatar_url, created_at)
-    `
-    )
-    .eq("slug", slug)
-    .eq("is_published", true)
-    .single();
+      owner:wb_profiles!wb_boats_owner_id_fkey(id, full_name, avatar_url, created_at),
+      places:wb_boat_places(is_primary, place:wb_places(*))
+    `;
+
+  let query: any;
+  if (currentPlace) {
+    query = supabase
+      .from("wb_boats")
+      .select(`${select}, scope:wb_boat_places!inner(place_id)`)
+      .eq("slug", slug)
+      .eq("is_published", true)
+      .eq("scope.place_id", currentPlace.id);
+  } else {
+    query = supabase
+      .from("wb_boats")
+      .select(select)
+      .eq("slug", slug)
+      .eq("is_published", true);
+  }
+
+  const { data, error } = await query.single();
 
   if (error || !data) return null;
-  return data as unknown as BoatDetail;
+  const detail = data as unknown as BoatDetail;
+  // Surface the primary place (or fall back to first linked place) for schema/UX use.
+  const primary =
+    detail.places?.find((bp) => bp.is_primary)?.place ??
+    detail.places?.[0]?.place ??
+    null;
+  detail.primary_place = primary;
+  return detail;
 }
 
 async function getBoatAvailability(boatId: string) {
@@ -84,7 +110,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const boat = await getBoat(slug);
+  const { place } = await getCurrentPlace();
+  const boat = await getBoat(slug, place);
   if (!boat) return { title: "Boat Not Found" };
 
   const cover = boat.images?.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
@@ -108,10 +135,13 @@ export default async function BoatDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const boat = await getBoat(slug);
+  const { place } = await getCurrentPlace();
+  const boat = await getBoat(slug, place);
   if (!boat) notFound();
 
   const availability = await getBoatAvailability(boat.id);
+  const boatPlace = boat.primary_place ?? place;
+  const placeName = boatPlace?.name ?? 'Watamu';
 
   const sortedImages = (boat.images ?? []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const trips = boat.trips ?? [];
@@ -165,7 +195,7 @@ export default async function BoatDetailPage({
       {/* SEO: structured data for Google / AI search */}
       <JsonLd
         id={`ld-boat-${boat.id}`}
-        data={boatSchema({ ...boat, images: sortedImages, trips: boat.trips })}
+        data={boatSchema({ ...boat, images: sortedImages, trips: boat.trips }, boatPlace)}
       />
       <JsonLd
         id={`ld-breadcrumb-${boat.id}`}
@@ -203,7 +233,7 @@ export default async function BoatDetailPage({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                   </svg>
-                  Watamu, Kenya
+                  {placeName}, Kenya
                 </span>
                 {totalReviews > 0 && (
                   <span className="flex items-center gap-1">

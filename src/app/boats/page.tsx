@@ -3,14 +3,18 @@ import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
 import SortSelect from "@/components/SortSelect";
 import { getBoatImage } from "@/lib/images";
-import type { Boat } from "@/lib/types";
+import { getCurrentPlace } from "@/lib/places/context";
+import type { Boat, Place } from "@/lib/types";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Fishing Boats & Charters in Watamu",
-  description:
-    "Book deep-sea fishing charters and boat trips in Watamu, Kenya. Target marlin, sailfish, tuna, and more with experienced local captains.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { place, host } = await getCurrentPlace();
+  const placeName = place?.name ?? host.brand_short;
+  return {
+    title: `Fishing Boats & Charters in ${placeName}`,
+    description: `Book deep-sea fishing charters and boat trips in ${placeName}, Kenya. Target marlin, sailfish, tuna, and more with experienced local captains.`,
+  };
+}
 
 interface SearchParams {
   boat_type?: string;
@@ -24,21 +28,32 @@ interface SearchParams {
 
 const PAGE_SIZE = 12;
 
-async function getBoats(searchParams: SearchParams) {
+async function getBoats(searchParams: SearchParams, place: Place | null) {
   const supabase = await createServerClient();
 
-  let query = supabase
-    .from("wb_boats")
-    .select(
-      `
+  // Build base select; when a place is active we inner-join wb_boat_places so the
+  // count is returned correctly over the join.
+  const selectColumns = `
       *,
       images:wb_images(id, url, alt_text, sort_order),
       reviews:wb_reviews(rating),
       trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, description)
-    `,
-      { count: "exact" }
-    )
-    .eq("is_published", true);
+    `;
+
+  let query: any;
+  if (place) {
+    const joinFragment = 'wb_boat_places!inner(place_id, is_primary)';
+    query = supabase
+      .from("wb_boats")
+      .select(`${selectColumns}, ${joinFragment}`, { count: "exact" })
+      .eq("wb_boat_places.place_id", place.id)
+      .eq("is_published", true);
+  } else {
+    query = supabase
+      .from("wb_boats")
+      .select(selectColumns, { count: "exact" })
+      .eq("is_published", true);
+  }
 
   // Filters
   if (searchParams.boat_type) {
@@ -127,8 +142,10 @@ export default async function BoatsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { boats, total, page } = await getBoats(params);
+  const { place } = await getCurrentPlace();
+  const { boats, total, page } = await getBoats(params, place);
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const placeName = place?.name ?? 'Watamu';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -142,7 +159,7 @@ export default async function BoatsPage({
           </span>
           <h1 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl">Boats &amp; charters</h1>
           <p className="mt-2 max-w-2xl text-gray-600">
-            Deep-sea fishing, reef trips, and coastal excursions with experienced Watamu captains.
+            Deep-sea fishing, reef trips, and coastal excursions with experienced {placeName} captains.
           </p>
         </div>
       </div>
