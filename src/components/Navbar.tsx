@@ -33,7 +33,7 @@ function splitBrand(name: string): { first: string; accent: string | null } {
 
 export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
-  const { features } = useBrand();
+  const { features, placeSlug, placeName } = useBrand();
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -60,22 +60,49 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   };
 
   // Nav links gated by place features. `requires: null` means always shown.
-  // When no features are known (multi-place shell / no place resolved), we
-  // default to showing every link so the marketing shell still lets people
-  // browse by topic.
-  const navCatalogue: Array<{ href: string; label: string; requires: PlaceFeature | null }> = [
-    { href: '/properties', label: 'Properties', requires: 'properties' },
-    { href: '/boats', label: 'Fishing Charters', requires: 'boats' },
-    { href: '/activities', label: 'Activities', requires: null },
-    { href: '/map', label: 'Map', requires: null },
-    { href: '/tides', label: 'Tides & Weather', requires: 'tides' },
-    { href: '/about', label: 'About', requires: null },
-    { href: '/become-a-host', label: 'Become a Host', requires: null },
+  // `scoped: true` means the link lives inside the current place (prefixed
+  // with /<slug> on multi-place shells); shell-level links like About /
+  // Become a Host stay un-prefixed.
+  const navCatalogue: Array<{
+    href: string;
+    label: string;
+    requires: PlaceFeature | null;
+    scoped: boolean;
+    shellOnly?: boolean;
+  }> = [
+    { href: '/properties', label: 'Properties', requires: 'properties', scoped: true },
+    { href: '/boats', label: 'Fishing Charters', requires: 'boats', scoped: true },
+    { href: '/activities', label: 'Activities', requires: null, scoped: true },
+    { href: '/map', label: 'Map', requires: null, scoped: true },
+    { href: '/tides', label: 'Tides & Weather', requires: 'tides', scoped: true },
+    // Shell-only anchor to the destinations grid on the home page. Hidden
+    // inside a place context; duplicated in placeHomeHref on mobile.
+    { href: '/#destinations', label: 'Destinations', requires: null, scoped: false, shellOnly: true },
+    { href: '/about', label: 'About', requires: null, scoped: false },
+    { href: '/become-a-host', label: 'Become a Host', requires: null, scoped: false },
   ];
-  const hasFeatures = features.length > 0;
-  const navLinks = navCatalogue.filter(
-    (link) => link.requires === null || !hasFeatures || features.includes(link.requires),
-  );
+
+  // On the multi-place shell (no place resolved) we only surface shell-level
+  // links — topic pages like /properties or /map are place-scoped and would
+  // 404 without a place context. Users pick a destination first.
+  const inPlace = Boolean(placeSlug);
+  const navLinks = navCatalogue
+    .filter((link) => {
+      if (!inPlace) return !link.scoped; // shell: only unscoped links
+      if (link.shellOnly) return false; // in-place: hide shell-only entries
+      if (link.requires === null) return true;
+      return features.includes(link.requires);
+    })
+    .map((link) => ({
+      ...link,
+      // Prefix place-scoped links with /<slug> when in a place so the URL
+      // reflects the current destination and bookmarks stay meaningful.
+      href: link.scoped && placeSlug ? `/${placeSlug}${link.href}` : link.href,
+    }));
+
+  // Place home link (shown when in a place) — lets users jump back to the
+  // destination landing, distinct from the shell /.
+  const placeHomeHref = placeSlug ? `/${placeSlug}` : null;
 
   // Use JWT metadata for instant display, profile as upgrade
   const displayName =
@@ -88,21 +115,36 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <Waves className="h-7 w-7 text-[var(--color-primary-500)]" />
-            <span className="text-xl font-bold text-gray-900">
-              {brandLead}
-              {brandAccent && (
-                <>
-                  {' '}
-                  <span className="text-[var(--color-primary-500)]">
-                    {brandAccent}
-                  </span>
-                </>
-              )}
-            </span>
-          </Link>
+          {/* Logo + place breadcrumb */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Link href="/" className="flex items-center gap-2">
+              <Waves className="h-7 w-7 text-[var(--color-primary-500)]" />
+              <span className="text-xl font-bold text-gray-900">
+                {brandLead}
+                {brandAccent && (
+                  <>
+                    {' '}
+                    <span className="text-[var(--color-primary-500)]">
+                      {brandAccent}
+                    </span>
+                  </>
+                )}
+              </span>
+            </Link>
+            {inPlace && placeHomeHref && (
+              <>
+                <span className="text-gray-300 text-lg select-none" aria-hidden>
+                  /
+                </span>
+                <Link
+                  href={placeHomeHref}
+                  className="text-sm font-medium text-gray-700 hover:text-[var(--color-primary-600)]"
+                >
+                  {placeName}
+                </Link>
+              </>
+            )}
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
