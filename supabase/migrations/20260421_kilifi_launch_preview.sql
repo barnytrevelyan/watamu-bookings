@@ -49,16 +49,18 @@ set
       'tags', jsonb_build_array('Don''t miss Distant Relatives')
     )
   ),
+  centroid_lat = -3.6364762,
+  centroid_lng = 39.8485246,
+  -- Coordinates resolved via Google Places text search (2026-04-21).
   map_pois_json = jsonb_build_array(
-    jsonb_build_object('name','Kilifi Creek','lat',-3.6335,'lng',39.8435,'description','The iconic tidal creek — dhow cruises, kayaking, mangroves, and the Kilifi Boatyard yachting scene.','category','nature'),
-    jsonb_build_object('name','Kilifi Bridge','lat',-3.6389,'lng',39.8459,'description','The long concrete bridge linking the north and south banks — classic Kilifi landmark.','category','landmark'),
-    jsonb_build_object('name','Mnarani Ruins','lat',-3.6365,'lng',39.8475,'description','14th-century Swahili ruins on the south bank — mosque, pillar tombs, baobabs, creek views.','category','nature'),
-    jsonb_build_object('name','Bofa Beach','lat',-3.6035,'lng',39.8735,'description','Long, quiet white-sand beach stretching north of Kilifi town — excellent for walks and swims.','category','beach'),
-    jsonb_build_object('name','Kilifi Boatyard','lat',-3.6285,'lng',39.8500,'description','Creek-side boatyard, yachting hub, and home of the Kilifi New Year''s festival.','category','activity'),
-    jsonb_build_object('name','Distant Relatives Ecolodge','lat',-3.6355,'lng',39.8500,'description','Backpackers, pizza oven, permaculture garden — Kilifi''s best hangout.','category','dining'),
-    jsonb_build_object('name','Boatyard Bistro','lat',-3.6290,'lng',39.8505,'description','Waterfront restaurant on Kilifi Creek — long lunches and dhow-watching.','category','dining'),
-    jsonb_build_object('name','Nautilus Kilifi','lat',-3.6325,'lng',39.8535,'description','Creole and East African seafood on a verandah above the creek.','category','dining'),
-    jsonb_build_object('name','Kilifi Old Ferry Pier','lat',-3.6270,'lng',39.8445,'description','The disused ferry pier on the north bank — a reminder of pre-bridge Kilifi and a good creek-mouth viewpoint.','category','landmark')
+    jsonb_build_object('name','Kilifi Creek','lat',-3.6304941,'lng',39.8218953,'description','The iconic tidal creek — dhow cruises, kayaking, mangroves, and the Kilifi Boatyard yachting scene.','category','nature'),
+    jsonb_build_object('name','Kilifi Bridge','lat',-3.6364762,'lng',39.8485246,'description','The long concrete bridge linking the north and south banks — classic Kilifi landmark.','category','landmark'),
+    jsonb_build_object('name','Mnarani Ruins','lat',-3.6395141,'lng',39.8438272,'description','14th-century Swahili ruins on the south bank — mosque, pillar tombs, baobabs, creek views.','category','nature'),
+    jsonb_build_object('name','Bofa Beach','lat',-3.5957456,'lng',39.8866424,'description','Long, quiet white-sand beach stretching north of Kilifi town — excellent for walks and swims.','category','beach'),
+    jsonb_build_object('name','Kilifi Boatyard','lat',-3.6359204,'lng',39.8402491,'description','Creek-side boatyard, yachting hub, and home of the Kilifi New Year''s festival. Boatyard Bistro sits on the premises.','category','activity'),
+    jsonb_build_object('name','Distant Relatives Ecolodge','lat',-3.621596,'lng',39.834938,'description','Backpackers, pizza oven, permaculture garden — Kilifi''s best hangout, on the north bank.','category','dining'),
+    jsonb_build_object('name','Nautilus Kilifi','lat',-3.6336207,'lng',39.8445334,'description','Creole and East African seafood on a verandah above Old Ferry Road.','category','dining'),
+    jsonb_build_object('name','Old Ferry Kilifi','lat',-3.6343585,'lng',39.8451269,'description','The old ferry landing on the south bank — still active for boat and dhow rides on the creek.','category','landmark')
   ),
   visibility = 'preview',
   updated_at = now()
