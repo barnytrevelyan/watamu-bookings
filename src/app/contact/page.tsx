@@ -6,10 +6,12 @@ import { getCurrentPlace } from '@/lib/places/context';
 export async function generateMetadata(): Promise<Metadata> {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
-  const placeName = place?.name ?? host.brand_short;
+  const placeLocation = place?.name
+    ? `in ${place.name}, Kenya`
+    : 'on the Kenyan coast';
   return {
     title: `Contact — ${brandName}`,
-    description: `Get in touch with the ${brandName} team. Support for guests, hosts and charter operators in ${placeName}, Kenya.`,
+    description: `Get in touch with the ${brandName} team. Support for guests, hosts and charter operators ${placeLocation}.`,
   };
 }
 
@@ -29,6 +31,12 @@ export default async function ContactPage() {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
   const placeName = place?.name ?? host.brand_short;
+  // On the generic multi-place shell, "in Kwetu" reads awkwardly because
+  // Kwetu is the brand, not a town. Fall back to coast-scoped phrasing.
+  const hasSpecificPlace = Boolean(place?.name);
+  const whereLabel = hasSpecificPlace ? placeName : 'on the Kenyan coast';
+  const fromLabel = hasSpecificPlace ? placeName : 'Kenyan';
+  const basedLabel = hasSpecificPlace ? `${placeName}, Kenya` : 'Kenyan coast';
   const supportEmail = host.support_email ?? 'hello@kwetu.ke';
 
   const whatsapp = resolveWhatsapp(
@@ -46,8 +54,9 @@ export default async function ContactPage() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-gray-600">
             Questions about a booking, listing your property, or running a
-            fishing charter on the platform? Reach out — a real person in
-            {' '}{placeName} will reply, usually within a few hours.
+            fishing charter on the platform? Reach out — a real person{' '}
+            {hasSpecificPlace ? `in ${whereLabel}` : whereLabel} will reply,
+            usually within a few hours.
           </p>
         </div>
 
@@ -96,14 +105,14 @@ export default async function ContactPage() {
               icon={<MessageSquare className="h-5 w-5" />}
               title="Response time"
               body={<span className="font-medium text-gray-900">Usually within a few hours, 08:00–20:00 EAT</span>}
-              sub={`Email first — we reply from a real ${placeName} address, not a ticketing bot.`}
+              sub={`Email first — we reply from a real ${fromLabel} address, not a ticketing bot.`}
             />
           )}
 
           <ContactCard
             icon={<MapPin className="h-5 w-5" />}
             title="Based in"
-            body={<span className="font-medium text-gray-900">{placeName}, Kenya</span>}
+            body={<span className="font-medium text-gray-900">{basedLabel}</span>}
             sub="On the ground, on the beach — not a call centre abroad."
           />
         </div>

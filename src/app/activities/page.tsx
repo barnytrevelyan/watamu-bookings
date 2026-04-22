@@ -6,20 +6,37 @@ import { getCurrentPlace } from '@/lib/places/context';
 import type { PlaceActivity } from '@/lib/types';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { place, host } = await getCurrentPlace();
-  const placeName = place?.name ?? host.brand_short;
+  const { place } = await getCurrentPlace();
+  // On the generic multi-place shell (no resolved place) "Things to do in
+  // Kwetu" reads as if Kwetu were a town. Fall back to "the Kenyan coast".
+  const hasSpecificPlace = Boolean(place?.name);
+  const placeName = place?.name ?? 'the Kenyan coast';
   return {
-    title: `Things to do in ${placeName} — fishing, marine park, beaches`,
-    description: `Deep-sea fishing, snorkelling, kite surfing, turtle conservation and more — a local guide to the best activities in ${placeName}, Kenya.`,
-    keywords: [
-      `${placeName} activities`,
-      `${placeName} Marine National Park`,
-      `snorkelling ${placeName}`,
-      `kite surfing Kenya`,
-    ],
+    title: hasSpecificPlace
+      ? `Things to do in ${placeName} — fishing, marine park, beaches`
+      : `Things to do on the Kenyan coast — fishing, marine park, beaches`,
+    description: hasSpecificPlace
+      ? `Deep-sea fishing, snorkelling, kite surfing, turtle conservation and more — a local guide to the best activities in ${placeName}, Kenya.`
+      : `Deep-sea fishing, snorkelling, kite surfing, turtle conservation and more — a local guide to the best activities on the Kenyan coast.`,
+    keywords: hasSpecificPlace
+      ? [
+          `${placeName} activities`,
+          `${placeName} Marine National Park`,
+          `snorkelling ${placeName}`,
+          `kite surfing Kenya`,
+        ]
+      : [
+          'Kenyan coast activities',
+          'Watamu Marine National Park',
+          'snorkelling Kenya',
+          'kite surfing Kenya',
+        ],
     openGraph: {
-      title: `Things to do in ${placeName}`,
-      description: 'Deep-sea fishing, snorkelling, kite surfing, marine park visits and cultural tours on the Kenyan coast.',
+      title: hasSpecificPlace
+        ? `Things to do in ${placeName}`
+        : `Things to do on the Kenyan coast`,
+      description:
+        'Deep-sea fishing, snorkelling, kite surfing, marine park visits and cultural tours on the Kenyan coast.',
       type: 'website',
     },
   };

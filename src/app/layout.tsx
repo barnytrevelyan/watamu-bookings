@@ -18,16 +18,24 @@ export async function generateMetadata(): Promise<Metadata> {
   const brandName = host.brand_name;
   const brandShort = host.brand_short;
   const placeName = place?.name ?? brandShort;
+  // On the generic multi-place shell (e.g. kwetu.ke root) there's no single
+  // place to anchor copy on, and "in Kwetu, Kenya" reads as if Kwetu were a
+  // town — so fall back to a coast-scoped phrasing.
+  const hasSpecificPlace = Boolean(place?.name);
   const hostUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (host.host ? `https://${host.host}` : "https://watamubookings.com");
 
   const defaultTitle = place?.seo_title
     ? place.seo_title
-    : `${brandName} — Book stunning properties and fishing charters in ${placeName}, Kenya`;
+    : hasSpecificPlace
+      ? `${brandName} — Book stunning properties and fishing charters in ${placeName}, Kenya`
+      : `${brandName} — Stay on the Kenyan coast. Book local.`;
   const description = place?.seo_description
     ? place.seo_description
-    : `Discover and book stunning beachfront properties and world-class fishing boat charters in ${placeName}, Kenya. Your gateway to paradise on the Kenyan coast.`;
+    : hasSpecificPlace
+      ? `Discover and book stunning beachfront properties and world-class fishing boat charters in ${placeName}, Kenya. Your gateway to paradise on the Kenyan coast.`
+      : `Discover and book stunning beachfront properties and world-class fishing boat charters on Kenya's coast. Local hosts, local payments, local support.`;
 
   return {
     title: {
@@ -36,8 +44,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description,
     keywords: [
-      placeName,
+      ...(hasSpecificPlace ? [placeName] : []),
       "Kenya",
+      "Kenyan coast",
       "beachfront",
       "holiday rentals",
       "fishing charters",
@@ -113,9 +122,10 @@ export default async function RootLayout({
     supportEmail: host.support_email,
     supportWhatsapp: host.support_whatsapp,
   };
-  const placeLabel = place
-    ? `${place.name}, Kenya`
-    : `${host.brand_short}, Kenya`;
+  // Footer's "based in" line. On a resolved place ("Watamu, Kenya") it reads
+  // naturally. On the generic kwetu.ke shell, "Kwetu, Kenya" reads as if
+  // Kwetu were a town — so scope to the coast instead.
+  const placeLabel = place ? `${place.name}, Kenya` : 'Kenyan coast';
   const destinations = allPlaces.map((p) => ({ slug: p.slug, name: p.name }));
 
   return (
@@ -147,7 +157,12 @@ export default async function RootLayout({
             short: brand.short,
             supportEmail: brand.supportEmail,
             supportWhatsapp: brand.supportWhatsapp,
-            placeName: place?.name ?? brand.short,
+            // On the generic multi-place shell, fall back to 'Kenya' rather
+            // than the brand short ('Kwetu'), since `brand.placeName` is used
+            // in placeholders like "e.g. Bahari Villa <placeName>" where a
+            // brand name reads as nonsense. Matches BrandProvider's internal
+            // default and keeps copy coherent when no place is resolved.
+            placeName: place?.name ?? 'Kenya',
             placeSlug: place?.slug ?? null,
             features: place?.features ?? [],
             destinations,

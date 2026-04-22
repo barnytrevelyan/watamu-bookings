@@ -9,11 +9,16 @@ import type { Place, Property } from "@/lib/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { place, host } = await getCurrentPlace();
-  const placeName = place?.name ?? host.brand_short;
+  const { place } = await getCurrentPlace();
+  // On the multi-place shell (no resolved place) fall back to a generic
+  // "Kenyan coast" label — "Properties in Kwetu" reads awkwardly because
+  // Kwetu is the brand, not a place.
+  const placeLabel = place?.name ?? 'the Kenyan coast';
   return {
-    title: `Properties in ${placeName}`,
-    description: `Browse and book beachfront villas, apartments, and holiday homes in ${placeName}, Kenya. Filter by price, bedrooms, guests, and more.`,
+    title: place ? `Properties in ${placeLabel}` : `Properties on ${placeLabel}`,
+    description: place
+      ? `Browse and book beachfront villas, apartments, and holiday homes in ${placeLabel}, Kenya. Filter by price, bedrooms, guests, and more.`
+      : `Browse and book beachfront villas, apartments, and holiday homes on Kenya's coast. Filter by price, bedrooms, guests, and more.`,
   };
 }
 
@@ -211,7 +216,9 @@ export default async function PropertiesPage({
           <span className="inline-block rounded-full bg-white/80 px-3 py-1 text-xs font-medium uppercase tracking-wide text-[var(--color-primary-700)]">
             Stays
           </span>
-          <h1 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl">Properties in {placeName}</h1>
+          <h1 className="mt-3 text-3xl font-bold text-gray-900 sm:text-4xl">
+            {placeName === 'the Kenyan coast' ? 'Properties on the Kenyan coast' : `Properties in ${placeName}`}
+          </h1>
           <p className="mt-2 max-w-2xl text-gray-600">
             Beachfront villas, apartments, and holiday homes on the Kenyan coast — all vetted by local hosts.
           </p>

@@ -863,7 +863,9 @@ export default function TidesClient({ place }: TidesClientProps = {}) {
 
         {/* ── Understanding Tides ── */}
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Understanding Tides in {placeName}</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Understanding Tides {placeName === 'Kwetu' ? 'on the Kenyan Coast' : `in ${placeName}`}
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-1.5">Tidal Patterns</h3>

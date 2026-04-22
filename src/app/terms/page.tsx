@@ -5,10 +5,12 @@ import { getCurrentPlace } from '@/lib/places/context';
 export async function generateMetadata(): Promise<Metadata> {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
-  const placeName = place?.name ?? host.brand_short;
+  // Fall back to a coast-scoped label on the generic kwetu.ke root so we
+  // don't say "for Kwetu properties" (Kwetu is the brand, not a place).
+  const placeLabel = place?.name ?? 'Kenyan coast';
   return {
     title: `Terms of Service — ${brandName}`,
-    description: `The terms and conditions that govern your use of ${brandName}, the local marketplace for ${placeName} properties and fishing charters.`,
+    description: `The terms and conditions that govern your use of ${brandName}, the local marketplace for ${placeLabel} properties and fishing charters.`,
   };
 }
 
@@ -17,6 +19,11 @@ export default async function TermsPage() {
   const brandName = host.brand_name;
   const hostname = host.host || 'kwetu.ke';
   const placeName = place?.name ?? host.brand_short;
+  const hasSpecificPlace = Boolean(place?.name);
+  // "in Watamu, Kenya" reads naturally; "in Kwetu, Kenya" doesn't because
+  // Kwetu is the brand, not a place. Use a coast-scoped label when the
+  // place isn't resolved (e.g. generic kwetu.ke root).
+  const jurisdictionLabel = hasSpecificPlace ? `${placeName}, Kenya` : 'Kenya';
   const isWatamu = placeName === 'Watamu';
   return (
     <div className="min-h-screen bg-white">
@@ -43,7 +50,7 @@ export default async function TermsPage() {
           <h2>1. The Platform</h2>
           <p>
             {brandName} connects travellers with independent property
-            hosts and fishing-charter operators in {placeName}, Kenya. We are a
+            hosts and fishing-charter operators in {jurisdictionLabel}. We are a
             marketplace: the contract for each stay or charter is between the
             guest and the host/operator. We facilitate discovery, booking and
             payment, but we do not own or operate the listed properties or

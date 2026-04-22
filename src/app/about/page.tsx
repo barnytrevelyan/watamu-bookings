@@ -7,10 +7,11 @@ import { getCurrentPlace } from '@/lib/places/context';
 export async function generateMetadata(): Promise<Metadata> {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
-  const placeName = place?.name ?? host.brand_short;
+  const placeLabel = place?.name ?? 'Kenya';
+  const placeIn = place?.name ? `in ${placeLabel}, Kenya` : 'on the Kenyan coast';
   return {
     title: `About ${brandName}`,
-    description: `${brandName} is a local booking platform connecting travellers with beautiful properties and world-class fishing charters in ${placeName}, Kenya.`,
+    description: `${brandName} is a local booking platform connecting travellers with beautiful properties and world-class fishing charters ${placeIn}.`,
   };
 }
 
@@ -18,6 +19,11 @@ export default async function AboutPage() {
   const { place, host } = await getCurrentPlace();
   const brandName = host.brand_name;
   const placeName = place?.name ?? host.brand_short;
+  const hasSpecificPlace = Boolean(place?.name);
+  // Copy reads naturally with a resolved place ("in Watamu"); on the
+  // multi-place shell (placeName='Kwetu') we substitute "the Kenyan coast"
+  // so sentences don't treat Kwetu as a geographic noun.
+  const coastLabel = hasSpecificPlace ? placeName : 'the Kenyan coast';
   const supportEmail = host.support_email ?? 'hello@kwetu.ke';
 
   // Watamu-specific practical content (emergency numbers, getting here) is
@@ -52,17 +58,38 @@ export default async function AboutPage() {
       <section className="max-w-3xl mx-auto px-4 py-16 lg:py-24 space-y-12">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Story</h2>
-          <p className="text-gray-600 leading-relaxed">
-            {placeName} is one of East Africa's most beautiful coastal destinations — white sand beaches,
-            a UNESCO Biosphere Reserve, incredible marine life, and world-renowned deep-sea fishing.
-            Yet property owners and boat captains here have long depended on international platforms
-            that take large commissions and don't understand the local market.
-          </p>
-          <p className="mt-4 text-gray-600 leading-relaxed">
-            {brandName} was built to change that. We're a local-first platform that connects
-            travellers directly with {placeName}'s best accommodation and fishing charter operators — with
-            lower fees, local payment options including M-Pesa, and a focus on the community.
-          </p>
+          {hasSpecificPlace ? (
+            <>
+              <p className="text-gray-600 leading-relaxed">
+                {placeName} is one of East Africa's most beautiful coastal destinations — white sand beaches,
+                a UNESCO Biosphere Reserve, incredible marine life, and world-renowned deep-sea fishing.
+                Yet property owners and boat captains here have long depended on international platforms
+                that take large commissions and don't understand the local market.
+              </p>
+              <p className="mt-4 text-gray-600 leading-relaxed">
+                {brandName} was built to change that. We're a local-first platform that connects
+                travellers directly with {placeName}&rsquo;s best accommodation and fishing charter
+                operators — with lower fees, local payment options including M-Pesa, and a focus on
+                the community.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-600 leading-relaxed">
+                Kenya&rsquo;s coast is one of East Africa&rsquo;s most beautiful destinations — white
+                sand beaches, ancient Swahili towns, a UNESCO Biosphere Reserve, and world-renowned
+                deep-sea fishing. Yet property owners and boat captains here have long depended on
+                international platforms that take large commissions and don&rsquo;t understand the
+                local market.
+              </p>
+              <p className="mt-4 text-gray-600 leading-relaxed">
+                <span className="italic">Kwetu</span> means &ldquo;our home.&rdquo; {brandName} was
+                built to give that feeling back — a local-first platform that connects travellers
+                directly with the coast&rsquo;s best hosts and fishing charter operators, with
+                lower fees, M-Pesa payments, and a focus on the community.
+              </p>
+            </>
+          )}
         </div>
 
         <div>
@@ -72,7 +99,7 @@ export default async function AboutPage() {
               <h3 className="font-semibold text-gray-900 mb-2">Holiday Properties</h3>
               <p className="text-sm text-gray-600">
                 Beachfront villas, apartments, cottages and holiday homes — all hand-vetted and
-                managed by local owners who know {placeName} best.
+                managed by local owners who know {coastLabel} best.
               </p>
             </div>
             <div className="bg-gray-50 rounded-xl p-6">
@@ -102,7 +129,7 @@ export default async function AboutPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">For Property & Boat Owners</h2>
           <p className="text-gray-600 leading-relaxed">
-            If you own a rental property or fishing boat in {placeName}, we'd love to have you on the
+            If you own a rental property or fishing boat {hasSpecificPlace ? `in ${placeName}` : 'on the Kenyan coast'}, we&rsquo;d love to have you on the
             platform. We charge a flat monthly subscription per listing — no per-booking commission,
             no guest service fee — handle payments securely, and give you a full dashboard to manage
             your listings, bookings, and reviews.

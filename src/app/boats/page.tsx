@@ -9,11 +9,15 @@ import type { Boat, Place } from "@/lib/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { place, host } = await getCurrentPlace();
-  const placeName = place?.name ?? host.brand_short;
+  const { place } = await getCurrentPlace();
+  const placeLabel = place?.name ?? 'Kenya';
   return {
-    title: `Fishing Boats & Charters in ${placeName}`,
-    description: `Book deep-sea fishing charters and boat trips in ${placeName}, Kenya. Target marlin, sailfish, tuna, and more with experienced local captains.`,
+    title: place
+      ? `Fishing Boats & Charters in ${placeLabel}`
+      : `Fishing Boats & Charters on the Kenyan Coast`,
+    description: place
+      ? `Book deep-sea fishing charters and boat trips in ${placeLabel}, Kenya. Target marlin, sailfish, tuna, and more with experienced local captains.`
+      : `Book deep-sea fishing charters and boat trips on Kenya's coast. Target marlin, sailfish, tuna, and more with experienced local captains.`,
   };
 }
 

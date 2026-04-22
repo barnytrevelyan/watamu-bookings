@@ -173,14 +173,15 @@ export default async function HomePage() {
   const heroImage =
     place?.hero_image_url ??
     "https://jiyoxdeiyydyxjymahrh.supabase.co/storage/v1/object/public/watamu-images/hero/watamu-hero.jpg";
-  // "in Watamu" reads well; "in Kwetu" doesn't (Kwetu is the brand, not a
-  // place). On the multi-place shell we swap to "at Kwetu" so the copy works
-  // until a real place is selected.
+  // "Kwetu" is Swahili for "our home/place" — it's the brand name but NOT a
+  // geographic noun. On a resolved place ("Your stay in Watamu starts here.")
+  // the copy reads naturally. On the generic kwetu.ke root we lean into the
+  // Swahili meaning instead of treating Kwetu as a location.
   const heroHeadline =
     place?.short_tagline ??
     (place
       ? `Your stay in ${placeName} starts here.`
-      : `Your stay at ${placeName} starts here.`);
+      : `Make the Kenyan coast feel like Kwetu.`);
   const heroSubcopy =
     place
       ? `Book stunning beachfront stays and world-class fishing charters in ${placeName}, on Kenya's most beautiful coastline.`
@@ -197,7 +198,7 @@ export default async function HomePage() {
       <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center overflow-hidden">
         <Image
           src={heroImage}
-          alt={`White sand beach and turquoise ocean in ${placeName}, Kenya`}
+          alt={place ? `White sand beach and turquoise ocean in ${placeName}, Kenya` : 'White sand beach and turquoise ocean on the Kenyan coast'}
           fill
           className="object-cover"
           priority
@@ -234,7 +235,9 @@ export default async function HomePage() {
             <div className="flex items-end justify-between mb-10">
               <div>
                 <h2 className="text-3xl font-bold text-gray-900">Featured Properties</h2>
-                <p className="mt-2 text-gray-600">Hand-picked stays for an unforgettable {placeName} experience</p>
+                <p className="mt-2 text-gray-600">
+                  Hand-picked stays for an unforgettable {place ? `${placeName} experience` : 'trip to the Kenyan coast'}
+                </p>
               </div>
               <Link
                 href="/properties"
@@ -333,7 +336,9 @@ export default async function HomePage() {
       <section className="py-16 lg:py-24 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-gray-900">Why {placeName}?</h2>
+            <h2 className="text-3xl font-bold text-gray-900">
+              Why {place ? placeName : "Kenya's coast"}?
+            </h2>
             <p className="mt-2 text-gray-600 max-w-xl mx-auto">
               {place?.description ?? "A world-renowned destination on the Kenyan coast offering something for everyone."}
             </p>
@@ -361,7 +366,9 @@ export default async function HomePage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-gray-900">How It Works</h2>
-            <p className="mt-2 text-gray-600">Three simple steps to your perfect {placeName} getaway</p>
+            <p className="mt-2 text-gray-600">
+              Three simple steps to your perfect {place ? `${placeName} getaway` : 'coastal getaway'}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -393,8 +400,9 @@ export default async function HomePage() {
                 Earn from your property or boat
               </h2>
               <p className="text-white/80 mb-10 max-w-lg mx-auto text-lg">
-                Join {placeName}&rsquo;s growing community of hosts. List your beachfront
-                property or fishing charter and reach travellers from around the world.
+                Join {place ? `${placeName}'s` : 'our'} growing community of hosts on the Kenyan
+                coast. List your beachfront property or fishing charter and reach travellers from
+                around the world.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
