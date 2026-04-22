@@ -15,6 +15,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { getCurrentPlace } from '@/lib/places/context';
+import EarningsComparisonCalculator from './EarningsComparisonCalculator';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { host } = await getCurrentPlace();
@@ -189,6 +190,9 @@ export default async function BecomeAHostPage() {
           </div>
         </div>
       </section>
+
+      {/* ---------- EARNINGS COMPARISON CALCULATOR ---------- */}
+      <EarningsComparisonCalculator />
 
       {/* ---------- AI IMPORT ---------- */}
       <section className="bg-gray-50 py-16 lg:py-20">

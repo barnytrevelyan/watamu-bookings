@@ -56,5 +56,9 @@ Thumbs.db
 # Archived unused files (kept locally for review, not shipped)
 _archive/
 
+# Raw stock-image library (kept locally for reference, not shipped).
+# Final site images live under public/images/.
+StockImages/
+
 # Sync helper — staging only, not shipped
 sync-audit-fixes.sh
