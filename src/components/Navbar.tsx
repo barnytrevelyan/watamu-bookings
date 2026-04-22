@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Waves,
   Menu,
@@ -36,23 +35,23 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
   const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
   const { features, placeSlug, destinations } = useBrand();
   const { user, profile, loading, signOut } = useAuth();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   /**
-   * Switch to another destination. Plain Next.js Link navigation doesn't
-   * trigger a Server Component re-render when the middleware rewrite
-   * target is identical (both /watamu and /kilifi rewrite to /), so the
-   * URL bar updates but the page stays on the old place. We push + refresh
-   * to force the RSC payload to be re-fetched with the new x-wb-place
-   * header.
+   * Switch to another destination. Every place slug rewrites to `/` at
+   * the middleware layer, so the App Router sees the target as the same
+   * route as the current page and re-uses the cached RSC payload —
+   * push()+refresh() is not reliable enough because the prefetched
+   * payload is already the wrong one. A full page load is the only
+   * guaranteed way to re-run middleware and pick up the new
+   * x-wb-place header. Crossing a place boundary is a hard context
+   * switch (brand, features, nav) so a reload is also the honest UX.
    */
   const switchDestination = (slug: string) => {
-    router.push(`/${slug}`);
-    router.refresh();
     setMobileOpen(false);
+    window.location.assign(`/${slug}`);
   };
 
   useEffect(() => {
