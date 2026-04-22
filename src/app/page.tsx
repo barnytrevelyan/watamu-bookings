@@ -5,6 +5,7 @@ import PropertyCard from "@/components/PropertyCard";
 import BoatCard from "@/components/BoatCard";
 import SearchFilters from "@/components/SearchFilters";
 import ShellSearch from "@/components/ShellSearch";
+import DestinationCardLink from "@/components/DestinationCardLink";
 import WeatherWidget from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/Button";
 import JsonLd from "@/components/JsonLd";
@@ -503,9 +504,9 @@ function ShellLanding({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {destinations.map((dest) => (
-                <Link
+                <DestinationCardLink
                   key={dest.id}
-                  href={`/${dest.slug}`}
+                  slug={dest.slug}
                   className="group relative block overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 hover:shadow-xl transition-all"
                 >
                   <div className="relative h-64 w-full overflow-hidden">
@@ -550,7 +551,7 @@ function ShellLanding({
                       </svg>
                     </div>
                   </div>
-                </Link>
+                </DestinationCardLink>
               ))}
             </div>
           )}
