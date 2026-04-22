@@ -47,6 +47,7 @@ export default function EarningsCalculator({
   const savingsVsBooking = kwetuNetAnnual - bookingNetAnnual;
 
   const perListingMonthly = listings > 0 ? kwetuSubscription / listings : 0;
+  const kwetuSubscriptionAnnual = kwetuSubscription * 12;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-10">
@@ -154,14 +155,38 @@ export default function EarningsCalculator({
               <div>
                 <div className="font-semibold text-slate-900">{brandName}</div>
                 <div className="text-xs text-slate-500">
-                  Flat {fmt(kwetuSubscription)}/mo &middot;{' '}
-                  {fmt(perListingMonthly)}/listing avg
+                  Flat monthly subscription &middot; 0% commission
                 </div>
               </div>
               <span className="rounded-full bg-teal-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
                 You
               </span>
             </div>
+
+            {/* Subscription cost — explicit, monthly + annual. On multi-listing
+                portfolios we also show the per-listing average so the tiered
+                curve (KES 3K → 1.5K → 1K → 500 → 250) is visible. */}
+            <div className="mt-3 rounded-xl bg-white/70 px-3 py-2.5 border border-teal-100">
+              <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                Your subscription
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-between gap-2 flex-wrap">
+                <div className="text-base font-bold text-slate-900">
+                  {fmt(kwetuSubscription)}
+                  <span className="text-xs font-medium text-slate-500">/mo</span>
+                </div>
+                <div className="text-sm font-semibold text-slate-700">
+                  {fmt(kwetuSubscriptionAnnual)}
+                  <span className="text-xs font-medium text-slate-500">/yr</span>
+                </div>
+              </div>
+              {listings > 1 && (
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {listings} listings &middot; {fmt(perListingMonthly)}/listing avg
+                </div>
+              )}
+            </div>
+
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <div className="text-[11px] uppercase tracking-wide text-slate-500">
