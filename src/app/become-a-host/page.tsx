@@ -356,7 +356,8 @@ export default async function BecomeAHostPage() {
               Booking.com or Google Calendar and bookings on {brandName} instantly
               block those dates everywhere else. Paste their feed into us and
               reservations you already have elsewhere block the same dates here —
-              refreshed automatically on a schedule, no button-pressing required.
+              refreshed automatically every morning, and on demand whenever you
+              want.
             </p>
 
             <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-gray-500 sm:text-sm">
@@ -402,9 +403,10 @@ export default async function BecomeAHostPage() {
                 </span>
                 <span>
                   <span className="font-medium text-gray-900">Inbound is scheduled.</span>{' '}
-                  We re-fetch every connected external feed on a rolling schedule —
-                  roughly every 3 hours — and block any new reservations in your
-                  {' '}{brandName} calendar. You can also hit &ldquo;Sync Now&rdquo; on a listing any time.
+                  We re-fetch every connected external feed once a day and block
+                  any new reservations in your {brandName} calendar automatically.
+                  For same-day peace of mind, hit &ldquo;Sync Now&rdquo; on a
+                  listing and the refresh happens in seconds.
                 </span>
               </li>
               <li className="flex gap-3">
@@ -501,7 +503,7 @@ export default async function BecomeAHostPage() {
             />
             <FaqItem
               q="Once I link my Airbnb or Booking.com calendar, does it stay in sync on its own?"
-              a={`Yes. After you connect an iCal feed on a listing, we re-fetch it automatically on a rolling schedule (roughly every three hours) and block any new dates without you doing anything. Bookings made on ${brandName} push out through your export feed the moment they're confirmed, and Airbnb / Booking.com poll that feed on their own cadence. If a feed breaks, the listing shows a sync error on your dashboard so you can fix it. You can also hit "Sync Now" on a listing at any time to force an immediate refresh.`}
+              a={`Yes. After you connect an iCal feed on a listing, we re-fetch it automatically once a day and block any new dates without you doing anything. Bookings made on ${brandName} push out through your export feed the moment they're confirmed, and Airbnb / Booking.com poll that feed on their own cadence (typically every couple of hours). If a feed breaks, the listing shows a sync error on your dashboard so you can fix it. For same-day certainty before a busy weekend, hit "Sync Now" on a listing to force an immediate refresh in seconds.`}
             />
             <FaqItem
               q="Who are the guests?"
