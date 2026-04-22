@@ -200,13 +200,13 @@ export default function FlexiPricingPage() {
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-800">
+          <div className="flex flex-col">
+            <label className="block text-sm font-medium text-gray-800">
               Discount window
-              <span className="ml-2 text-xs font-normal text-gray-400">
-                days before check-in
-              </span>
             </label>
+            <span className="mt-0.5 mb-1.5 block text-xs font-normal text-gray-400">
+              days before check-in
+            </span>
             <Input
               type="number"
               min={1}
@@ -217,13 +217,13 @@ export default function FlexiPricingPage() {
               }
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-800">
+          <div className="flex flex-col">
+            <label className="block text-sm font-medium text-gray-800">
               Booking notice
-              <span className="ml-2 text-xs font-normal text-gray-400">
-                days needed before check-in
-              </span>
             </label>
+            <span className="mt-0.5 mb-1.5 block text-xs font-normal text-gray-400">
+              days needed before check-in
+            </span>
             <Input
               type="number"
               min={0}
@@ -240,13 +240,13 @@ export default function FlexiPricingPage() {
               0 = accept same-day bookings. Flexi price reaches its floor here.
             </p>
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-800">
+          <div className="flex flex-col">
+            <label className="block text-sm font-medium text-gray-800">
               Floor
-              <span className="ml-2 text-xs font-normal text-gray-400">
-                % of base price
-              </span>
             </label>
+            <span className="mt-0.5 mb-1.5 block text-xs font-normal text-gray-400">
+              % of base price
+            </span>
             <Input
               type="number"
               min={10}
