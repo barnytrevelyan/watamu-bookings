@@ -32,6 +32,7 @@ import {
 import type {
   BillingSettings,
   HostSubscription,
+  PricingTier,
   SubscriptionInvoice,
   SubscriptionPlan,
   SubscriptionInvoiceLineItem,
@@ -65,8 +66,11 @@ export async function loadBillingSettings(db: SupabaseAdmin): Promise<BillingSet
       case 'billing.launch_promo_active':          out.launch_promo_active = !!v; break;
       case 'billing.launch_trial_months':          out.launch_trial_months = Number(v); break;
       case 'billing.standard_trial_months':        out.standard_trial_months = Number(v); break;
-      case 'billing.monthly_price_first_kes':      out.monthly_price_first_kes = Number(v); break;
-      case 'billing.monthly_price_additional_kes': out.monthly_price_additional_kes = Number(v); break;
+      case 'billing.monthly_price_tiers_kes': {
+        const parsed = parsePricingTiers(v);
+        if (parsed) out.monthly_price_tiers_kes = parsed;
+        break;
+      }
       case 'billing.annual_paid_months':           out.annual_paid_months = Number(v); break;
       case 'billing.grace_period_hours':           out.grace_period_hours = Number(v); break;
       case 'billing.commission_rate_bps':          out.commission_rate_bps = Number(v); break;
@@ -75,6 +79,24 @@ export async function loadBillingSettings(db: SupabaseAdmin): Promise<BillingSet
     }
   }
   return out;
+}
+
+/** Defensive parse of the tier JSON column — returns null on any shape problem. */
+function parsePricingTiers(raw: unknown): PricingTier[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: PricingTier[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') return null;
+    const t = r as Record<string, unknown>;
+    const from = Number(t.from);
+    const to = t.to === null || t.to === undefined ? null : Number(t.to);
+    const price_kes = Number(t.price_kes);
+    const label = typeof t.label === 'string' ? t.label : '';
+    if (!Number.isFinite(from) || !Number.isFinite(price_kes)) return null;
+    if (to !== null && !Number.isFinite(to)) return null;
+    out.push({ from, to, price_kes, label });
+  }
+  return out.length > 0 ? out : null;
 }
 
 // -----------------------------------------------------------------

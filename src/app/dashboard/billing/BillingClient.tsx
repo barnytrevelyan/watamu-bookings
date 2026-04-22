@@ -8,6 +8,8 @@ import {
   computeMonthlyChargeKes,
   computeAnnualChargeKes,
   formatKes,
+  priceForListingNumber,
+  tierForListingNumber,
 } from '@/lib/subscriptions/pricing';
 import type { BillingSettings, SubscriptionPlan, SubscriptionStatus } from '@/lib/subscriptions/types';
 
@@ -198,10 +200,9 @@ export default function BillingClient({
                     <div className="text-xs text-gray-500">{l.type === 'property' ? 'Property' : 'Boat'}</div>
                   </div>
                 </div>
-                <div className="text-sm text-gray-600">
-                  {idx === 0
-                    ? `${formatKes(settings.monthly_price_first_kes)}/mo`
-                    : `${formatKes(settings.monthly_price_additional_kes)}/mo`}
+                <div className="text-right text-sm text-gray-600">
+                  <div>{formatKes(priceForListingNumber(idx + 1, settings))}/mo</div>
+                  <div className="text-xs text-gray-400">{tierForListingNumber(idx + 1, settings).label}</div>
                 </div>
               </label>
             ))}

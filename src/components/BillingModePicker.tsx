@@ -16,8 +16,9 @@ interface BillingModePickerProps {
  * Used on both the create and edit forms for properties and boats.
  *
  * Commission rate is canonical 8% (see project_commission_rate memory).
- * Subscription pricing comes from wb_settings / DEFAULT_BILLING_SETTINGS
- * (KES 5,000/month first listing, 2,500 each additional).
+ * Subscription pricing comes from wb_settings / DEFAULT_BILLING_SETTINGS —
+ * tiered per-listing (KES 3,000 for the 1st, KES 1,500 for 2–5, KES 1,000
+ * for 6–20, KES 500 for 21–50, KES 250 for 51+).
  */
 export default function BillingModePicker({
   value,
@@ -81,7 +82,8 @@ export default function BillingModePicker({
             <span className="font-medium text-sm text-gray-900">Monthly subscription</span>
           </div>
           <p className="mt-1 text-xs text-gray-600">
-            Flat fee, no commission. KES 5,000/month first listing, 2,500 each extra.
+            Flat fee, no commission. From KES 3,000/mo for your first listing, tapering
+            down to KES 250/mo each beyond your 50th.
           </p>
         </button>
       </div>

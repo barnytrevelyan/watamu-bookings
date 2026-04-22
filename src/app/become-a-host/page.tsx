@@ -165,10 +165,12 @@ export default async function BecomeAHostPage() {
                 </span>
               </div>
               <p className="text-4xl font-bold text-gray-900">
-                KES 5,000<span className="ml-1 text-base font-medium text-gray-500">/mo</span>
+                From KES 3,000<span className="ml-1 text-base font-medium text-gray-500">/mo</span>
               </p>
               <p className="mt-1 text-sm text-gray-600">
-                First listing. Each extra listing KES 2,500/mo. Pay annually and get{' '}
+                Your first listing. Each additional listing is cheaper — <strong>KES 1,500</strong>{' '}
+                for listings 2–5, <strong>1,000</strong> for 6–20, <strong>500</strong> for 21–50,
+                and <strong>250</strong> for each beyond 50. Pay annually and get{' '}
                 <strong>12 months for the price of 10</strong>.
               </p>
               <ul className="mt-5 space-y-2 text-sm text-gray-700">
@@ -181,8 +183,8 @@ export default async function BecomeAHostPage() {
                 </PlanBullet>
               </ul>
               <p className="mt-5 text-xs text-gray-500">
-                Break-even is roughly KES 750,000/year in bookings per listing. Above that,
-                subscription saves you money. Switch back to commission any time.
+                For a single listing, break-even is roughly KES 450,000/year in bookings;
+                additional listings break even far sooner. Switch back to commission any time.
               </p>
             </div>
           </div>
@@ -369,11 +371,11 @@ export default async function BecomeAHostPage() {
           <div className="divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
             <FaqItem
               q="What does it cost to list?"
-              a="Listing is free. You choose how we charge you: a flat 8% host service fee on confirmed bookings, or a flat monthly subscription (KES 5,000/month for your first listing, KES 2,500/month for each additional one). Mix and match per listing. No sign-up charge, no cost to import."
+              a="Listing is free. You choose how we charge you: an 8% host service fee on confirmed bookings, or a tiered monthly subscription (KES 3,000 for your first listing, KES 1,500 each for listings 2–5, KES 1,000 each for 6–20, KES 500 each for 21–50, and KES 250 each beyond 50). Mix and match per listing. No sign-up charge, no cost to import."
             />
             <FaqItem
               q="Which plan should I pick — commission or subscription?"
-              a="Commission (8%) is best if you take a handful of bookings a month. The flat monthly subscription is best if a single listing grosses roughly KES 750,000/year or more in bookings — above that, you pay less on subscription than on commission. You can switch plans any time per listing, and new subscribers get two free months during our launch promo."
+              a="Commission (8%) is best if you take a handful of bookings a month. The subscription is best if a single listing grosses roughly KES 450,000/year or more in bookings — above that, you pay less on subscription than on commission. Management companies with many listings break even much sooner because of the tiered discount. You can switch plans any time per listing, and new subscribers get two free months during our launch promo."
             />
             <FaqItem
               q="How does the AI import actually work?"

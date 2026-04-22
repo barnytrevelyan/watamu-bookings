@@ -92,7 +92,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
                 <tr key={li.listing_id} className="border-b border-gray-100">
                   <td className="py-3">
                     <div className="font-medium">{li.listing_name}</div>
-                    <div className="text-xs text-gray-500">{li.listing_type === 'property' ? 'Property' : 'Boat'}{li.is_first_listing ? ' · first listing rate' : ' · additional listing rate'}</div>
+                    <div className="text-xs text-gray-500">{li.listing_type === 'property' ? 'Property' : 'Boat'}{li.tier_label ? ` · ${li.tier_label}` : ''}</div>
                   </td>
                   <td className="py-3 text-right">{formatKes(li.unit_price_kes)}</td>
                 </tr>

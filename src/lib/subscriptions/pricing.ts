@@ -1,14 +1,25 @@
 // Pricing helpers — pure functions, safe for both client and server.
 // Mirror of the SQL function wb_compute_monthly_charge_kes + annual logic.
+//
+// Pricing is tiered per-listing (not flat first/additional). The ladder is
+// defined in wb_settings.billing.monthly_price_tiers_kes and mirrored in
+// DEFAULT_BILLING_SETTINGS below as a fallback. Keep the two in sync.
 
-import type { BillingSettings, SubscriptionInvoiceLineItem, ListingType } from './types';
+import type { BillingSettings, PricingTier, SubscriptionInvoiceLineItem, ListingType } from './types';
+
+export const DEFAULT_PRICING_TIERS: PricingTier[] = [
+  { from: 1,  to: 1,    price_kes: 3000, label: '1st listing' },
+  { from: 2,  to: 5,    price_kes: 1500, label: 'Listings 2–5' },
+  { from: 6,  to: 20,   price_kes: 1000, label: 'Listings 6–20' },
+  { from: 21, to: 50,   price_kes: 500,  label: 'Listings 21–50' },
+  { from: 51, to: null, price_kes: 250,  label: 'Listings 51+' },
+];
 
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   launch_promo_active: true,
   launch_trial_months: 2,
   standard_trial_months: 1,
-  monthly_price_first_kes: 5000,
-  monthly_price_additional_kes: 2500,
+  monthly_price_tiers_kes: DEFAULT_PRICING_TIERS,
   annual_paid_months: 10,
   grace_period_hours: 48,
   commission_rate_bps: 800,
@@ -16,15 +27,48 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   listing_match_trgm_threshold: 0.4,
 };
 
+/**
+ * Return the monthly unit price for the Nth listing on a host account
+ * (1-indexed). Falls back to the last tier if no band matches.
+ */
+export function priceForListingNumber(
+  listingNumber: number,
+  settings: BillingSettings = DEFAULT_BILLING_SETTINGS
+): number {
+  const tiers = settings.monthly_price_tiers_kes;
+  for (const tier of tiers) {
+    const upper = tier.to ?? Number.POSITIVE_INFINITY;
+    if (listingNumber >= tier.from && listingNumber <= upper) return tier.price_kes;
+  }
+  return tiers[tiers.length - 1]?.price_kes ?? 0;
+}
+
+/**
+ * Return the tier descriptor for the Nth listing on a host account
+ * (1-indexed). Handy for invoice line-item labelling.
+ */
+export function tierForListingNumber(
+  listingNumber: number,
+  settings: BillingSettings = DEFAULT_BILLING_SETTINGS
+): PricingTier {
+  const tiers = settings.monthly_price_tiers_kes;
+  for (const tier of tiers) {
+    const upper = tier.to ?? Number.POSITIVE_INFINITY;
+    if (listingNumber >= tier.from && listingNumber <= upper) return tier;
+  }
+  return tiers[tiers.length - 1];
+}
+
 export function computeMonthlyChargeKes(
   listingCount: number,
   settings: BillingSettings = DEFAULT_BILLING_SETTINGS
 ): number {
   if (!listingCount || listingCount <= 0) return 0;
-  return (
-    settings.monthly_price_first_kes +
-    Math.max(listingCount - 1, 0) * settings.monthly_price_additional_kes
-  );
+  let total = 0;
+  for (let i = 1; i <= listingCount; i++) {
+    total += priceForListingNumber(i, settings);
+  }
+  return total;
 }
 
 export function computeAnnualChargeKes(
@@ -64,9 +108,9 @@ export function annualBreakEvenGrossKes(
 }
 
 // Build the line-items for an invoice given the host's listings.
-// Stable ordering: first listing by created_at ascending pays full price,
-// the rest pay the additional-listing rate. Deterministic so re-running
-// the generator produces the same invoice.
+// Stable ordering by created_at ascending: the oldest listing is listing #1
+// (most expensive tier), the next four are listings 2–5 in the second tier,
+// etc. Deterministic so re-running the generator produces the same invoice.
 export interface ListingForInvoice {
   listing_id: string;
   listing_type: ListingType;
@@ -79,13 +123,16 @@ export function buildInvoiceLineItems(
   settings: BillingSettings = DEFAULT_BILLING_SETTINGS
 ): SubscriptionInvoiceLineItem[] {
   const sorted = [...listings].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  return sorted.map((l, idx) => ({
-    listing_id: l.listing_id,
-    listing_type: l.listing_type,
-    listing_name: l.listing_name,
-    unit_price_kes: idx === 0 ? settings.monthly_price_first_kes : settings.monthly_price_additional_kes,
-    is_first_listing: idx === 0,
-  }));
+  return sorted.map((l, idx) => {
+    const tier = tierForListingNumber(idx + 1, settings);
+    return {
+      listing_id: l.listing_id,
+      listing_type: l.listing_type,
+      listing_name: l.listing_name,
+      unit_price_kes: tier.price_kes,
+      tier_label: tier.label,
+    };
+  });
 }
 
 export function sumLineItemsKes(

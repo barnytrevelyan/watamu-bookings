@@ -33,7 +33,7 @@ function layout({ title, body }: { title: string; body: string }): string {
 export function invoiceIssuedEmail(invoice: SubscriptionInvoice, hostName?: string): EmailPayload {
   const dueDate = new Date(invoice.due_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const lines = invoice.line_items.map((li) =>
-    `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${li.listing_name}${li.is_first_listing ? ' <span style="color:#0d7b6c;font-size:11px;">(first listing)</span>' : ''}</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;text-align:right;">${formatKes(li.unit_price_kes)}</td></tr>`
+    `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">${li.listing_name}${li.tier_label ? ` <span style="color:#0d7b6c;font-size:11px;">(${li.tier_label})</span>` : ''}</td><td style="padding:8px 0;border-bottom:1px solid #f3f4f6;text-align:right;">${formatKes(li.unit_price_kes)}</td></tr>`
   ).join('');
 
   const html = layout({
