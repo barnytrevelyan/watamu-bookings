@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
-import { STOCK_IMAGES } from '@/lib/images';
 import { getCurrentPlace } from '@/lib/places/context';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -37,8 +36,8 @@ export default async function AboutPage() {
       {/* Hero */}
       <section className="relative h-[40vh] min-h-[320px]">
         <Image
-          src={STOCK_IMAGES.scenery.palmTrees}
-          alt={placeName === 'Kwetu' ? 'Kenyan coastline' : `${placeName} coastline`}
+          src="/images/hero/kwetu-about.jpg"
+          alt={placeName === 'Kwetu' ? 'Local boat off the Kenyan coast' : `Local boat off ${placeName}`}
           fill
           className="object-cover"
           priority

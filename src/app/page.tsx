@@ -440,7 +440,10 @@ function ShellLanding({
   host: PlaceContext['host'];
   destinations: Place[];
 }) {
-  const shellHero = STOCK_IMAGES.hero.tropicalBeach;
+  // Licensed stock shot (pexels-wijs-wise-136435282); cropped + resized to
+  // 2400×1600 and served locally so we're not hotlinking a third-party CDN
+  // on the marquee above-the-fold image.
+  const shellHero = '/images/hero/kwetu-hero.jpg';
   return (
     <>
       <JsonLd id="ld-org" data={organizationSchema(host)} />
