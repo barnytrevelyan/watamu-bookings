@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { TrendingUp, Info } from 'lucide-react';
-import { computeMonthlyChargeKes, tierForListingNumber } from '@/lib/subscriptions/pricing';
+import {
+  computeAnnualChargeKes,
+  computeMonthlyChargeKes,
+  tierForListingNumber,
+} from '@/lib/subscriptions/pricing';
 
 const FMT = new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 });
 
@@ -39,14 +43,23 @@ export default function EarningsCalculator({
   const airbnbNetMonthly = monthlyGross * (1 - 0.15);
   const bookingNetMonthly = monthlyGross * (1 - 0.16);
 
-  const kwetuNetAnnual = kwetuNetMonthly * 12;
+  // Annual plan = pay 10 months, get 12. Use computeAnnualChargeKes so the
+  // headline annual number reflects the real prepaid-annual price, not
+  // monthly × 12.
+  const kwetuSubscriptionMonthlyPlanAnnual = kwetuSubscription * 12;
+  const kwetuSubscriptionAnnual = useMemo(
+    () => computeAnnualChargeKes(listings),
+    [listings],
+  );
+  const annualPlanSavings =
+    kwetuSubscriptionMonthlyPlanAnnual - kwetuSubscriptionAnnual;
+
+  const kwetuNetAnnual = monthlyGross * 12 - kwetuSubscriptionAnnual;
   const airbnbNetAnnual = airbnbNetMonthly * 12;
   const bookingNetAnnual = bookingNetMonthly * 12;
 
   const savingsVsAirbnb = kwetuNetAnnual - airbnbNetAnnual;
   const savingsVsBooking = kwetuNetAnnual - bookingNetAnnual;
-
-  const kwetuSubscriptionAnnual = kwetuSubscription * 12;
 
   // Group listings by pricing tier so the calculator shows the real shape of
   // the ladder (e.g. 1 × 3,000 + 2 × 1,500) rather than a misleading "average
@@ -186,23 +199,21 @@ export default function EarningsCalculator({
               </span>
             </div>
 
-            {/* Subscription cost — explicit, monthly + annual. On multi-listing
-                portfolios we also show the per-listing average so the tiered
-                curve (KES 3K → 1.5K → 1K → 500 → 250) is visible. */}
+            {/* Subscription cost — tiered ladder + both plan options.
+                Monthly plan = monthly × 12. Annual plan = pay 10 months, get
+                12 (computeAnnualChargeKes handles the 10-month multiplier).
+                We show both so the "pay 10 get 12" saving is visible. */}
             <div className="mt-3 rounded-xl bg-white/70 px-3 py-2.5 border border-teal-100">
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                Your subscription
-              </div>
-              <div className="mt-0.5 flex items-baseline justify-between gap-2 flex-wrap">
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Your subscription
+                </div>
                 <div className="text-base font-bold text-slate-900">
                   {fmt(kwetuSubscription)}
                   <span className="text-xs font-medium text-slate-500">/mo</span>
                 </div>
-                <div className="text-sm font-semibold text-slate-700">
-                  {fmt(kwetuSubscriptionAnnual)}
-                  <span className="text-xs font-medium text-slate-500">/yr</span>
-                </div>
               </div>
+
               {listings > 1 && (
                 <div className="mt-2 border-t border-teal-100 pt-2 space-y-0.5">
                   {tierBreakdown.map((tier) => (
@@ -221,6 +232,32 @@ export default function EarningsCalculator({
                   ))}
                 </div>
               )}
+
+              <div className="mt-2 border-t border-teal-100 pt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Monthly plan
+                  </div>
+                  <div className="text-sm font-semibold text-slate-700">
+                    {fmt(kwetuSubscriptionMonthlyPlanAnnual)}
+                    <span className="text-[11px] font-medium text-slate-500">/yr</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-teal-700">
+                    Annual plan
+                  </div>
+                  <div className="text-sm font-semibold text-teal-700">
+                    {fmt(kwetuSubscriptionAnnual)}
+                    <span className="text-[11px] font-medium text-teal-600/80">/yr</span>
+                  </div>
+                  {annualPlanSavings > 0 && (
+                    <div className="text-[10px] text-teal-700">
+                      Pay 10 months, get 12 · save {fmt(annualPlanSavings)}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -239,6 +276,9 @@ export default function EarningsCalculator({
                 <div className="text-lg font-bold text-slate-900">
                   {fmt(kwetuNetAnnual)}
                 </div>
+                {annualPlanSavings > 0 && (
+                  <div className="text-[10px] text-teal-700">on annual plan</div>
+                )}
               </div>
             </div>
           </div>
