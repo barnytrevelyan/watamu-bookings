@@ -830,36 +830,38 @@ export default function TidesClient({ place }: TidesClientProps = {}) {
           </div>
         )}
 
-        {/* ── KWS Marine Park Fees ── */}
-        <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 sm:p-8 text-white">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="flex-shrink-0">
-              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                </svg>
+        {/* ── KWS Marine Park Fees — Watamu only (Kilifi has no marine park) ── */}
+        {placeName === 'Watamu' && (
+          <div className="bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl p-6 sm:p-8 text-white">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                  </svg>
+                </div>
               </div>
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-lg font-bold mb-1">KWS Marine Park Entry Fees</h3>
+                <p className="text-white/85 text-sm leading-relaxed">
+                  Visiting Watamu Marine National Park? Pay online in advance to skip the queue.
+                  Non-resident adults KES 1,770 (~$13), resident adults KES 300.
+                </p>
+              </div>
+              <a
+                href="https://kwspay.ecitizen.go.ke/single-park-entry/watamu-marine-park/guests"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors shrink-0"
+              >
+                Pay KWS Fees Online
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </a>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <h3 className="text-lg font-bold mb-1">KWS Marine Park Entry Fees</h3>
-              <p className="text-white/85 text-sm leading-relaxed">
-                Visiting Watamu Marine National Park? Pay online in advance to skip the queue.
-                Non-resident adults KES 1,770 (~$13), resident adults KES 300.
-              </p>
-            </div>
-            <a
-              href="https://kwspay.ecitizen.go.ke/single-park-entry/watamu-marine-park/guests"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors shrink-0"
-            >
-              Pay KWS Fees Online
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
-            </a>
           </div>
-        </div>
+        )}
 
         {/* ── Understanding Tides ── */}
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100">
