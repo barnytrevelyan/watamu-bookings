@@ -36,7 +36,8 @@ async function getFeaturedProperties(place: Place | null): Promise<Property[]> {
     `
     )
     .eq("is_featured", true)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("is_test", false);
   if (place) query = query.eq("place_id", place.id);
   const { data, error } = await query
     .order("created_at", { ascending: false })
@@ -66,7 +67,8 @@ async function getFeaturedBoats(place: Place | null): Promise<Boat[]> {
     .from("wb_boats")
     .select(select)
     .eq("is_featured", true)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("is_test", false);
   if (place) query = query.eq("wb_boat_places.place_id", place.id);
 
   const { data, error } = await query

@@ -84,6 +84,7 @@ export async function countPublishedBoatsInPlace(
     .from('wb_boats')
     .select('id, wb_boat_places!inner(place_id)', { count: 'exact', head: true })
     .eq('is_published', true)
+    .eq('is_test', false)
     .eq('wb_boat_places.place_id', place.id);
   return count ?? 0;
 }
@@ -97,6 +98,7 @@ export async function countPublishedPropertiesInPlace(
     .from('wb_properties')
     .select('id', { count: 'exact', head: true })
     .eq('is_published', true)
+    .eq('is_test', false)
     .eq('place_id', place.id);
   return count ?? 0;
 }

@@ -308,6 +308,7 @@ export default function MapClient({ place }: MapClientProps) {
           .from('wb_properties')
           .select('id, slug, name, latitude, longitude, base_price_per_night, currency, property_type, bedrooms')
           .eq('is_published', true)
+          .eq('is_test', false)
           .not('latitude', 'is', null)
           .not('longitude', 'is', null);
 

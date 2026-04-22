@@ -18,6 +18,7 @@ async function findListingBySlug(slug: string): Promise<{ type: 'boat' | 'proper
     .select("slug")
     .eq("slug", slug)
     .eq("is_published", true)
+    .eq("is_test", false)
     .single();
 
   if (boat) return { type: 'boat', slug: boat.slug };
@@ -28,6 +29,7 @@ async function findListingBySlug(slug: string): Promise<{ type: 'boat' | 'proper
     .select("slug")
     .eq("slug", slug)
     .eq("is_published", true)
+    .eq("is_test", false)
     .single();
 
   if (property) return { type: 'property', slug: property.slug };

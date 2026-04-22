@@ -519,11 +519,11 @@ export default function TidesClient({ place }: TidesClientProps = {}) {
       <section className="relative bg-gradient-to-br from-teal-700 via-cyan-700 to-blue-800 py-16 sm:py-20 px-4">
         <div className="relative max-w-4xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Tides &amp; Weather for {placeName}
+            Tides &amp; Weather for {placeName === 'Kwetu' ? 'the Kenyan coast' : placeName}
           </h1>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
             Live weather, {FORECAST_DAYS}-day tide forecast, 7-day outlook, and sea conditions
-            for the {placeName} coast.
+            for the {placeName === 'Kwetu' ? 'Kenyan coast' : `${placeName} coast`}.
           </p>
         </div>
       </section>

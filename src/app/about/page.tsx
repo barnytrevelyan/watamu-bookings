@@ -32,7 +32,7 @@ export default async function AboutPage() {
       <section className="relative h-[40vh] min-h-[320px]">
         <Image
           src={STOCK_IMAGES.scenery.palmTrees}
-          alt={`${placeName} coastline`}
+          alt={placeName === 'Kwetu' ? 'Kenyan coastline' : `${placeName} coastline`}
           fill
           className="object-cover"
           priority
@@ -103,8 +103,9 @@ export default async function AboutPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">For Property & Boat Owners</h2>
           <p className="text-gray-600 leading-relaxed">
             If you own a rental property or fishing boat in {placeName}, we'd love to have you on the
-            platform. We charge lower commissions than the international platforms, handle payments
-            securely, and give you a full dashboard to manage your listings, bookings, and reviews.
+            platform. We charge a flat monthly subscription per listing — no per-booking commission,
+            no guest service fee — handle payments securely, and give you a full dashboard to manage
+            your listings, bookings, and reviews.
           </p>
           <p className="mt-4 text-gray-600 leading-relaxed">
             Getting started is free — create an owner account, build your listing page with photos,

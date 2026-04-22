@@ -36,12 +36,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from('wb_properties')
       .select('slug, updated_at')
       .eq('is_published', true)
+      .eq('is_test', false)
       .limit(500);
 
     let boatsQuery = supabase
       .from('wb_boats')
       .select('slug, updated_at, wb_boat_places!inner(place_id)')
       .eq('is_published', true)
+      .eq('is_test', false)
       .limit(500);
 
     if (place) {

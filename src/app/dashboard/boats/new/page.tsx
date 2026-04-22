@@ -12,7 +12,6 @@ import { Textarea } from '@/components/ui/Textarea';
 import { TRIP_TYPE_LABELS } from '@/lib/types';
 import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
-import BillingModePicker from '@/components/BillingModePicker';
 import { ArrowLeft, Anchor, Ship, CheckCircle2, Fish, Package, Image as ImageIcon, MapPin, ClipboardCheck } from 'lucide-react';
 
 interface BoatFeature {
@@ -188,7 +187,6 @@ export default function NewBoatPage() {
   const [instantConfirmation, setInstantConfirmation] = useState(false);
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
-  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
 
   // Features
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
@@ -372,7 +370,7 @@ export default function NewBoatPage() {
           longitude: mapPinSet ? longitude : null,
           currency,
           cancellation_policy: cancellationPolicy,
-          billing_mode: billingMode,
+          billing_mode: 'subscription',
           is_published: false,
           status,
         })
@@ -659,9 +657,6 @@ export default function NewBoatPage() {
                 <option value="strict">Strict</option>
               </select>
             </div>
-          </div>
-          <div className="mt-4">
-            <BillingModePicker value={billingMode} onChange={setBillingMode} />
           </div>
           <div className="mt-4">
             <label className="mb-1 block text-sm font-medium text-gray-700">Departure Point</label>

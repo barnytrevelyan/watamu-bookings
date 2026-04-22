@@ -65,12 +65,14 @@ async function getBoats(
         "wb_boat_places.place_id",
         scope.map((p) => p.id)
       )
-      .eq("is_published", true);
+      .eq("is_published", true)
+      .eq("is_test", false);
   } else {
     query = supabase
       .from("wb_boats")
       .select(selectColumns, { count: "exact" })
-      .eq("is_published", true);
+      .eq("is_published", true)
+      .eq("is_test", false);
   }
 
   // Filters

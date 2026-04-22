@@ -118,9 +118,9 @@ export default async function ContactPage() {
                 Want to list your property or charter?
               </h2>
               <p className="mt-2 text-gray-700">
-                {brandName} charges a flat 8% host fee — significantly
-                less than the global platforms — and keeps your guests
-                local. Tell us a little about what you offer and we&rsquo;ll
+                {brandName} charges a flat monthly subscription per listing — no
+                per-booking commission, no guest service fee — and keeps your
+                guests local. Tell us a little about what you offer and we&rsquo;ll
                 come back with the next steps.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">

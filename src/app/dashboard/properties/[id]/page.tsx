@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 import CalendarSync from '@/components/CalendarSync';
-import BillingModePicker from '@/components/BillingModePicker';
 import {
   ArrowLeft,
   Home,
@@ -81,7 +80,6 @@ export default function EditPropertyPage() {
   const [basePrice, setBasePrice] = useState('');
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
-  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
   const [houseRules, setHouseRules] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [isPublished, setIsPublished] = useState(false);
@@ -141,7 +139,6 @@ export default function EditPropertyPage() {
         setBasePrice(property.base_price_per_night?.toString() || '');
         setCurrency(property.currency || 'KES');
         setCancellationPolicy(property.cancellation_policy || 'moderate');
-        setBillingMode((property.billing_mode as 'commission' | 'subscription') || 'commission');
         setHouseRules(property.house_rules || '');
         setIsPublished(property.is_published);
         setSelectedAmenities(
@@ -221,7 +218,6 @@ export default function EditPropertyPage() {
           base_price_per_night: parseFloat(basePrice),
           currency,
           cancellation_policy: cancellationPolicy,
-          billing_mode: billingMode,
           house_rules: houseRules.trim() || null,
           is_published: isPublished,
         })
@@ -552,7 +548,6 @@ export default function EditPropertyPage() {
 
         {activeTab === 'pricing' && (
           <div className="space-y-5">
-            <BillingModePicker value={billingMode} onChange={setBillingMode} compact />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Base price per night" required>
                 <Input type="number" min="0" step="0.01" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} />

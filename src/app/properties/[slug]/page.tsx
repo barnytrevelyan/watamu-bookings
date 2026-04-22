@@ -50,7 +50,8 @@ async function getProperty(slug: string, currentPlace: Place | null): Promise<Pr
     `
     )
     .eq("slug", slug)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("is_test", false);
 
   // Scope lookup to the current place so a stay in Kilifi isn't served on
   // watamubookings.com. On a multi-place shell with no place resolved

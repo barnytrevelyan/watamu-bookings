@@ -53,7 +53,6 @@ export default function BillingClient({
     Object.fromEntries(publishedListings.map((l) => [l.id, true]))
   );
   const [activating, setActivating] = useState(false);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
@@ -104,28 +103,8 @@ export default function BillingClient({
     }
   }
 
-  async function handleToggleListing(l: Listing, target: 'commission' | 'subscription') {
-    setTogglingId(l.id);
-    try {
-      const res = await fetch('/api/subscriptions/toggle-listing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listing_id: l.id, listing_type: l.type, billing_mode: target }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json?.error ?? 'Update failed');
-        return;
-      }
-      toast.success(target === 'subscription' ? 'Moved to subscription' : 'Moved to commission');
-      router.refresh();
-    } finally {
-      setTogglingId(null);
-    }
-  }
-
   async function handleCancel() {
-    if (!confirm('Cancel subscription and revert all listings to 8% commission?')) return;
+    if (!confirm('Cancel your subscription? Your listings will be unpublished until you reactivate.')) return;
     setCancelling(true);
     try {
       const res = await fetch('/api/subscriptions/cancel', {
@@ -226,11 +205,12 @@ export default function BillingClient({
         </section>
       )}
 
-      {/* Per-listing billing mode toggles (for active subs) */}
+      {/* Listing summary + cancel (for active subs). Per-listing commission
+          toggles are retired — subscription is the only model. We still list
+          the host's listings here so they can see what's on their plan. */}
       {showToggles && (
         <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">Per-listing billing</h2>
-          <p className="text-sm text-gray-500 mb-4">Mix and match: each listing can be on subscription or commission independently.</p>
+          <h2 className="text-lg font-semibold mb-4">Listings on your subscription</h2>
           <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
             {allListings.map((l) => (
               <div key={l.id} className="flex items-center justify-between gap-3 p-3">
@@ -238,19 +218,7 @@ export default function BillingClient({
                   <div className="text-sm font-semibold text-gray-900">{l.name}</div>
                   <div className="text-xs text-gray-500">{l.type === 'property' ? 'Property' : 'Boat'}{!l.is_published && ' · Unpublished'}</div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold ${l.billing_mode === 'subscription' ? 'text-teal-700' : 'text-gray-500'}`}>
-                    {l.billing_mode === 'subscription' ? 'Subscription' : 'Commission'}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={togglingId === l.id}
-                    onClick={() => handleToggleListing(l, l.billing_mode === 'subscription' ? 'commission' : 'subscription')}
-                    className="text-xs px-3 py-1.5 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {togglingId === l.id ? '…' : l.billing_mode === 'subscription' ? 'Switch to commission' : 'Switch to subscription'}
-                  </button>
-                </div>
+                <span className="text-xs font-semibold text-teal-700">Subscription</span>
               </div>
             ))}
           </div>

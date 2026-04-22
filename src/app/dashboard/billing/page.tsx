@@ -55,7 +55,8 @@ export default async function BillingPage() {
       <header>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Billing</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Choose how {brandName} charges you: a flat monthly fee or 8% commission on bookings.
+          {brandName} charges a flat monthly subscription per listing. No commission
+          on bookings. Keep 100% of every stay.
         </p>
       </header>
 
@@ -100,9 +101,9 @@ export default async function BillingPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Current plan</p>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">You're on 8% commission</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">Subscription not activated</h2>
                 <p className="text-sm text-gray-600 mt-2 max-w-xl leading-relaxed">
-                  Switch to a flat subscription — <strong className="text-gray-900">{formatKes(whatIfMonthly)}/month</strong> for your {whatIfCount} listing{whatIfCount === 1 ? '' : 's'} — and keep 100% of each booking.
+                  Activate your subscription — <strong className="text-gray-900">{formatKes(whatIfMonthly)}/month</strong> for your {whatIfCount} listing{whatIfCount === 1 ? '' : 's'} — and keep 100% of every booking.
                   {trialMonths > 0 && <> Your first <strong className="text-gray-900">{trialMonths} month{trialMonths === 1 ? '' : 's'}</strong> are free.</>}
                 </p>
               </div>
@@ -117,19 +118,8 @@ export default async function BillingPage() {
       {/* Comparison table (only if not yet subscribed) */}
       {!summary.subscription && (
         <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Which plan suits you?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <PlanCard
-              title="Commission"
-              price="8%"
-              priceNote="per booking"
-              bullets={[
-                'No fixed cost — pay only when you earn',
-                'Best for fewer bookings or trial listings',
-                'Standard 8% service fee on each booking',
-              ]}
-              highlighted={false}
-            />
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Monthly or annual?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PlanCard
               title="Monthly"
               price={formatKes(whatIfMonthly)}
@@ -137,8 +127,8 @@ export default async function BillingPage() {
               badge={trialMonths > 0 ? `${trialMonths} mo free` : 'Popular'}
               bullets={[
                 trialMonths > 0 ? `${trialMonths}-month free trial` : 'Start immediately',
+                'No commission — keep 100% of every booking',
                 'No guest service fee — more bookings',
-                `Break-even at ${formatKes(whatIfBreakEven)}/yr in bookings`,
               ]}
               highlighted
             />
@@ -154,6 +144,10 @@ export default async function BillingPage() {
               highlighted={false}
             />
           </div>
+          <p className="mt-3 text-xs text-gray-500">
+            Break-even at {formatKes(whatIfBreakEven)}/yr in bookings vs legacy
+            commission platforms.
+          </p>
         </section>
       )}
 

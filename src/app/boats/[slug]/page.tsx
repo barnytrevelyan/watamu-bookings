@@ -66,13 +66,15 @@ async function getBoat(slug: string, currentPlace: Place | null): Promise<BoatDe
       .select(`${select}, scope:wb_boat_places!inner(place_id)`)
       .eq("slug", slug)
       .eq("is_published", true)
+      .eq("is_test", false)
       .eq("scope.place_id", currentPlace.id);
   } else {
     query = supabase
       .from("wb_boats")
       .select(select)
       .eq("slug", slug)
-      .eq("is_published", true);
+      .eq("is_published", true)
+      .eq("is_test", false);
   }
 
   const { data, error } = await query.single();

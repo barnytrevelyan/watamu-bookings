@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 // import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
-import BillingModePicker from '@/components/BillingModePicker';
 import { ArrowLeft, Home, Image as ImageIcon, MapPin, Sparkles, Wallet, ClipboardCheck, CheckCircle2 } from 'lucide-react';
 
 interface Amenity {
@@ -214,7 +213,6 @@ export default function NewPropertyPage() {
   const [basePrice, setBasePrice] = useState('');
   const [currency, setCurrency] = useState('KES');
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
-  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
   const [lowSeasonPrice, setLowSeasonPrice] = useState('');
   const [highSeasonPrice, setHighSeasonPrice] = useState('');
   const [peakSeasonPrice, setPeakSeasonPrice] = useState('');
@@ -394,7 +392,7 @@ export default function NewPropertyPage() {
           base_price_per_night: parseFloat(basePrice),
           currency,
           cancellation_policy: cancellationPolicy,
-          billing_mode: billingMode,
+          billing_mode: 'subscription',
           house_rules: houseRules.trim() || null,
           is_published: false,
           status,
@@ -974,8 +972,6 @@ export default function NewPropertyPage() {
               <h3 className="mb-1 text-sm font-semibold text-gray-900">Pricing</h3>
               <p className="mb-4 text-xs text-gray-500">Set your base price and seasonal rates.</p>
             </div>
-
-            <BillingModePicker value={billingMode} onChange={setBillingMode} />
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>

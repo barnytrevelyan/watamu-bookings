@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const brandName = host.brand_name;
   return {
     title: `Become a host — ${brandName}`,
-    description: `List your villa, cottage, fishing boat or sunset cruise on ${brandName}. 8% flat commission or flat monthly subscription — your choice. Free to list, paid in 24 hours, M-Pesa supported.`,
+    description: `List your villa, cottage, fishing boat or sunset cruise on ${brandName}. Flat monthly subscription — no commission on bookings. Free to list, paid in 24 hours, M-Pesa supported.`,
   };
 }
 
@@ -31,7 +31,14 @@ export default async function BecomeAHostPage() {
   const brandName = host.brand_name;
   const placeName = place?.name ?? host.brand_short;
   const supportEmail = host.support_email ?? 'hello@kwetu.ke';
-  const isWatamu = placeName === 'Watamu';
+  const isWatamu = place?.name === 'Watamu';
+  // When we're on a specific destination (Watamu, Diani, etc.) copy can
+  // reference "the {placeName} coast" naturally. On the generic Kwetu root
+  // there is no single place to name — fall back to the Swahili meaning of
+  // the brand ("kwetu" = "our home / our place") so the language makes
+  // sense instead of treating "Kwetu" as a geographic noun.
+  const hasSpecificPlace = place?.name != null;
+  const coastLabel = hasSpecificPlace ? `${placeName} coast` : 'Kenyan coast';
   return (
     <div className="min-h-screen bg-white">
       {/* ---------- HERO ---------- */}
@@ -43,14 +50,24 @@ export default async function BecomeAHostPage() {
                 Hosts &amp; charter operators
               </p>
               <h1 className="mt-3 text-4xl font-bold leading-tight text-gray-900 sm:text-5xl">
-                Share your piece of {placeName}.{' '}
-                <span className="text-teal-600">Keep more of what you earn.</span>
+                {hasSpecificPlace ? (
+                  <>
+                    Share your piece of {placeName}.{' '}
+                    <span className="text-teal-600">Keep more of what you earn.</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="italic">Kwetu</span> means &ldquo;home.&rdquo;{' '}
+                    <span className="text-teal-600">Share yours.</span>
+                  </>
+                )}
               </h1>
               <p className="mt-5 max-w-xl text-lg text-gray-600">
                 {brandName} is the home-grown marketplace for villas, cottages,
-                fishing boats, and sunset cruises on the Kenyan coast. Lower fees than
-                Airbnb and Booking.com, direct relationships with your guests, and real
-                support from people who live here too.
+                fishing boats, and sunset cruises on the Kenyan coast &mdash; a place
+                for hosts and travellers to call theirs. Lower fees than Airbnb and
+                Booking.com, direct relationships with your guests, and real support
+                from people who live here too.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -72,7 +89,7 @@ export default async function BecomeAHostPage() {
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <StatCard label="Free to list" value="KES 0" icon={<Wallet className="h-4 w-4" />} />
-              <StatCard label="Flat host fee" value="8%" icon={<Coins className="h-4 w-4" />} />
+              <StatCard label="From" value="KES 3,000/mo" icon={<Coins className="h-4 w-4" />} />
               <StatCard label="Paid in" value="24 hrs" icon={<Zap className="h-4 w-4" />} />
               <StatCard label="Supports" value="M-Pesa" icon={<ShieldCheck className="h-4 w-4" />} />
             </div>
@@ -85,7 +102,7 @@ export default async function BecomeAHostPage() {
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-bold text-gray-900">Why host with us</h2>
           <p className="mx-auto mt-3 max-w-2xl text-gray-600">
-            Built for the {placeName} coast, run by people who live here. Lower fees and
+            Built for the {coastLabel}, run by people who live here. Lower fees and
             tools that actually work for Kenyan hosts.
           </p>
         </div>
@@ -98,8 +115,8 @@ export default async function BecomeAHostPage() {
           />
           <FeatureCard
             icon={<Wallet className="h-5 w-5 text-teal-600" />}
-            title="Keep more of what you earn"
-            body="Pick 8% flat commission per booking, or switch to a flat monthly subscription and keep 100% of every stay."
+            title="Keep 100% of every booking"
+            body="Flat monthly fee. No per-booking commission. No hidden guest fees. What you charge is what you earn."
           />
           <FeatureCard
             icon={<Users className="h-5 w-5 text-teal-600" />}
@@ -108,7 +125,7 @@ export default async function BecomeAHostPage() {
           />
           <FeatureCard
             icon={<Waves className="h-5 w-5 text-teal-600" />}
-            title={`Built for the ${placeName} coast`}
+            title={`Built for the ${coastLabel}`}
             body={isWatamu
               ? 'Mida Creek, Marine Park diving, marlin season, dhow sunset sails — the platform knows the rhythms of the coast.'
               : 'Tide-aware charters, seasonal marlin runs, dhow sunset sails — the platform knows the rhythms of the Kenyan coast.'}
@@ -116,47 +133,25 @@ export default async function BecomeAHostPage() {
         </div>
       </section>
 
-      {/* ---------- PLANS: COMMISSION vs SUBSCRIPTION ---------- */}
+      {/* ---------- PRICING ---------- */}
       <section className="bg-gradient-to-b from-teal-50/60 to-white py-16 lg:py-20">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-10 text-center">
             <p className="text-sm font-medium uppercase tracking-wide text-teal-600">
-              Two ways to pay
+              Simple pricing
             </p>
             <h2 className="mt-2 text-3xl font-bold text-gray-900">
-              Commission, subscription, or mix and match
+              One flat monthly fee. No commission. Ever.
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-gray-600">
-              Each listing can be on its own plan. Keep low-volume listings on
-              commission, move high-volume listings to a flat monthly fee — whatever
-              earns you more.
+              Pay a flat monthly rate per listing. The more listings you run, the less
+              each one costs. No per-booking fee, no hidden guest-side surcharge, no
+              30-day payout wait.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Commission card */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                <Coins className="h-5 w-5 text-teal-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Pay-as-you-earn</h3>
-              </div>
-              <p className="text-4xl font-bold text-gray-900">
-                8%<span className="ml-1 text-base font-medium text-gray-500">per booking</span>
-              </p>
-              <p className="mt-2 text-sm text-gray-600">
-                Fraction of Airbnb&rsquo;s blended 14–16% and Booking.com&rsquo;s 15–18%.
-                Flat host service fee, deducted from the accommodation total only.
-              </p>
-              <ul className="mt-5 space-y-2 text-sm text-gray-700">
-                <PlanBullet>No fixed cost &mdash; pay only when you earn</PlanBullet>
-                <PlanBullet>Best for a handful of bookings a month</PlanBullet>
-                <PlanBullet>No commitment &mdash; switch plans any time</PlanBullet>
-                <PlanBullet>Payout next day via M-Pesa or bank transfer</PlanBullet>
-              </ul>
-            </div>
-
-            {/* Subscription card */}
-            <div className="rounded-2xl border-2 border-teal-500 bg-white p-6 shadow-md ring-1 ring-teal-100">
+          <div className="mx-auto max-w-2xl">
+            <div className="rounded-2xl border-2 border-teal-500 bg-white p-6 shadow-md ring-1 ring-teal-100 sm:p-8">
               <div className="mb-4 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-teal-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Flat monthly subscription</h3>
@@ -168,13 +163,30 @@ export default async function BecomeAHostPage() {
                 From KES 3,000<span className="ml-1 text-base font-medium text-gray-500">/mo</span>
               </p>
               <p className="mt-1 text-sm text-gray-600">
-                Your first listing. Each additional listing is cheaper — <strong>KES 1,500</strong>{' '}
-                for listings 2–5, <strong>1,000</strong> for 6–20, <strong>500</strong> for 21–50,
-                and <strong>250</strong> for each beyond 50. Pay annually and get{' '}
+                Your first listing. Pay annually and get{' '}
                 <strong>12 months for the price of 10</strong>.
               </p>
-              <ul className="mt-5 space-y-2 text-sm text-gray-700">
-                <PlanBullet>Zero commission &mdash; keep 100% of each booking</PlanBullet>
+
+              <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Per-listing price
+                </p>
+                <dl className="mt-3 divide-y divide-gray-200 text-sm">
+                  <TierRow listings="1st listing" price="KES 3,000/mo" />
+                  <TierRow listings="Listings 2–5" price="KES 1,500/mo each" />
+                  <TierRow listings="Listings 6–20" price="KES 1,000/mo each" />
+                  <TierRow listings="Listings 21–50" price="KES 500/mo each" />
+                  <TierRow listings="Listings 51+" price="KES 250/mo each" />
+                </dl>
+                <p className="mt-3 text-xs text-gray-500">
+                  Billed like tax brackets — your 2nd listing is KES 1,500, not
+                  KES 1,500 across the board. Management companies with many listings
+                  average down fast.
+                </p>
+              </div>
+
+              <ul className="mt-6 space-y-2 text-sm text-gray-700">
+                <PlanBullet>Zero commission &mdash; keep 100% of every booking</PlanBullet>
                 <PlanBullet>No guest-side service fee &mdash; more bookings</PlanBullet>
                 <PlanBullet>Predictable cost for high-volume listings</PlanBullet>
                 <PlanBullet>
@@ -182,20 +194,16 @@ export default async function BecomeAHostPage() {
                   promo
                 </PlanBullet>
               </ul>
-              <p className="mt-5 text-xs text-gray-500">
-                For a single listing, break-even is roughly KES 450,000/year in bookings;
-                additional listings break even far sooner. Switch back to commission any time.
-              </p>
             </div>
-          </div>
 
-          <p className="mt-6 text-center text-sm text-gray-500">
-            You pick the plan per listing &mdash; inside the dashboard on{' '}
-            <Link href="/dashboard/billing" className="text-teal-600 hover:underline">
-              Billing
-            </Link>
-            .
-          </p>
+            <p className="mt-6 text-center text-sm text-gray-500">
+              Manage your plan any time from{' '}
+              <Link href="/dashboard/billing" className="text-teal-600 hover:underline">
+                Billing
+              </Link>
+              .
+            </p>
+          </div>
         </div>
       </section>
 
@@ -281,7 +289,7 @@ export default async function BecomeAHostPage() {
           <StepCard
             number="03"
             title="Set your price and calendar"
-            body="Choose nightly or trip pricing, add seasonal rates, pick commission or subscription, and sync your existing calendar."
+            body="Choose nightly or trip pricing, add seasonal rates, and sync your existing Airbnb or Booking.com calendar so dates stay in step."
           />
           <StepCard
             number="04"
@@ -312,7 +320,7 @@ export default async function BecomeAHostPage() {
             <BenefitCard
               icon={<Anchor className="h-5 w-5 text-teal-600" />}
               title="Multi-listing dashboard"
-              body="Manage villas, cottages, boats and charters from one place. Per-listing billing, per-listing pricing."
+              body="Manage villas, cottages, boats and charters from one place. Per-listing pricing, per-listing calendar, one unified dashboard."
             />
             <BenefitCard
               icon={<Zap className="h-5 w-5 text-teal-600" />}
@@ -326,7 +334,7 @@ export default async function BecomeAHostPage() {
             />
             <BenefitCard
               icon={<MessageSquare className="h-5 w-5 text-teal-600" />}
-              title={`Real ${placeName} support`}
+              title={hasSpecificPlace ? `Real ${placeName} support` : 'Real coast support'}
               body="WhatsApp a human on the coast — not a chatbot in another continent. We answer evenings and weekends."
             />
           </div>
@@ -349,7 +357,7 @@ export default async function BecomeAHostPage() {
               role="Villa host · Watamu"
             />
             <TestimonialCard
-              quote={`FishingBooker took 20% per charter. ${brandName} takes 8%. Same boat, same trips — I earn more and talk to my guests directly before they arrive.`}
+              quote={`FishingBooker took 20% per charter. On ${brandName} I pay a flat monthly fee and keep every shilling of every trip — I earn more and talk to my guests directly before they arrive.`}
               name="Captain Juma"
               role="Sport-fishing charter · Watamu Marina"
             />
@@ -371,11 +379,11 @@ export default async function BecomeAHostPage() {
           <div className="divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
             <FaqItem
               q="What does it cost to list?"
-              a="Listing is free. You choose how we charge you: an 8% host service fee on confirmed bookings, or a tiered monthly subscription (KES 3,000 for your first listing, KES 1,500 each for listings 2–5, KES 1,000 each for 6–20, KES 500 each for 21–50, and KES 250 each beyond 50). Mix and match per listing. No sign-up charge, no cost to import."
+              a="Listing is free. You pay a flat monthly subscription per listing: KES 3,000 for your first, KES 1,500 each for listings 2–5, KES 1,000 each for 6–20, KES 500 each for 21–50, and KES 250 each beyond 50. Billed like tax brackets — only the listings in a bracket pay that bracket's rate. Pay annually and get 12 months for the price of 10. No sign-up charge, no cost to import."
             />
             <FaqItem
-              q="Which plan should I pick — commission or subscription?"
-              a="Commission (8%) is best if you take a handful of bookings a month. The subscription is best if a single listing grosses roughly KES 450,000/year or more in bookings — above that, you pay less on subscription than on commission. Management companies with many listings break even much sooner because of the tiered discount. You can switch plans any time per listing, and new subscribers get two free months during our launch promo."
+              q="Is there a per-booking commission?"
+              a="No. We do not take a percentage of your bookings. You pay one flat monthly fee per listing and keep 100% of every stay or trip. Guests don't pay a service fee either, which tends to convert more bookings than commission-based platforms."
             />
             <FaqItem
               q="How does the AI import actually work?"
@@ -387,7 +395,7 @@ export default async function BecomeAHostPage() {
             />
             <FaqItem
               q="How does this compare to Airbnb or Booking.com?"
-              a="Airbnb's blended commission is typically 14–16% split between host and guest; Booking.com commonly charges 15–18% to the host. We charge 8% total to the host — or 0% on subscription — and nothing hidden from the guest. Most of our hosts earn 8–12% more per booking on the same nightly rate."
+              a="Airbnb's blended commission is typically 14–16% split between host and guest; Booking.com commonly charges 15–18% to the host. We charge a flat monthly subscription per listing and 0% commission on any booking — guests also pay no service fee. On any listing grossing above roughly KES 450,000/year, you keep meaningfully more of every booking than on the commission-based platforms."
             />
             <FaqItem
               q="Do I have to be exclusive?"
@@ -399,7 +407,7 @@ export default async function BecomeAHostPage() {
             />
             <FaqItem
               q="What properties or boats can I list?"
-              a={`Villas, apartments, cottages, bandas, bungalows, penthouses, guest houses, sport-fishing boats, dhows, catamarans, sunset cruise boats, diving boats — if it's on or near the ${placeName} coast and you own or legally manage it, you can list it.`}
+              a={`Villas, apartments, cottages, bandas, bungalows, penthouses, guest houses, sport-fishing boats, dhows, catamarans, sunset cruise boats, diving boats — if it's on or near the ${coastLabel} and you own or legally manage it, you can list it.`}
             />
             <FaqItem
               q="How do I get paid?"
@@ -499,6 +507,15 @@ function FeatureCard({
       </div>
       <h3 className="mb-2 text-base font-semibold text-gray-900">{title}</h3>
       <p className="text-sm text-gray-600">{body}</p>
+    </div>
+  );
+}
+
+function TierRow({ listings, price }: { listings: string; price: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 text-sm">
+      <dt className="text-gray-700">{listings}</dt>
+      <dd className="font-semibold text-gray-900">{price}</dd>
     </div>
   );
 }

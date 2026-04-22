@@ -64,7 +64,8 @@ async function getProperties(
     `,
       { count: "exact" }
     )
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("is_test", false);
 
   // If the user explicitly picked a set of destinations via ?places=, honour
   // that. Otherwise scope to the current path-resolved place.

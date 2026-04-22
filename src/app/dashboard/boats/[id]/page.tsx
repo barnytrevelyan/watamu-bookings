@@ -12,7 +12,6 @@ import type { TripType } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Tabs } from '@/components/ui/Tabs';
 import CalendarSync from '@/components/CalendarSync';
-import BillingModePicker from '@/components/BillingModePicker';
 import {
   ArrowLeft,
   Anchor,
@@ -102,7 +101,6 @@ export default function EditBoatPage() {
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [isPublished, setIsPublished] = useState(false);
-  const [billingMode, setBillingMode] = useState<'commission' | 'subscription'>('commission');
   const [existingImages, setExistingImages] = useState<{ id: string; url: string; is_cover: boolean }[]>([]);
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
@@ -149,7 +147,6 @@ export default function EditBoatPage() {
         setLatitude(boat.latitude?.toString() || '');
         setLongitude(boat.longitude?.toString() || '');
         setIsPublished(boat.is_published);
-        setBillingMode((boat.billing_mode as 'commission' | 'subscription') || 'commission');
         setSelectedFeatures((boat.wb_boat_feature_links || []).map((l: any) => l.feature_id));
         setTrips(
           (boat.wb_boat_trips || []).map((t: any) => ({
@@ -249,7 +246,6 @@ export default function EditBoatPage() {
           latitude: latitude ? parseFloat(latitude) : null,
           longitude: longitude ? parseFloat(longitude) : null,
           is_published: isPublished,
-          billing_mode: billingMode,
         })
         .eq('id', boatId)
         .eq('owner_id', user.id);
@@ -613,7 +609,6 @@ export default function EditBoatPage() {
 
         {activeTab === 'trips' && (
           <div className="space-y-4">
-            <BillingModePicker value={billingMode} onChange={setBillingMode} compact />
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">
                 Set a trip name and non-zero price to save.
