@@ -60,6 +60,9 @@ const LEGACY_REDIRECTS: Record<string, string> = {
 
 export const PLACE_HEADER = 'x-wb-place';
 export const HOST_HEADER = 'x-wb-host';
+// Plain pathname header so server components (e.g. the root layout)
+// can decide to skip chrome for bare-shell routes like /survey/*.
+export const PATH_HEADER = 'x-wb-path';
 
 function normaliseHost(raw: string | null | undefined): string {
   if (!raw) return 'kwetu.ke';
@@ -122,7 +125,9 @@ export async function middleware(request: NextRequest) {
   const host = normaliseHost(hostPort);
 
   request.headers.set(HOST_HEADER, host);
+  request.headers.set(PATH_HEADER, pathname);
   supabaseResponse.headers.set(HOST_HEADER, host);
+  supabaseResponse.headers.set(PATH_HEADER, pathname);
 
   // Default place for the host (single-place hosts). Empty = multi-place
   // shell, the place will come from the path segment (below).
@@ -158,6 +163,10 @@ export async function middleware(request: NextRequest) {
       const forwardedHeaders = new Headers(request.headers);
       forwardedHeaders.set(HOST_HEADER, host);
       forwardedHeaders.set(PLACE_HEADER, seg);
+      // Keep the pathname header pointing at the *stripped* path so the
+      // root layout's chrome-skip logic sees `/survey/host` rather than
+      // `/watamu/survey/host`.
+      forwardedHeaders.set(PATH_HEADER, rest);
 
       const response = NextResponse.rewrite(rewritten, {
         request: { headers: forwardedHeaders },
@@ -167,6 +176,7 @@ export async function middleware(request: NextRequest) {
       });
       response.headers.set(HOST_HEADER, host);
       response.headers.set(PLACE_HEADER, seg);
+      response.headers.set(PATH_HEADER, rest);
       return response;
     }
   }

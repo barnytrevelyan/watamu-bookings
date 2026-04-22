@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
 import { BrandProvider } from "@/lib/places/BrandProvider";
+import { PATH_HEADER } from "@/middleware";
 import "./globals.css";
 
 const inter = Inter({
@@ -112,10 +114,16 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [{ place, host }, allPlaces] = await Promise.all([
+  const [{ place, host }, allPlaces, headerList] = await Promise.all([
     getCurrentPlace(),
     listActivePlaces(),
+    headers(),
   ]);
+  // Bare-shell routes that render without site chrome (nav/footer) so
+  // they can be used as standalone forms / tools — e.g. discovery
+  // questionnaires that we don't want linking back into the site.
+  const path = headerList.get(PATH_HEADER) ?? '';
+  const isBareShell = path.startsWith('/survey');
   const brand = {
     name: host.brand_name,
     short: host.brand_short,
@@ -168,16 +176,18 @@ export default async function RootLayout({
             destinations,
           }}
         >
-          <Navbar brandName={brand.name} />
+          {!isBareShell && <Navbar brandName={brand.name} />}
           <main id="main" className="flex-1">
             {children}
           </main>
-          <Footer
-            brandName={brand.name}
-            brandShort={brand.short}
-            supportEmail={brand.supportEmail}
-            placeLabel={placeLabel}
-          />
+          {!isBareShell && (
+            <Footer
+              brandName={brand.name}
+              brandShort={brand.short}
+              supportEmail={brand.supportEmail}
+              placeLabel={placeLabel}
+            />
+          )}
         </BrandProvider>
       </body>
     </html>

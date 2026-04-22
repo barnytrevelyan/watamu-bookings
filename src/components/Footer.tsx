@@ -67,15 +67,15 @@ export default function Footer({
           <div className="lg:col-span-2">
             <Link
               href="/"
-              className="inline-flex items-center mb-4 rounded-lg bg-white p-2"
+              className="inline-flex items-center mb-4"
               aria-label={brandName}
             >
               <Image
-                src="/brand/kwetu-logo.png"
+                src="/brand/kwetu-logo-white.png"
                 alt={brandName}
                 width={1126}
                 height={247}
-                className="h-8 w-auto"
+                className="h-9 w-auto"
               />
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed max-w-sm mb-6">
