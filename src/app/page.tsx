@@ -263,7 +263,6 @@ export default async function HomePage() {
                   rating={property.avg_rating || 0}
                   reviewCount={property.review_count || 0}
                   pricePerNight={property.base_price_per_night}
-                  currency={property.currency || 'KES'}
                   bedrooms={property.bedrooms || 0}
                   bathrooms={property.bathrooms || 0}
                   maxGuests={property.max_guests || 2}
@@ -317,7 +316,6 @@ export default async function HomePage() {
                     rating={boat.avg_rating || 0}
                     reviewCount={boat.review_count || 0}
                     startingPrice={lowestTrip?.price_total || 0}
-                    currency={boat.currency || 'KES'}
                     instantConfirmation={boat.instant_confirmation || false}
                   />
                 );

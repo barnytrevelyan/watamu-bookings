@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Star, Users, Anchor, Ruler, Zap } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
+import { useCurrency } from '@/lib/places/BrandProvider';
+import { formatPrice } from '@/lib/currency';
 
 interface BoatCardProps {
   slug: string;
@@ -15,8 +17,8 @@ interface BoatCardProps {
   lengthFt?: number | null;
   rating: number;
   reviewCount: number;
+  /** Starting price per trip, stored in KES. */
   startingPrice: number;
-  currency?: string;
   instantConfirmation?: boolean;
 }
 
@@ -31,17 +33,9 @@ export default function BoatCard({
   rating,
   reviewCount,
   startingPrice,
-  currency = 'KES',
   instantConfirmation = false,
 }: BoatCardProps) {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
+  const currency = useCurrency();
 
   const typeBadgeVariant = (() => {
     switch (type.toLowerCase()) {
@@ -122,7 +116,7 @@ export default function BoatCard({
             </span>
             <div>
               <span className="text-lg font-bold text-gray-900">
-                {formatPrice(startingPrice)}
+                {formatPrice(startingPrice, currency)}
               </span>
               <span className="text-sm text-gray-500"> / trip</span>
             </div>

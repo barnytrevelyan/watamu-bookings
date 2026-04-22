@@ -7,6 +7,8 @@ import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
+import { useCurrency } from "@/lib/places/BrandProvider";
+import { formatPrice } from "@/lib/currency";
 import type { BoatTrip, TripType } from "@/lib/types";
 import { TRIP_TYPE_LABELS } from "@/lib/types";
 
@@ -31,6 +33,7 @@ export default function BoatBookingSidebar({
   availability,
 }: Props) {
   const router = useRouter();
+  const currency = useCurrency();
 
   const [selectedTripId, setSelectedTripId] = useState<string>(trips[0]?.id ?? "");
   const [tripDate, setTripDate] = useState<string>("");
@@ -115,7 +118,12 @@ export default function BoatBookingSidebar({
         <div className="flex items-baseline gap-1 mb-5">
           <span className="text-sm text-gray-500">From</span>
           <span className="text-2xl font-bold text-gray-900">
-            KES {Math.min(...trips.map((t) => (t as any).price_total ?? (t as any).price ?? 0)).toLocaleString()}
+            {formatPrice(
+              Math.min(
+                ...trips.map((t) => (t as any).price_total ?? (t as any).price ?? 0),
+              ),
+              currency,
+            )}
           </span>
           <span className="text-gray-500">/ trip</span>
         </div>
@@ -137,7 +145,7 @@ export default function BoatBookingSidebar({
               const timeInfo = trip.departure_time ? `, ${trip.departure_time}` : "";
               return (
                 <option key={trip.id} value={trip.id}>
-                  {trip.name} — KES {((trip as any).price_total ?? (trip as any).price ?? 0).toLocaleString()}
+                  {trip.name} — {formatPrice((trip as any).price_total ?? (trip as any).price ?? 0, currency)}
                   {trip.duration_hours ? ` (${trip.duration_hours}h${timeInfo})` : ""}
                 </option>
               );
@@ -208,7 +216,7 @@ export default function BoatBookingSidebar({
         <div className="border-t border-gray-100 pt-4 mb-4 space-y-2 text-sm">
           <div className="flex justify-between text-gray-700">
             <span>{selectedTrip.name}</span>
-            <span>KES {tripPrice.toLocaleString()}</span>
+            <span>{formatPrice(tripPrice, currency)}</span>
           </div>
           <div className="flex justify-between text-gray-500">
             <span>Type</span>
@@ -228,8 +236,13 @@ export default function BoatBookingSidebar({
           )}
           <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-100">
             <span>Total</span>
-            <span>KES {tripPrice.toLocaleString()}</span>
+            <span>{formatPrice(tripPrice, currency)}</span>
           </div>
+          {currency !== 'KES' && (
+            <p className="text-[11px] text-gray-500 pt-1">
+              Approx. in {currency}. Charged in KES — exact amount shown at checkout.
+            </p>
+          )}
         </div>
       )}
 
@@ -243,7 +256,7 @@ export default function BoatBookingSidebar({
         {isSubmitting
           ? "Booking…"
           : selectedTrip && tripDate
-            ? `Book Now — KES ${tripPrice.toLocaleString()}`
+            ? `Book Now — ${formatPrice(tripPrice, currency)}`
             : "Select a trip and date"}
       </Button>
 

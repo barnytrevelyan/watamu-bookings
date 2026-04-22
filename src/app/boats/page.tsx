@@ -252,7 +252,6 @@ export default async function BoatsPage({
                     ? Math.min(...boat.trips.map((t: any) => Number(t.price_total) || Infinity))
                     : 0
                 }
-                currency={boat.currency || 'KES'}
                 instantConfirmation={boat.instant_confirmation || false}
               />
             ))}

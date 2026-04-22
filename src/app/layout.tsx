@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
 import { BrandProvider } from "@/lib/places/BrandProvider";
+import { getPreferredCurrency } from "@/lib/currency";
 import { PATH_HEADER } from "@/middleware";
 import "./globals.css";
 
@@ -114,10 +115,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [{ place, host }, allPlaces, headerList] = await Promise.all([
+  const [{ place, host }, allPlaces, headerList, preferredCurrency] = await Promise.all([
     getCurrentPlace(),
     listActivePlaces(),
     headers(),
+    getPreferredCurrency(),
   ]);
   // Bare-shell routes that render without site chrome (nav/footer) so
   // they can be used as standalone forms / tools — e.g. discovery
@@ -174,6 +176,7 @@ export default async function RootLayout({
             placeSlug: place?.slug ?? null,
             features: place?.features ?? [],
             destinations,
+            preferredCurrency,
           }}
         >
           {!isBareShell && <Navbar brandName={brand.name} />}

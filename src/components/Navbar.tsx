@@ -12,6 +12,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import CurrencyToggle from '@/components/CurrencyToggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrand } from '@/lib/places/BrandProvider';
 import type { PlaceFeature } from '@/lib/types';
@@ -175,7 +176,9 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
           </nav>
 
           {/* Desktop auth */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2">
+            <CurrencyToggle />
+            <span className="h-5 w-px bg-gray-200" aria-hidden="true" />
             {loading ? (
               <div className="h-8 w-20 bg-gray-100 rounded-lg animate-pulse" />
             ) : user ? (
@@ -287,6 +290,12 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
               </div>
             </div>
           )}
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">
+              Display currency
+            </div>
+            <CurrencyToggle variant="mobile" />
+          </div>
           <div className="px-4 py-3 space-y-1">
             {navLinks.map((link) => (
               <Link

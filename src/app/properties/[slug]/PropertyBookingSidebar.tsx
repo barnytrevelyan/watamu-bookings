@@ -7,6 +7,8 @@ import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
+import { useCurrency } from "@/lib/places/BrandProvider";
+import { formatPrice } from "@/lib/currency";
 import type { Room } from "@/lib/types";
 
 interface AvailabilityDay {
@@ -38,6 +40,7 @@ export default function PropertyBookingSidebar({
   const nightlyRateNumber = Number(pricePerNight) || 0;
   const cleaningFeeNumber = cleaningFee == null ? 0 : Number(cleaningFee) || 0;
   const router = useRouter();
+  const currency = useCurrency();
 
   const [checkIn, setCheckIn] = useState<string>("");
   const [checkOut, setCheckOut] = useState<string>("");
@@ -159,7 +162,7 @@ export default function PropertyBookingSidebar({
       {/* Price header */}
       <div className="flex items-baseline gap-1 mb-5">
         <span className="text-2xl font-bold text-gray-900">
-          KES {nightlyRate.toLocaleString()}
+          {formatPrice(nightlyRate, currency)}
         </span>
         <span className="text-gray-500">/ night</span>
       </div>
@@ -242,7 +245,7 @@ export default function PropertyBookingSidebar({
               <option key={room.id} value={room.id}>
                 {room.name}
                 {room.price_per_night
-                  ? ` — KES ${room.price_per_night.toLocaleString()}/night`
+                  ? ` — ${formatPrice(room.price_per_night, currency)}/night`
                   : ""}
               </option>
             ))}
@@ -255,20 +258,25 @@ export default function PropertyBookingSidebar({
         <div className="border-t border-gray-100 pt-4 mb-4 space-y-2 text-sm">
           <div className="flex justify-between text-gray-700">
             <span>
-              KES {nightlyRate.toLocaleString()} x {nights} night{nights !== 1 ? "s" : ""}
+              {formatPrice(nightlyRate, currency)} x {nights} night{nights !== 1 ? "s" : ""}
             </span>
-            <span>KES {accommodationTotal.toLocaleString()}</span>
+            <span>{formatPrice(accommodationTotal, currency)}</span>
           </div>
           {cleaningFeeNumber > 0 && (
             <div className="flex justify-between text-gray-700">
               <span>Cleaning fee</span>
-              <span>KES {cleaningFeeNumber.toLocaleString()}</span>
+              <span>{formatPrice(cleaningFeeNumber, currency)}</span>
             </div>
           )}
           <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-100">
             <span>Total</span>
-            <span>KES {totalPrice.toLocaleString()}</span>
+            <span>{formatPrice(totalPrice, currency)}</span>
           </div>
+          {currency !== 'KES' && (
+            <p className="text-[11px] text-gray-500 pt-1">
+              Approx. in {currency}. Charged in KES — exact amount shown at checkout.
+            </p>
+          )}
         </div>
       )}
 
@@ -282,7 +290,7 @@ export default function PropertyBookingSidebar({
         {isSubmitting
           ? "Booking…"
           : nights > 0
-          ? `Book Now — KES ${totalPrice.toLocaleString()}`
+          ? `Book Now — ${formatPrice(totalPrice, currency)}`
           : "Select dates to book"}
       </Button>
 

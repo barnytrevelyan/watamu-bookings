@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Heart, Star, BedDouble, Bath, Users, MapPin } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
+import { useCurrency } from '@/lib/places/BrandProvider';
+import { formatPrice } from '@/lib/currency';
 
 interface PropertyCardProps {
   slug: string;
@@ -14,8 +16,8 @@ interface PropertyCardProps {
   images?: string[];
   rating: number;
   reviewCount: number;
+  /** Price per night, stored in KES. */
   pricePerNight: number;
-  currency?: string;
   bedrooms: number;
   bathrooms: number;
   maxGuests: number;
@@ -32,7 +34,6 @@ export default function PropertyCard({
   rating,
   reviewCount,
   pricePerNight,
-  currency = 'KES',
   bedrooms,
   bathrooms,
   maxGuests,
@@ -40,21 +41,13 @@ export default function PropertyCard({
   onToggleFavorite,
 }: PropertyCardProps) {
   const [favorited, setFavorited] = useState(isFavorited);
+  const currency = useCurrency();
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setFavorited(!favorited);
     onToggleFavorite?.(slug);
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
   };
 
   return (
@@ -128,7 +121,7 @@ export default function PropertyCard({
           {/* Price */}
           <div className="mt-3 pt-3 border-t border-gray-100">
             <span className="text-lg font-bold text-gray-900">
-              {formatPrice(pricePerNight)}
+              {formatPrice(pricePerNight, currency)}
             </span>
             <span className="text-sm text-gray-500"> / night</span>
           </div>

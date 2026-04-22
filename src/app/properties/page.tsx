@@ -277,7 +277,6 @@ export default async function PropertiesPage({
                 rating={Number(property.avg_rating) || 0}
                 reviewCount={property.review_count || 0}
                 pricePerNight={Number(property.base_price_per_night) || 0}
-                currency={property.currency || 'KES'}
                 bedrooms={property.bedrooms || 0}
                 bathrooms={property.bathrooms || 0}
                 maxGuests={property.max_guests || 2}
