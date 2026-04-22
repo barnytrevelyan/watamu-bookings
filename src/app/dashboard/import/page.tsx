@@ -563,6 +563,16 @@ export default function ImportPage() {
         setCreatedId(boat.id);
       }
 
+      // Fire-and-forget: notify admins a new imported listing needs review.
+      // Failures log client-side but never block the host's import UX.
+      if (newId) {
+        fetch('/api/admin/notify-new-submission', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listing_id: newId, listing_type: listingType }),
+        }).catch((e) => console.warn('notify-new-submission failed', e));
+      }
+
       toast.success('Submitted for review — you can keep editing while we check it');
 
       // If this import came from multi-listing discovery AND there are

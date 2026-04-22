@@ -470,6 +470,13 @@ export default function NewPropertyPage() {
       }
 
       if (action === 'submit') {
+        // Fire-and-forget: notify admins a new property needs review.
+        // Failures log server-side but never block the host's submission UX.
+        fetch('/api/admin/notify-new-submission', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listing_id: property.id, listing_type: 'property' }),
+        }).catch((e) => console.warn('notify-new-submission failed', e));
         setSuccessMessage('Your listing has been submitted for review. Our team will review it and get back to you shortly.');
       } else {
         setSuccessMessage('Draft saved successfully. You can continue editing from your dashboard.');

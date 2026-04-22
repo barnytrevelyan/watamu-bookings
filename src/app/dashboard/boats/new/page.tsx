@@ -464,6 +464,13 @@ export default function NewBoatPage() {
       }
 
       if (action === 'submit') {
+        // Fire-and-forget: notify admins a new boat needs review.
+        // Failures log server-side but never block the host's submission UX.
+        fetch('/api/admin/notify-new-submission', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listing_id: boat.id, listing_type: 'boat' }),
+        }).catch((e) => console.warn('notify-new-submission failed', e));
         setSuccessMessage('Your boat listing has been submitted for review. Our team will review it and get back to you shortly.');
       } else {
         setSuccessMessage('Draft saved successfully. You can continue editing from your dashboard.');

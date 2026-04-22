@@ -89,6 +89,41 @@ export function revertedToCommissionEmail(sub: HostSubscription, hostName?: stri
   return { subject: 'Listings reverted to 8% commission', html, text };
 }
 
+export interface NewListingReviewInput {
+  listingId: string;
+  listingType: 'property' | 'boat';
+  listingName: string;
+  hostName?: string | null;
+  hostEmail?: string | null;
+  placeName?: string | null;
+}
+
+export function newListingForReviewEmail(input: NewListingReviewInput): EmailPayload {
+  const kind = input.listingType === 'boat' ? 'Boat' : 'Property';
+  const reviewUrl = `${SITE_URL}/admin/submissions`;
+  const hostLine = input.hostName
+    ? `${input.hostName}${input.hostEmail ? ` &lt;${input.hostEmail}&gt;` : ''}`
+    : (input.hostEmail ?? 'Unknown host');
+  const placeLine = input.placeName ? `<p style="margin:0 0 8px 0;"><strong>Destination:</strong> ${input.placeName}</p>` : '';
+
+  const html = layout({
+    title: `New ${kind.toLowerCase()} listing awaiting review`,
+    body: `
+      <p><strong>A new ${kind.toLowerCase()} listing has been submitted for review.</strong></p>
+      <p style="margin:0 0 8px 0;"><strong>Listing:</strong> ${input.listingName}</p>
+      <p style="margin:0 0 8px 0;"><strong>Host:</strong> ${hostLine}</p>
+      ${placeLine}
+      <p style="margin:0 0 24px 0;"><strong>Listing ID:</strong> <code>${input.listingId}</code></p>
+      <p>
+        <a href="${reviewUrl}" style="display:inline-block;background:#0d7b6c;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;">Review in admin</a>
+      </p>
+      <p style="color:#6b7280;font-size:13px;">Approve or reject at ${reviewUrl}.</p>
+    `,
+  });
+  const text = `New ${kind.toLowerCase()} listing awaiting review: "${input.listingName}" (${input.listingId}) by ${hostLine}. Review: ${reviewUrl}`;
+  return { subject: `[${BRAND_NAME}] ${kind} pending review — ${input.listingName}`, html, text };
+}
+
 export function trialStartedEmail(sub: HostSubscription, trialMonths: number, hostName?: string): EmailPayload {
   const endDate = sub.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const html = layout({
