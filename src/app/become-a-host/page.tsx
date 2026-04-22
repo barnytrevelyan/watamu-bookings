@@ -341,6 +341,104 @@ export default async function BecomeAHostPage() {
         </div>
       </section>
 
+      {/* ---------- CALENDAR SYNC EXPLAINER ---------- */}
+      <section className="mx-auto max-w-6xl px-4 py-16 lg:py-20">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-teal-600">
+              Never double-book
+            </p>
+            <h2 className="mt-2 text-3xl font-bold text-gray-900">
+              Two-way calendar sync, on every listing
+            </h2>
+            <p className="mt-4 text-gray-600">
+              Every listing gets its own iCal feed. Paste ours into Airbnb,
+              Booking.com or Google Calendar and bookings on {brandName} instantly
+              block those dates everywhere else. Paste their feed into us and
+              reservations you already have elsewhere block the same dates here —
+              refreshed automatically on a schedule, no button-pressing required.
+            </p>
+
+            <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-gray-500 sm:text-sm">
+              <div className="rounded-xl border border-gray-200 bg-white px-3 py-3">
+                <p className="font-semibold text-gray-900">Airbnb</p>
+                <p className="mt-1">iCal export link</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-3 py-3">
+                <p className="font-semibold text-gray-900">Booking.com</p>
+                <p className="mt-1">iCal export link</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-3 py-3">
+                <p className="font-semibold text-gray-900">Google Calendar</p>
+                <p className="mt-1">Secret iCal address</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs text-gray-500">
+              Works with anything that speaks iCal — Vrbo, FishingBooker, Hostaway,
+              your own website, even a shared team calendar.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+            <h3 className="text-lg font-semibold text-gray-900">
+              How the sync actually works
+            </h3>
+            <ol className="mt-4 space-y-4 text-sm text-gray-700">
+              <li className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">
+                  1
+                </span>
+                <span>
+                  <span className="font-medium text-gray-900">Outbound is instant.</span>{' '}
+                  A booking lands on {brandName} and your export feed updates on the
+                  next request. Airbnb and Booking.com poll every few hours and
+                  block the dates on their side automatically.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">
+                  2
+                </span>
+                <span>
+                  <span className="font-medium text-gray-900">Inbound is scheduled.</span>{' '}
+                  We re-fetch every connected external feed on a rolling schedule —
+                  roughly every 3 hours — and block any new reservations in your
+                  {' '}{brandName} calendar. You can also hit &ldquo;Sync Now&rdquo; on a listing any time.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">
+                  3
+                </span>
+                <span>
+                  <span className="font-medium text-gray-900">You stay in control.</span>{' '}
+                  Manually block a maintenance week, owner stay or seasonal closure
+                  from the dashboard — those blocks propagate out through the same
+                  feed, so every platform sees the same availability.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-700">
+                  4
+                </span>
+                <span>
+                  <span className="font-medium text-gray-900">Errors surface, not silence.</span>{' '}
+                  If a remote feed stops responding (expired link, revoked access)
+                  we flag the listing on your dashboard so you can fix it before
+                  it matters.
+                </span>
+              </li>
+            </ol>
+
+            <div className="mt-6 rounded-lg bg-teal-50 px-4 py-3 text-xs text-teal-800">
+              Set it up once per listing under <span className="font-medium">Dashboard → Calendar Sync</span>.
+              Most hosts take under two minutes per platform.
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ---------- TESTIMONIALS — only rendered on Watamu-scoped hosts;
            these are real quotes tied to Watamu locations and we don't want
            to fake them for other places. ---------- */}
@@ -400,6 +498,10 @@ export default async function BecomeAHostPage() {
             <FaqItem
               q="Do I have to be exclusive?"
               a="No. Keep your Airbnb, Booking.com or FishingBooker listing as long as you want — calendar sync keeps everything in one place."
+            />
+            <FaqItem
+              q="Once I link my Airbnb or Booking.com calendar, does it stay in sync on its own?"
+              a={`Yes. After you connect an iCal feed on a listing, we re-fetch it automatically on a rolling schedule (roughly every three hours) and block any new dates without you doing anything. Bookings made on ${brandName} push out through your export feed the moment they're confirmed, and Airbnb / Booking.com poll that feed on their own cadence. If a feed breaks, the listing shows a sync error on your dashboard so you can fix it. You can also hit "Sync Now" on a listing at any time to force an immediate refresh.`}
             />
             <FaqItem
               q="Who are the guests?"
