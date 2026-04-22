@@ -14,12 +14,19 @@ interface ImageGalleryProps {
   images: GalleryImage[];
   alt?: string; // fallback alt text for all images
   className?: string;
+  /**
+   * Optional callback invoked when the lightbox opens. Used by the
+   * property / boat detail pages to emit a `gallery_open` analytics
+   * event without coupling this shared component to the tracker.
+   */
+  onOpen?: (index: number) => void;
 }
 
 export default function ImageGallery({
   images: rawImages,
   alt: fallbackAlt = '',
   className = '',
+  onOpen,
 }: ImageGalleryProps) {
   // Normalise images to { src, alt } regardless of input shape
   const images = rawImages.map((img) => ({
@@ -33,6 +40,13 @@ export default function ImageGallery({
     setActiveIndex(index);
     setLightboxOpen(true);
     document.body.style.overflow = 'hidden';
+    // Fire the optional analytics callback *after* local state — the
+    // tracker must never block the visual open.
+    try {
+      onOpen?.(index);
+    } catch {
+      /* noop */
+    }
   };
 
   const closeLightbox = () => {

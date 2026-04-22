@@ -11,6 +11,7 @@ import { useCurrency } from "@/lib/places/BrandProvider";
 import { formatPrice } from "@/lib/currency";
 import type { Room } from "@/lib/types";
 import { computeFlexiPrice, daysUntil, type FlexiConfig } from "@/lib/flexi";
+import { track } from "@/lib/analytics/track";
 import { Sparkles } from "lucide-react";
 
 interface AvailabilityDay {
@@ -138,8 +139,16 @@ export default function PropertyBookingSidebar({
     (dates: { checkIn: string; checkOut: string }) => {
       setCheckIn(dates.checkIn);
       setCheckOut(dates.checkOut);
+      // Funnel signal: guest has settled on concrete dates. Fires
+      // once per date-pair change; the server rolls these up per
+      // session so we don't double-count rapid retries.
+      track({
+        event_name: 'availability_checked',
+        property_id: propertyId,
+        payload: { checkIn: dates.checkIn, checkOut: dates.checkOut },
+      });
     },
-    []
+    [propertyId]
   );
 
   const handleBook = async () => {
@@ -161,6 +170,14 @@ export default function PropertyBookingSidebar({
     }
 
     setIsSubmitting(true);
+    // Funnel signal: guest clicked "Book / Request to book". Fires
+    // before the auth check so a bounced-to-login still registers
+    // intent.
+    track({
+      event_name: 'booking_started',
+      property_id: propertyId,
+      payload: { checkIn, checkOut, guests, nights },
+    });
     try {
       const supabase = createBrowserClient();
 

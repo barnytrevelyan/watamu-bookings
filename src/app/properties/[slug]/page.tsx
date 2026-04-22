@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import ImageGallery from "@/components/ImageGallery";
+import TrackedGallery from "./TrackedGallery";
 import AmenityBadge from "@/components/AmenityBadge";
 import ReviewCard from "@/components/ReviewCard";
 import StarRating from "@/components/StarRating";
@@ -13,6 +13,7 @@ import PropertyBookingSidebar from "./PropertyBookingSidebar";
 import { getCurrentPlace } from "@/lib/places/context";
 import type { Place, Property, Room, Amenity, Review, Image } from "@/lib/types";
 import { resolveFlexiConfig } from "@/lib/flexi";
+import TrackView from "@/lib/analytics/TrackView";
 
 /* ---------- Data fetching ---------- */
 
@@ -161,8 +162,14 @@ export default async function PropertyDetailPage({
           { name: property.name, url: `/properties/${property.slug}` },
         ])}
       />
+      {/* First-party funnel tracking — one-shot property_view */}
+      <TrackView event="property_view" propertyId={property.id} />
       {/* Image gallery */}
-      <ImageGallery images={sortedImages} alt={property.name} />
+      <TrackedGallery
+        images={sortedImages}
+        alt={property.name}
+        propertyId={property.id}
+      />
 
       <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12">
         <div className="lg:grid lg:grid-cols-3 lg:gap-12">

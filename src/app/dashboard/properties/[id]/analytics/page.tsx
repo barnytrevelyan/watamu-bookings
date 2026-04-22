@@ -27,6 +27,19 @@ interface AnalyticsData {
   ratingDistribution: number[];
 }
 
+interface FunnelData {
+  windowDays: number;
+  views: number;
+  galleryOpens: number;
+  dateChecks: number;
+  bookingStarts: number;
+  bookingConfirms: number;
+  uniqueSessions: number;
+  topReferrers: { label: string; count: number }[];
+  topPaths: { label: string; count: number }[];
+  daily: { date: string; views: number; bookings: number }[];
+}
+
 export default function PropertyAnalyticsPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -34,6 +47,8 @@ export default function PropertyAnalyticsPage() {
   const propertyId = params.id as string;
 
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [funnel, setFunnel] = useState<FunnelData | null>(null);
+  const [funnelLoading, setFunnelLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('year');
@@ -41,7 +56,32 @@ export default function PropertyAnalyticsPage() {
   useEffect(() => {
     if (!user) return;
     fetchAnalytics();
+    fetchFunnel();
   }, [user, propertyId, period]);
+
+  async function fetchFunnel() {
+    setFunnelLoading(true);
+    try {
+      // Map the period selector to a window in days. Funnel analytics
+      // live outside the bookings ledger so they don't need to match
+      // the bookings query exactly — 30/90/365 is a good approximation.
+      const days = period === 'month' ? 30 : period === 'quarter' ? 90 : 365;
+      const res = await fetch(
+        `/api/analytics/property-funnel?propertyId=${propertyId}&days=${days}`,
+        { cache: 'no-store' },
+      );
+      if (!res.ok) throw new Error('funnel fetch failed');
+      const json = (await res.json()) as FunnelData;
+      setFunnel(json);
+    } catch {
+      // Funnel is a secondary widget — silently degrade rather than
+      // blanking the whole analytics page if the events table is empty
+      // or the route errored.
+      setFunnel(null);
+    } finally {
+      setFunnelLoading(false);
+    }
+  }
 
   async function fetchAnalytics() {
     try {
@@ -225,6 +265,114 @@ export default function PropertyAnalyticsPage() {
           <p className="text-xs text-gray-400">{data.reviewCount} reviews</p>
         </Card>
       </div>
+
+      {/* Views-to-bookings funnel */}
+      <Card className="p-6">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Views to bookings</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              Unique sessions through each stage of the guest funnel.
+              {funnel
+                ? ` Last ${funnel.windowDays} days.`
+                : ''}
+            </p>
+          </div>
+          {funnel && funnel.views > 0 && (
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Conversion</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {Math.round((funnel.bookingConfirms / funnel.views) * 100)}%
+              </p>
+            </div>
+          )}
+        </div>
+
+        {funnelLoading ? (
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-8 animate-pulse rounded bg-gray-100" />
+            ))}
+          </div>
+        ) : !funnel || funnel.views === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-500">
+            No events recorded yet. Funnel data will appear once guests
+            start viewing this listing.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {[
+              { label: 'Viewed listing', value: funnel.views, key: 'view' },
+              { label: 'Opened gallery', value: funnel.galleryOpens, key: 'gallery' },
+              { label: 'Checked dates', value: funnel.dateChecks, key: 'dates' },
+              { label: 'Started booking', value: funnel.bookingStarts, key: 'start' },
+              { label: 'Confirmed booking', value: funnel.bookingConfirms, key: 'confirm' },
+            ].map((stage, i, arr) => {
+              const pct = funnel.views > 0 ? (stage.value / funnel.views) * 100 : 0;
+              const stepDrop =
+                i > 0 && arr[i - 1].value > 0
+                  ? Math.round(((arr[i - 1].value - stage.value) / arr[i - 1].value) * 100)
+                  : 0;
+              return (
+                <div key={stage.key}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-gray-700">{stage.label}</span>
+                    <span className="text-gray-500">
+                      {stage.value}
+                      {i > 0 && stepDrop > 0 && (
+                        <span className="ml-2 text-xs text-gray-400">
+                          −{stepDrop}% from prev
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-[var(--color-primary-500)]"
+                      style={{ width: `${Math.max(pct, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {funnel && (funnel.topReferrers.length > 0 || funnel.topPaths.length > 0) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Top referrers</h2>
+            {funnel.topReferrers.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-500">No referrer data yet</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {funnel.topReferrers.map((r) => (
+                  <li key={r.label} className="flex items-center justify-between">
+                    <span className="truncate text-gray-700">{r.label}</span>
+                    <span className="text-gray-500">{r.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card className="p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Top landing paths</h2>
+            {funnel.topPaths.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-500">No path data yet</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {funnel.topPaths.map((p) => (
+                  <li key={p.label} className="flex items-center justify-between">
+                    <span className="truncate text-gray-700">{p.label}</span>
+                    <span className="text-gray-500">{p.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Monthly Bookings Chart */}
       <Card className="p-6">

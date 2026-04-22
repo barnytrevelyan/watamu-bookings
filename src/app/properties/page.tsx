@@ -8,6 +8,7 @@ import { filterPropertiesByPlace, filterPropertiesByPlaces } from "@/lib/places/
 import type { Place, Property } from "@/lib/types";
 import type { Metadata } from "next";
 import { resolveFlexiConfig, computeFlexiPrice, daysUntil } from "@/lib/flexi";
+import TrackView from "@/lib/analytics/TrackView";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { place } = await getCurrentPlace();
@@ -261,6 +262,24 @@ export default async function PropertiesPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* One-shot search_view event — landed the page, not necessarily a search query. */}
+      <TrackView
+        event="search_view"
+        payload={{
+          placeSlug: place?.slug ?? null,
+          resultCount: properties.length,
+          hasFilters: Boolean(
+            params.check_in ||
+              params.check_out ||
+              params.guests ||
+              params.property_type ||
+              params.min_price ||
+              params.max_price ||
+              params.amenities ||
+              params.last_minute,
+          ),
+        }}
+      />
       {/* Header */}
       <div className="relative overflow-hidden border-b border-[var(--color-primary-100)] bg-gradient-to-br from-[var(--color-primary-50)] via-white to-[var(--color-sandy-50)]">
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--color-primary-200)] opacity-30 blur-3xl" />

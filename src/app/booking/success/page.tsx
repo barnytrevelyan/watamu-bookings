@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { track } from '@/lib/analytics/track';
 
 interface BookingDetails {
   id: string;
@@ -78,6 +79,22 @@ function BookingSuccessContent() {
           .single();
 
         setBooking({ ...data, payment: paymentData } as BookingDetails);
+
+        // Funnel signal: guest reached the post-payment success page.
+        // Closes the loop started by booking_started on the sidebar.
+        // Typed loose because BookingDetails omits the foreign keys.
+        const d = data as unknown as {
+          id: string;
+          property_id?: string | null;
+          boat_id?: string | null;
+          total_price: number;
+        };
+        track({
+          event_name: 'booking_confirmed',
+          property_id: d.property_id ?? null,
+          boat_id: d.boat_id ?? null,
+          payload: { booking_id: d.id, total: d.total_price },
+        });
       } catch {
         setError('Failed to load booking details.');
       } finally {
