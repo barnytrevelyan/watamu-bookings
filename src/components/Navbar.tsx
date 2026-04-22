@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
-  Waves,
   Menu,
   X,
   LogOut,
@@ -21,18 +21,7 @@ interface NavbarProps {
   brandName?: string;
 }
 
-/** Split a brand into leading + accent word so the two-tone logo keeps working
- * ("Watamu Bookings" → first="Watamu", accent="Bookings"). Single-word brands
- * collapse to first only (accent = null). */
-function splitBrand(name: string): { first: string; accent: string | null } {
-  const trimmed = name.trim();
-  const idx = trimmed.lastIndexOf(' ');
-  if (idx === -1) return { first: trimmed, accent: null };
-  return { first: trimmed.slice(0, idx), accent: trimmed.slice(idx + 1) };
-}
-
 export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
-  const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
   const { features, placeSlug, destinations } = useBrand();
   const { user, profile, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -132,19 +121,15 @@ export default function Navbar({ brandName = 'Kwetu' }: NavbarProps) {
         <div className="flex items-center justify-between h-16">
           {/* Logo + place breadcrumb */}
           <div className="flex items-center gap-3 shrink-0">
-            <Link href="/" className="flex items-center gap-2">
-              <Waves className="h-7 w-7 text-[var(--color-primary-500)]" />
-              <span className="text-xl font-bold text-gray-900">
-                {brandLead}
-                {brandAccent && (
-                  <>
-                    {' '}
-                    <span className="text-[var(--color-primary-500)]">
-                      {brandAccent}
-                    </span>
-                  </>
-                )}
-              </span>
+            <Link href="/" className="flex items-center" aria-label={brandName}>
+              <Image
+                src="/brand/kwetu-logo.png"
+                alt={brandName}
+                width={1126}
+                height={247}
+                priority
+                className="h-8 w-auto sm:h-9"
+              />
             </Link>
             {showDestinationTabs && (
               <div

@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { Waves, Mail, MapPin } from 'lucide-react';
+import Image from 'next/image';
+import { Mail, MapPin } from 'lucide-react';
 
 const footerColumns = [
   {
@@ -49,20 +50,12 @@ interface FooterProps {
   placeLabel?: string;
 }
 
-function splitBrand(name: string): { first: string; accent: string | null } {
-  const trimmed = name.trim();
-  const idx = trimmed.lastIndexOf(' ');
-  if (idx === -1) return { first: trimmed, accent: null };
-  return { first: trimmed.slice(0, idx), accent: trimmed.slice(idx + 1) };
-}
-
 export default function Footer({
   brandName = 'Kwetu',
   brandShort = 'Kwetu',
   supportEmail,
   placeLabel,
 }: FooterProps) {
-  const { first: brandLead, accent: brandAccent } = splitBrand(brandName);
   const email = supportEmail || 'hello@kwetu.ke';
   const contactLine = placeLabel || `${brandShort}, Kenya`;
 
@@ -72,19 +65,18 @@ export default function Footer({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <Waves className="h-7 w-7 text-[var(--color-primary-400)]" />
-              <span className="text-xl font-bold text-white">
-                {brandLead}
-                {brandAccent && (
-                  <>
-                    {' '}
-                    <span className="text-[var(--color-primary-400)]">
-                      {brandAccent}
-                    </span>
-                  </>
-                )}
-              </span>
+            <Link
+              href="/"
+              className="inline-flex items-center mb-4 rounded-lg bg-white p-2"
+              aria-label={brandName}
+            >
+              <Image
+                src="/brand/kwetu-logo.png"
+                alt={brandName}
+                width={1126}
+                height={247}
+                className="h-8 w-auto"
+              />
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed max-w-sm mb-6">
               Your local alternative to the big platforms. Book stunning

@@ -119,8 +119,8 @@ export default async function BecomeAHostPage() {
           />
           <FeatureCard
             icon={<Users className="h-5 w-5 text-teal-600" />}
-            title="Own the guest relationship"
-            body="You get the guest's real name, phone number, and email from the moment they book."
+            title="Your own relationship manager"
+            body="A real person at Kwetu who knows your listings, picks up the phone, and helps you grow — not a ticket queue."
           />
           <FeatureCard
             icon={<Waves className="h-5 w-5 text-teal-600" />}
