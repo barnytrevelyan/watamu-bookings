@@ -20,7 +20,6 @@
  * price is described as "approx." in the toggle UI.
  */
 
-import { cookies } from 'next/headers';
 import type { Currency } from '@/lib/types';
 
 /** Exported so client components can enumerate options without duplicating
@@ -103,17 +102,3 @@ export function formatPrice(kesAmount: number, target: Currency = 'KES'): string
   }
 }
 
-/** Read the preferred currency from the `kwetu-currency` cookie on the
- * server. Falls back to KES when no cookie is present or the value is
- * unrecognised. Use inside server components / route handlers only —
- * client components should read `useBrand().preferredCurrency` instead. */
-export async function getPreferredCurrency(): Promise<Currency> {
-  try {
-    const jar = await cookies();
-    const raw = jar.get(CURRENCY_COOKIE)?.value;
-    if (raw && isCurrency(raw)) return raw;
-  } catch {
-    // cookies() throws outside a request context — return the default.
-  }
-  return 'KES';
-}

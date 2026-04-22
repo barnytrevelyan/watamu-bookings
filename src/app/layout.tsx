@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
 import { BrandProvider } from "@/lib/places/BrandProvider";
-import { getPreferredCurrency } from "@/lib/currency";
+import { getPreferredCurrency } from "@/lib/currency-server";
 import { PATH_HEADER } from "@/middleware";
 import "./globals.css";
 
