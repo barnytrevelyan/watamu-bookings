@@ -39,8 +39,8 @@ export default function GlobalError({
           <p style={{ color: "#4b5563", marginBottom: "1.5rem" }}>
             The site hit a critical error. Please refresh — if it keeps
             happening, email us at{" "}
-            <a href="mailto:hello@watamubookings.com" style={{ color: "#0f766e" }}>
-              hello@watamubookings.com
+            <a href="mailto:hello@kwetu.ke" style={{ color: "#0f766e" }}>
+              hello@kwetu.ke
             </a>
             .
           </p>

@@ -7,8 +7,8 @@
 // account is wired up. Once Barny provisions credentials, set:
 //
 //   ZEPTOMAIL_API_KEY=Zoho-enczapikey ...
-//   ZEPTOMAIL_FROM=billing@watamubookings.com
-//   ZEPTOMAIL_FROM_NAME="Watamu Bookings"
+//   ZEPTOMAIL_FROM=billing@kwetu.ke
+//   ZEPTOMAIL_FROM_NAME="Kwetu"
 //
 // and emails will start flowing.
 

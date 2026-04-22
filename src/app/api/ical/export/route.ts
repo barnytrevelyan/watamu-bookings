@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
 
           ical.push(
             'BEGIN:VEVENT',
-            `UID:blocked-${rangeStart}@watamubookings.com`,
+            `UID:blocked-${rangeStart}@${hostname}`,
             `DTSTAMP:${now}`,
             `DTSTART;VALUE=DATE:${formatDate(rangeStart)}`,
             `DTEND;VALUE=DATE:${formatDate(endStr)}`,

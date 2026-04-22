@@ -32,8 +32,8 @@ export default function Error({
         <p className="text-base text-gray-600 mb-2">
           We hit an unexpected error loading this page. Please try again — if
           it keeps happening, let us know at{" "}
-          <a href="mailto:hello@watamubookings.com" className="text-teal-700 underline">
-            hello@watamubookings.com
+          <a href="mailto:hello@kwetu.ke" className="text-teal-700 underline">
+            hello@kwetu.ke
           </a>
           .
         </p>

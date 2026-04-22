@@ -46,8 +46,8 @@ git push -u origin main
 | `PLATFORM_COMMISSION_PERCENT` | `8` *(canonical — kept in sync with `wb_settings.billing.commission_rate_bps = 800`)* |
 | `CRON_SECRET` | *(random 32+ char string — protects `/api/cron/billing`)* |
 | `ZEPTOMAIL_API_KEY` | *(from ZeptoMail console — transactional invoice & lapse emails)* |
-| `ZEPTOMAIL_FROM` | `bookings@watamubookings.com` |
-| `ZEPTOMAIL_FROM_NAME` | `Watamu Bookings` |
+| `ZEPTOMAIL_FROM` | `bookings@kwetu.ke` |
+| `ZEPTOMAIL_FROM_NAME` | `Kwetu` |
 
 5. Click **Deploy**
 
