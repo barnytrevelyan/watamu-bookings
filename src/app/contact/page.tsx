@@ -127,10 +127,10 @@ export default async function ContactPage() {
                 Want to list your property or charter?
               </h2>
               <p className="mt-2 text-gray-700">
-                {brandName} charges a flat monthly subscription per listing — no
-                per-booking commission, no guest service fee — and keeps your
-                guests local. Tell us a little about what you offer and we&rsquo;ll
-                come back with the next steps.
+                {brandName} charges a flat 7.5% commission per booking — roughly half
+                what Airbnb or Booking.com take, with no guest-side service fee — and
+                keeps your guests local. Tell us a little about what you offer and
+                we&rsquo;ll come back with the next steps.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <a

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/Button";
-// Select replaced with plain <select> for compatibility
 import { Input } from "@/components/ui/Input";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import type { BoatTrip, TripType } from "@/lib/types";
@@ -22,10 +21,6 @@ interface Props {
   trips: BoatTrip[];
   capacity: number;
   availability: AvailabilityDay[];
-  /** "subscription" → enquiry flow (no payment), "commission" (default) → payment flow. */
-  billingMode?: 'commission' | 'subscription';
-  /** Percentage of total the host expects as deposit in the enquiry flow. */
-  depositPercent?: number | null;
 }
 
 export default function BoatBookingSidebar({
@@ -34,20 +29,14 @@ export default function BoatBookingSidebar({
   trips,
   capacity,
   availability,
-  billingMode = 'commission',
-  depositPercent = 25,
 }: Props) {
   const router = useRouter();
-  const isEnquiryMode = billingMode === 'subscription';
-  const depositPercentNumber = depositPercent == null ? 25 : Number(depositPercent) || 25;
 
   const [selectedTripId, setSelectedTripId] = useState<string>(trips[0]?.id ?? "");
   const [tripDate, setTripDate] = useState<string>("");
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [guestMessage, setGuestMessage] = useState<string>("");
-  const [guestPhone, setGuestPhone] = useState<string>("");
 
   const guests = adults + children;
   const selectedTrip = trips.find((t) => t.id === selectedTripId);
@@ -91,8 +80,6 @@ export default function BoatBookingSidebar({
         return;
       }
 
-      // POST to /api/bookings — lets the route branch on billing_mode and
-      // kick off host + guest emails for subscription enquiries.
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -102,8 +89,6 @@ export default function BoatBookingSidebar({
           tripId: selectedTripId,
           tripDate,
           guests,
-          guestMessage: guestMessage.trim() || undefined,
-          guestPhone: guestPhone.trim() || undefined,
         }),
       });
 
@@ -113,15 +98,7 @@ export default function BoatBookingSidebar({
         return;
       }
 
-      if (json.availabilityWarning) {
-        toast(json.availabilityWarning, { icon: "⚠️", duration: 6000 });
-      } else {
-        toast.success(
-          isEnquiryMode
-            ? "Enquiry sent — your host will be in touch."
-            : "Booking created! Redirecting to payment…"
-        );
-      }
+      toast.success("Booking created! Redirecting to payment…");
       router.push(`/booking/${json.booking.id}`);
     } catch (err: unknown) {
       console.error("Booking error:", err);
@@ -253,48 +230,10 @@ export default function BoatBookingSidebar({
             <span>Total</span>
             <span>KES {tripPrice.toLocaleString()}</span>
           </div>
-          {isEnquiryMode && (
-            <div className="flex justify-between text-teal-800 bg-teal-50 -mx-1 px-2 py-1 rounded">
-              <span>Deposit to host ({depositPercentNumber}%)</span>
-              <span className="font-semibold">
-                KES {Math.round(tripPrice * (depositPercentNumber / 100)).toLocaleString()}
-              </span>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Enquiry-only fields: phone + message to host */}
-      {isEnquiryMode && (
-        <div className="space-y-3 mb-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Phone (optional, so your host can WhatsApp you)
-            </label>
-            <Input
-              type="tel"
-              value={guestPhone}
-              onChange={(e) => setGuestPhone(e.target.value)}
-              placeholder="+254 7XX XXX XXX"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Message to host (optional)
-            </label>
-            <textarea
-              value={guestMessage}
-              onChange={(e) => setGuestMessage(e.target.value)}
-              rows={3}
-              maxLength={500}
-              placeholder="e.g. We&rsquo;d like an early start if possible."
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Book / Enquire button */}
+      {/* Book button */}
       <Button
         className="w-full bg-teal-600 hover:bg-teal-700 text-white"
         size="lg"
@@ -302,20 +241,14 @@ export default function BoatBookingSidebar({
         disabled={isSubmitting || !selectedTripId || !tripDate}
       >
         {isSubmitting
-          ? isEnquiryMode ? "Sending enquiry…" : "Booking…"
+          ? "Booking…"
           : selectedTrip && tripDate
-            ? isEnquiryMode
-              ? `Send Enquiry — KES ${tripPrice.toLocaleString()}`
-              : `Book Now — KES ${tripPrice.toLocaleString()}`
-            : isEnquiryMode
-              ? "Select a trip and date to enquire"
-              : "Select a trip and date"}
+            ? `Book Now — KES ${tripPrice.toLocaleString()}`
+            : "Select a trip and date"}
       </Button>
 
       <p className="text-xs text-gray-400 text-center mt-3">
-        {isEnquiryMode
-          ? `No payment now — your host will ask for a ${depositPercentNumber}% deposit to confirm.`
-          : "You won't be charged yet"}
+        You won&rsquo;t be charged yet
       </p>
     </div>
   );

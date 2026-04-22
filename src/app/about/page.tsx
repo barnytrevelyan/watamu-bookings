@@ -130,9 +130,9 @@ export default async function AboutPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">For Property & Boat Owners</h2>
           <p className="text-gray-600 leading-relaxed">
             If you own a rental property or fishing boat {hasSpecificPlace ? `in ${placeName}` : 'on the Kenyan coast'}, we&rsquo;d love to have you on the
-            platform. We charge a flat monthly subscription per listing — no per-booking commission,
-            no guest service fee — handle payments securely, and give you a full dashboard to manage
-            your listings, bookings, and reviews.
+            platform. We charge a flat 7.5% commission per booking — roughly half what Airbnb or
+            Booking.com take, with no guest-side service fee — handle payments securely, and give
+            you a full dashboard to manage your listings, bookings, and reviews.
           </p>
           <p className="mt-4 text-gray-600 leading-relaxed">
             Getting started is free — create an owner account, build your listing page with photos,

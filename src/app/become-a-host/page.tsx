@@ -12,9 +12,8 @@ import {
   ArrowRight,
   MessageSquare,
   Check,
-  Coins,
+  Percent,
 } from 'lucide-react';
-import EarningsCalculator from './EarningsCalculator';
 import { getCurrentPlace } from '@/lib/places/context';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const brandName = host.brand_name;
   return {
     title: `Become a host — ${brandName}`,
-    description: `List your villa, cottage, fishing boat or sunset cruise on ${brandName}. Flat monthly subscription — no commission on bookings. Free to list, paid in 24 hours, M-Pesa supported.`,
+    description: `List your villa, cottage, fishing boat or sunset cruise on ${brandName}. Flat 7.5% commission — roughly half what Airbnb or Booking.com charge. Free to list, paid in 24 hours, M-Pesa supported.`,
   };
 }
 
@@ -79,17 +78,17 @@ export default async function BecomeAHostPage() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <a
-                  href="#calculator"
+                  href="#pricing"
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-900 hover:border-gray-300"
                 >
-                  See how much you&rsquo;d earn
+                  See our pricing
                 </a>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <StatCard label="Commission" value="0%" icon={<Wallet className="h-4 w-4" />} />
-              <StatCard label="From" value="KES 3,000/mo" icon={<Coins className="h-4 w-4" />} />
+              <StatCard label="Commission" value="7.5%" icon={<Percent className="h-4 w-4" />} />
+              <StatCard label="To list" value="Free" icon={<Wallet className="h-4 w-4" />} />
               <StatCard label="Paid in" value="24 hrs" icon={<Zap className="h-4 w-4" />} />
               <StatCard label="Supports" value="M-Pesa" icon={<ShieldCheck className="h-4 w-4" />} />
             </div>
@@ -115,8 +114,8 @@ export default async function BecomeAHostPage() {
           />
           <FeatureCard
             icon={<Wallet className="h-5 w-5 text-teal-600" />}
-            title="Keep 100% of every booking"
-            body="Flat monthly fee. No per-booking commission. No hidden guest fees. What you charge is what you earn."
+            title="Half the commission of Airbnb"
+            body="Flat 7.5% host commission — no listing fee, no guest service fee. On the same booking you keep roughly 8–10% more than on Airbnb or Booking.com."
           />
           <FeatureCard
             icon={<Users className="h-5 w-5 text-teal-600" />}
@@ -134,90 +133,61 @@ export default async function BecomeAHostPage() {
       </section>
 
       {/* ---------- PRICING ---------- */}
-      <section className="bg-gradient-to-b from-teal-50/60 to-white py-16 lg:py-20">
+      <section id="pricing" className="bg-gradient-to-b from-teal-50/60 to-white py-16 lg:py-20">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mb-10 text-center">
             <p className="text-sm font-medium uppercase tracking-wide text-teal-600">
               Simple pricing
             </p>
             <h2 className="mt-2 text-3xl font-bold text-gray-900">
-              One flat monthly fee. No commission. Ever.
+              One flat commission. No monthly fees.
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-gray-600">
-              Pay a flat monthly rate per listing. The more listings you run, the less
-              each one costs. No per-booking fee, no hidden guest-side surcharge, no
-              30-day payout wait.
+              We charge a flat 7.5% commission on each confirmed booking — roughly half
+              what Airbnb or Booking.com take. No listing fee, no monthly cost, no
+              guest-side service fee, no 30-day payout wait.
             </p>
           </div>
 
           <div className="mx-auto max-w-2xl">
             <div className="rounded-2xl border-2 border-teal-500 bg-white p-6 shadow-md ring-1 ring-teal-100 sm:p-8">
               <div className="mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-teal-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Flat monthly subscription</h3>
-                <span className="ml-auto inline-flex items-center rounded-full bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">
-                  Launch promo
-                </span>
+                <Percent className="h-5 w-5 text-teal-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Commission only</h3>
               </div>
               <p className="text-4xl font-bold text-gray-900">
-                From KES 3,000<span className="ml-1 text-base font-medium text-gray-500">/mo</span>
+                7.5%<span className="ml-1 text-base font-medium text-gray-500"> per booking</span>
               </p>
               <p className="mt-1 text-sm text-gray-600">
-                Your first listing. Pay annually and get{' '}
-                <strong>12 months for the price of 10</strong>.
+                Paid only when a guest books. No monthly fee, no setup cost, no minimum.
               </p>
 
               <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Per-listing price
+                  How it compares
                 </p>
                 <dl className="mt-3 divide-y divide-gray-200 text-sm">
-                  <TierRow listings="1st listing" price="KES 3,000/mo" />
-                  <TierRow listings="Listings 2–5" price="KES 1,500/mo each" />
-                  <TierRow listings="Listings 6–20" price="KES 1,000/mo each" />
-                  <TierRow listings="Listings 21–50" price="KES 500/mo each" />
-                  <TierRow listings="Listings 51+" price="KES 250/mo each" />
+                  <TierRow listings={`${brandName}`} price="7.5% total" />
+                  <TierRow listings="Airbnb (host + guest)" price="≈ 14–16%" />
+                  <TierRow listings="Booking.com (host only)" price="≈ 15–18%" />
+                  <TierRow listings="FishingBooker" price="≈ 20%" />
                 </dl>
                 <p className="mt-3 text-xs text-gray-500">
-                  Billed like tax brackets — your 2nd listing is KES 1,500, not
-                  KES 1,500 across the board. Management companies with many listings
-                  average down fast.
+                  On a KES 100,000 stay you keep KES 92,500 with us vs roughly
+                  KES 84,000–86,000 on Airbnb or Booking.com — worth ~KES 8,000 more
+                  per stay, every stay.
                 </p>
               </div>
 
               <ul className="mt-6 space-y-2 text-sm text-gray-700">
-                <PlanBullet>Zero commission &mdash; keep 100% of every booking</PlanBullet>
-                <PlanBullet>No guest-side service fee &mdash; more bookings</PlanBullet>
-                <PlanBullet>Predictable cost for high-volume listings</PlanBullet>
-                <PlanBullet>
-                  <strong>2 free months</strong> for new subscribers during our launch
-                  promo
-                </PlanBullet>
+                <PlanBullet>Flat 7.5% commission &mdash; no listing or monthly fees</PlanBullet>
+                <PlanBullet>No guest-side service fee &mdash; helps conversion</PlanBullet>
+                <PlanBullet>Payouts the day after check-in via M-Pesa or bank</PlanBullet>
+                <PlanBullet>Cancel or unlist any time &mdash; no minimum commitment</PlanBullet>
               </ul>
             </div>
-
-            <p className="mt-6 text-center text-sm text-gray-500">
-              Manage your plan any time from{' '}
-              <Link href="/dashboard/billing" className="text-teal-600 hover:underline">
-                Billing
-              </Link>
-              .
-            </p>
           </div>
         </div>
-      </section>
-
-      {/* ---------- EARNINGS CALCULATOR ---------- */}
-      <section id="calculator" className="mx-auto max-w-6xl px-4 py-16 lg:py-20">
-        <div className="mb-10 text-center">
-          <h2 className="text-3xl font-bold text-gray-900">See how much you&rsquo;d earn</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-gray-600">
-            Same booking volume, different platforms. Drag the sliders to match your
-            own property.
-          </p>
-        </div>
-
-        <EarningsCalculator brandName={brandName} />
       </section>
 
       {/* ---------- AI IMPORT ---------- */}
@@ -457,7 +427,7 @@ export default async function BecomeAHostPage() {
               role="Villa host · Watamu"
             />
             <TestimonialCard
-              quote={`FishingBooker took 20% per charter. On ${brandName} I pay a flat monthly fee and keep every shilling of every trip — I earn more and talk to my guests directly before they arrive.`}
+              quote={`FishingBooker took 20% per charter. On ${brandName} it's 7.5% and I keep the rest — I earn more and talk to my guests directly before they arrive.`}
               name="Captain Juma"
               role="Sport-fishing charter · Watamu Marina"
             />
@@ -479,11 +449,11 @@ export default async function BecomeAHostPage() {
           <div className="divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white">
             <FaqItem
               q="What does it cost to list?"
-              a="Listing is free. You pay a flat monthly subscription per listing: KES 3,000 for your first, KES 1,500 each for listings 2–5, KES 1,000 each for 6–20, KES 500 each for 21–50, and KES 250 each beyond 50. Billed like tax brackets — only the listings in a bracket pay that bracket's rate. Pay annually and get 12 months for the price of 10. No sign-up charge, no cost to import."
+              a="Listing is completely free. There is no sign-up charge, no monthly fee, and no cost to import. You only pay when a guest confirms a booking — a flat 7.5% commission on the booking total."
             />
             <FaqItem
-              q="Is there a per-booking commission?"
-              a="No. We do not take a percentage of your bookings. You pay one flat monthly fee per listing and keep 100% of every stay or trip. Guests don't pay a service fee either, which tends to convert more bookings than commission-based platforms."
+              q="How does the 7.5% commission work?"
+              a="When a guest books and pays, we deduct 7.5% from the booking total and pay out the remaining 92.5% to you. There's no separate guest-side service fee, which is part of why guests book more readily on us than on commission-heavy platforms."
             />
             <FaqItem
               q="How does the AI import actually work?"
@@ -495,7 +465,7 @@ export default async function BecomeAHostPage() {
             />
             <FaqItem
               q="How does this compare to Airbnb or Booking.com?"
-              a="Airbnb's blended commission is typically 14–16% split between host and guest; Booking.com commonly charges 15–18% to the host. We charge a flat monthly subscription per listing and 0% commission on any booking — guests also pay no service fee. On any listing grossing above roughly KES 450,000/year, you keep meaningfully more of every booking than on the commission-based platforms."
+              a="Airbnb's blended take is typically 14–16% split between host and guest; Booking.com commonly charges 15–18% to the host. We charge a flat 7.5% — roughly half — with no guest-side service fee. On a KES 100,000 stay that's about KES 8,000 more in your pocket than on Airbnb or Booking.com."
             />
             <FaqItem
               q="Do I have to be exclusive?"

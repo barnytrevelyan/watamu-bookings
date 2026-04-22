@@ -29,7 +29,7 @@ interface DashboardStats {
   totalProperties: number;
   totalBoats: number;
   activeBookings: number;
-  enquiryCount: number;
+  pendingCount: number;
   revenueThisMonth: number;
   revenueLastMonth: number;
   averageRating: number;
@@ -60,12 +60,10 @@ interface RecentReview {
 
 // Status → visual style (chip background + text + glow colour)
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  enquiry: { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Enquiry' },
   pending_payment: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Awaiting payment' },
   confirmed: { bg: 'bg-[var(--color-primary-100)]', text: 'text-[var(--color-primary-700)]', label: 'Confirmed' },
   completed: { bg: 'bg-[var(--color-green-100)]', text: 'text-[var(--color-green-700)]', label: 'Completed' },
   cancelled: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Cancelled' },
-  declined: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Declined' },
   refunded: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Refunded' },
 };
 
@@ -77,7 +75,7 @@ export default function DashboardPage() {
     totalProperties: 0,
     totalBoats: 0,
     activeBookings: 0,
-    enquiryCount: 0,
+    pendingCount: 0,
     revenueThisMonth: 0,
     revenueLastMonth: 0,
     averageRating: 0,
@@ -145,7 +143,7 @@ export default function DashboardPage() {
         const activeBookingsCount = uniqueBookings.filter(
           (b) => b.status === 'confirmed' || b.status === 'pending_payment'
         ).length;
-        const enquiryCount = uniqueBookings.filter((b) => b.status === 'enquiry').length;
+        const pendingCount = uniqueBookings.filter((b) => b.status === 'pending_payment').length;
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -161,7 +159,7 @@ export default function DashboardPage() {
           totalProperties: ownerProps.length,
           totalBoats: ownerBoats.length,
           activeBookings: activeBookingsCount,
-          enquiryCount,
+          pendingCount,
           revenueThisMonth,
           revenueLastMonth,
           averageRating: Math.round(averageRating * 10) / 10,
@@ -286,7 +284,7 @@ export default function DashboardPage() {
             </h1>
             <p className="mt-2 text-sm text-white/85 max-w-xl">
               {hasAnyListings
-                ? `You have ${stats.totalProperties + stats.totalBoats} listing${stats.totalProperties + stats.totalBoats === 1 ? '' : 's'} on ${brand.name}${stats.enquiryCount > 0 ? ` and ${stats.enquiryCount} enquir${stats.enquiryCount === 1 ? 'y' : 'ies'} waiting for your reply` : ''}.`
+                ? `You have ${stats.totalProperties + stats.totalBoats} listing${stats.totalProperties + stats.totalBoats === 1 ? '' : 's'} on ${brand.name}${stats.pendingCount > 0 ? ` and ${stats.pendingCount} booking${stats.pendingCount === 1 ? '' : 's'} awaiting payment` : ''}.`
                 : 'Let’s get your first listing up — paste any link and we’ll draft it for you in under a minute.'}
             </p>
           </div>
@@ -313,18 +311,18 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Enquiry nudge */}
-      {stats.enquiryCount > 0 && (
-        <Link href="/dashboard/bookings?status=enquiry" className="block">
+      {/* Pending-payment nudge */}
+      {stats.pendingCount > 0 && (
+        <Link href="/dashboard/bookings?status=pending_payment" className="block">
           <div className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100">
               <ShieldAlert className="h-5 w-5 text-amber-700" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-900">
-                {stats.enquiryCount} enquir{stats.enquiryCount === 1 ? 'y' : 'ies'} waiting for your reply
+                {stats.pendingCount} booking{stats.pendingCount === 1 ? '' : 's'} awaiting payment
               </p>
-              <p className="text-xs text-amber-800">Guests expect a response within 24 hours — tap to review.</p>
+              <p className="text-xs text-amber-800">Guests that haven’t paid yet — tap to review.</p>
             </div>
             <ArrowRight className="h-4 w-4 text-amber-700" />
           </div>
@@ -343,7 +341,7 @@ export default function DashboardPage() {
         <KpiCard
           label="Active bookings"
           value={`${stats.activeBookings}`}
-          sub={stats.enquiryCount > 0 ? `${stats.enquiryCount} enquiry${stats.enquiryCount === 1 ? '' : ' enquiries'} pending` : 'Confirmed & pending payment'}
+          sub={stats.pendingCount > 0 ? `${stats.pendingCount} awaiting payment` : 'Confirmed & pending payment'}
           icon={<CalendarCheck className="h-5 w-5" />}
           tone="green"
         />

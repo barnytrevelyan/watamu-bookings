@@ -16,13 +16,9 @@ import {
   Clock,
   Phone,
   Mail,
-  Wallet,
   MessageCircle,
   ChevronDown,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
-  Sparkles,
   Calendar,
 } from 'lucide-react';
 
@@ -39,25 +35,21 @@ interface Booking {
   total_price: number;
   currency: string;
   status: string;
-  booking_mode: 'platform' | 'direct' | null;
-  deposit_amount: number | null;
   special_requests: string | null;
   created_at: string;
 }
 
-type StatusKey = 'all' | 'enquiry' | 'pending_payment' | 'confirmed' | 'completed' | 'declined' | 'cancelled' | 'refunded';
+type StatusKey = 'all' | 'pending_payment' | 'confirmed' | 'completed' | 'cancelled' | 'refunded';
 
 const STATUS_META: Record<string, { label: string; chip: string; dot: string }> = {
-  enquiry:         { label: 'Enquiry',         chip: 'bg-amber-50 text-amber-800 ring-amber-200',       dot: 'bg-amber-500' },
   pending_payment: { label: 'Pending payment', chip: 'bg-yellow-50 text-yellow-800 ring-yellow-200',    dot: 'bg-yellow-500' },
   confirmed:       { label: 'Confirmed',       chip: 'bg-[var(--color-primary-50,#e8f4fb)] text-[var(--color-primary-800,#023e7d)] ring-[var(--color-primary-200,#8bc8ea)]/60', dot: 'bg-[var(--color-primary-600,#0077b6)]' },
   completed:       { label: 'Completed',       chip: 'bg-emerald-50 text-emerald-800 ring-emerald-200', dot: 'bg-emerald-500' },
-  declined:        { label: 'Declined',        chip: 'bg-gray-100 text-gray-700 ring-gray-200',         dot: 'bg-gray-400' },
   cancelled:       { label: 'Cancelled',       chip: 'bg-red-50 text-red-700 ring-red-200',             dot: 'bg-red-400' },
   refunded:        { label: 'Refunded',        chip: 'bg-slate-100 text-slate-700 ring-slate-200',      dot: 'bg-slate-400' },
 };
 
-const STATUS_ORDER: StatusKey[] = ['all', 'enquiry', 'pending_payment', 'confirmed', 'completed', 'declined', 'cancelled', 'refunded'];
+const STATUS_ORDER: StatusKey[] = ['all', 'pending_payment', 'confirmed', 'completed', 'cancelled', 'refunded'];
 
 function fmtShort(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -120,7 +112,7 @@ export default function BookingsPage() {
           .from('wb_bookings')
           .select(
             `id, check_in, check_out, guests_count, total_price, currency, status,
-            booking_mode, deposit_amount, guest_contact_name, guest_contact_email, guest_contact_phone,
+            guest_contact_name, guest_contact_email, guest_contact_phone,
             special_requests, created_at, property_id, boat_id,
             wb_profiles!guest_id(full_name, email),
             wb_properties!property_id(name)`
@@ -141,7 +133,7 @@ export default function BookingsPage() {
           .from('wb_bookings')
           .select(
             `id, check_in, check_out, guests_count, total_price, currency, status,
-            booking_mode, deposit_amount, guest_contact_name, guest_contact_email, guest_contact_phone,
+            guest_contact_name, guest_contact_email, guest_contact_phone,
             special_requests, created_at, property_id, boat_id,
             wb_profiles!guest_id(full_name, email),
             wb_boats!boat_id(name)`
@@ -179,8 +171,6 @@ export default function BookingsPage() {
         total_price: Number(b.total_price) || 0,
         currency: b.currency || 'KES',
         status: b.status,
-        booking_mode: b.booking_mode ?? null,
-        deposit_amount: b.deposit_amount == null ? null : Number(b.deposit_amount),
         special_requests: b.special_requests,
         created_at: b.created_at,
       }));
@@ -219,42 +209,6 @@ export default function BookingsPage() {
     }
   }
 
-  /**
-   * For enquiry bookings, route through the dedicated respond endpoint so
-   * the guest gets a confirmation email and the availability re-check runs
-   * server-side.
-   */
-  async function respondToEnquiry(bookingId: string, action: 'confirm' | 'decline') {
-    setUpdatingId(bookingId);
-    try {
-      const reason =
-        action === 'decline'
-          ? window.prompt('Optional message to the guest (leave blank to send a generic decline):') || undefined
-          : undefined;
-
-      const res = await fetch(`/api/bookings/${bookingId}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reason }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        alert(json.error || 'Could not update the enquiry.');
-        return;
-      }
-
-      const newStatus = json.status;
-      setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
-      );
-    } catch (err) {
-      console.error(err);
-      alert('Network error — please try again.');
-    } finally {
-      setUpdatingId(null);
-    }
-  }
-
   // Local search filter + stats (after server-side filters already applied)
   const visible = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -268,20 +222,20 @@ export default function BookingsPage() {
   }, [bookings, search]);
 
   const stats = useMemo(() => {
-    let enquiries = 0;
+    let pending = 0;
     let upcoming = 0;
     let revenue = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     for (const b of bookings) {
-      if (b.status === 'enquiry') enquiries++;
+      if (b.status === 'pending_payment') pending++;
       if (b.status === 'confirmed') {
         if (new Date(b.check_in) >= today) upcoming++;
         revenue += b.total_price;
       }
       if (b.status === 'completed') revenue += b.total_price;
     }
-    return { enquiries, upcoming, revenue, total: bookings.length };
+    return { pending, upcoming, revenue, total: bookings.length };
   }, [bookings]);
 
   const anyFilterActive =
@@ -301,16 +255,16 @@ export default function BookingsPage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Bookings</h1>
-          <p className="text-sm text-gray-500 mt-1">All enquiries and confirmed stays in one place.</p>
+          <p className="text-sm text-gray-500 mt-1">Pending and confirmed stays in one place.</p>
         </div>
         <div className="flex gap-2">
           <StatPill
             icon={<AlertCircle className="h-4 w-4" />}
-            label="Enquiries"
-            value={stats.enquiries}
+            label="Pending"
+            value={stats.pending}
             tone="amber"
-            highlight={stats.enquiries > 0}
-            onClick={() => setStatusFilter('enquiry')}
+            highlight={stats.pending > 0}
+            onClick={() => setStatusFilter('pending_payment')}
           />
           <StatPill
             icon={<Calendar className="h-4 w-4" />}
@@ -330,28 +284,6 @@ export default function BookingsPage() {
             Retry
           </Button>
         </div>
-      )}
-
-      {/* Enquiry nudge */}
-      {stats.enquiries > 0 && statusFilter !== 'enquiry' && (
-        <button
-          type="button"
-          onClick={() => setStatusFilter('enquiry')}
-          className="w-full text-left rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-4 hover:from-amber-100 transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-900">
-                {stats.enquiries} {stats.enquiries === 1 ? 'enquiry is' : 'enquiries are'} waiting for your reply
-              </p>
-              <p className="text-xs text-amber-700/90">Tap to filter and respond — guests expect a response within 24 hours.</p>
-            </div>
-            <ChevronDown className="h-4 w-4 text-amber-700 -rotate-90 group-hover:translate-x-0.5 transition-transform" />
-          </div>
-        </button>
       )}
 
       {/* Filter bar */}
@@ -464,7 +396,6 @@ export default function BookingsPage() {
               expanded={expandedId === booking.id}
               updating={updatingId === booking.id}
               onToggle={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
-              onRespond={respondToEnquiry}
               onUpdateStatus={updateBookingStatus}
             />
           ))}
@@ -479,25 +410,23 @@ function BookingRow({
   expanded,
   updating,
   onToggle,
-  onRespond,
   onUpdateStatus,
 }: {
   booking: Booking;
   expanded: boolean;
   updating: boolean;
   onToggle: () => void;
-  onRespond: (id: string, action: 'confirm' | 'decline') => void;
   onUpdateStatus: (id: string, status: string) => void;
 }) {
   const meta = STATUS_META[booking.status] || { label: booking.status, chip: 'bg-gray-100 text-gray-700 ring-gray-200', dot: 'bg-gray-400' };
-  const isEnquiry = booking.status === 'enquiry';
+  const isPending = booking.status === 'pending_payment';
   const ListingIcon = booking.listing_type === 'boat' ? Anchor : Home;
   const nights = Math.max(1, Math.round((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24)));
 
   return (
     <div
       className={`group rounded-2xl border bg-white transition-all ${
-        isEnquiry
+        isPending
           ? 'border-amber-200 shadow-sm hover:shadow-md'
           : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
       }`}
@@ -518,7 +447,7 @@ function BookingRow({
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-gray-900 truncate">{booking.guest_name}</p>
               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ring-1 ${meta.chip}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${isEnquiry ? 'animate-pulse' : ''}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${isPending ? 'animate-pulse' : ''}`} />
                 {meta.label}
               </span>
             </div>
@@ -549,11 +478,6 @@ function BookingRow({
             <p className="text-lg font-bold text-gray-900 tabular-nums">
               {booking.currency} {booking.total_price.toLocaleString()}
             </p>
-            {booking.booking_mode === 'direct' && booking.deposit_amount != null && (
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                Deposit: {booking.currency} {booking.deposit_amount.toLocaleString()}
-              </p>
-            )}
             <ChevronDown
               className={`h-4 w-4 text-gray-400 inline-block mt-1 transition-transform ${expanded ? 'rotate-180' : ''}`}
             />
@@ -565,28 +489,6 @@ function BookingRow({
           className="flex items-center gap-2 mt-3 flex-wrap"
           onClick={(e) => e.stopPropagation()}
         >
-          {isEnquiry && (
-            <>
-              <Button
-                size="sm"
-                disabled={updating}
-                onClick={() => onRespond(booking.id, 'confirm')}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                Confirm &amp; request deposit
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={updating}
-                onClick={() => onRespond(booking.id, 'decline')}
-              >
-                <XCircle className="h-4 w-4 mr-1.5 text-gray-400" />
-                Decline
-              </Button>
-            </>
-          )}
           {booking.status === 'pending_payment' && (
             <Button
               size="sm"
@@ -660,17 +562,6 @@ function BookingRow({
               label="Booked on"
               value={<span className="text-gray-900">{fmtFull(booking.created_at)}</span>}
             />
-            {booking.booking_mode === 'direct' && booking.deposit_amount != null && (
-              <DetailCell
-                icon={<Wallet className="h-4 w-4" />}
-                label="Expected deposit"
-                value={
-                  <span className="text-gray-900 font-semibold">
-                    {booking.currency} {booking.deposit_amount.toLocaleString()}
-                  </span>
-                }
-              />
-            )}
             <div className="sm:col-span-3">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
                 <MessageCircle className="h-3.5 w-3.5" />

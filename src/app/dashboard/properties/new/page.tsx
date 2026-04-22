@@ -392,7 +392,6 @@ export default function NewPropertyPage() {
           base_price_per_night: parseFloat(basePrice),
           currency,
           cancellation_policy: cancellationPolicy,
-          billing_mode: 'subscription',
           house_rules: houseRules.trim() || null,
           is_published: false,
           status,

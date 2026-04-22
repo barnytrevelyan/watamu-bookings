@@ -1,6 +1,7 @@
 # Watamu Bookings — Current State
 
-_Last updated: 2026-04-20, overnight demo-prep session (v2)._
+_Last updated: 2026-04-22, commission-only U-turn session._
+_Note: brand is now **Kwetu** (kwetu.ke); watamubookings.com redirects to /watamu._
 
 This document captures the repo's state so future sessions can pick up without
 archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
@@ -34,8 +35,7 @@ archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
 - `/invoice/[id]` — printable invoice.
 
 ### Booking
-- `/booking/[id]` — checkout or enquiry summary depending on `booking_mode`.
-- `/booking/[id]/respond` — host magic-link respond page (confirm/decline enquiry).
+- `/booking/[id]` — checkout for a pending booking.
 - `/booking/success` — post-payment redirect.
 
 ### Auth
@@ -46,24 +46,21 @@ archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
 - `/dashboard` — home with counts and quick actions.
 - `/dashboard/properties` + `/dashboard/properties/new` + `/dashboard/properties/[id]` (edit) + `/dashboard/properties/[id]/analytics` + `/dashboard/properties/[id]/rooms`.
 - `/dashboard/boats` + `/dashboard/boats/new` + `/dashboard/boats/[id]`.
-- `/dashboard/bookings`, `/dashboard/billing`, `/dashboard/analytics`, `/dashboard/reviews`.
+- `/dashboard/bookings`, `/dashboard/earnings`, `/dashboard/analytics`, `/dashboard/reviews`.
 - `/dashboard/import` — AI import wizard (single-box, host-detecting).
 - `/dashboard/admin` — host-side admin summary.
 
 ### Admin (superadmin)
-- `/admin/owners`, `/admin/submissions`, `/admin/subscriptions`, `/admin/invitations`.
+- `/admin/owners`, `/admin/submissions`, `/admin/invitations`.
 
 ### API
 - `/api/auth/callback` — OAuth return.
 - `/api/availability` — availability check for a date range.
-- `/api/bookings/[id]` + `/api/bookings/[id]/respond` — booking actions.
-- `/api/cron/billing` — daily subscription billing (needs Vercel cron).
+- `/api/bookings/[id]` — booking actions.
 - `/api/ical/import` + `/api/ical/export` + `/api/ical/feeds` — calendar sync.
 - `/api/import/airbnb|booking-com|discover|fishingbooker|generic` — scrapers. **Dedicated scrapers (airbnb/booking-com/fishingbooker) are non-AI and must not be touched.** `resolveImportUser()` from `src/lib/import/auth.ts` is required on every route.
 - `/api/payments/create-intent` + `/api/payments/mpesa-stk`.
-- `/api/subscriptions/activate|cancel|eligibility-check|toggle-listing`.
 - `/api/webhooks/mpesa` + `/api/webhooks/stripe` (Stripe needs raw body).
-- `/api/admin/subscriptions/mark-paid|trial-override`.
 
 ## Core libs / components
 
@@ -73,13 +70,12 @@ archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
 - `src/lib/supabase/client.ts` — browser client.
 - `src/lib/supabase/admin.ts` — service-role client (API routes only).
 - `src/lib/stripe.ts`, `src/lib/mpesa.ts`.
-- `src/lib/subscriptions/*` — host billing.
-- `src/lib/email/*` — ZeptoMail templates for enquiry + confirmation + host onboarding.
+- `src/lib/email/*` — ZeptoMail templates for booking confirmation + host onboarding.
 - `src/lib/import/auth.ts` — **do not touch** `resolveImportUser()`.
 - `src/lib/import/shared.ts` — SSRF guards + common helpers.
 - Components: `Navbar`, `Footer`, `PropertyCard`, `BoatCard`, `SearchFilters`,
   `ImageGallery`, `BookingCalendar`, `StarRating`, `ReviewCard`, `AmenityBadge`,
-  `BillingModePicker`, `CalendarSync`, `DashboardShell`, `DashboardSidebar`,
+  `CalendarSync`, `DashboardShell`, `DashboardSidebar`,
   `WeatherWidget`, `JsonLd`, and a `ui/` primitive set (`Button`, `Card`,
   `Input`, `Modal`, `Select`, `Tabs`, `Textarea`, `Badge`).
 
@@ -148,13 +144,12 @@ Boats:
 - `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, `MPESA_CALLBACK_URL`.
 - `ZEPTOMAIL_TOKEN`, `ZEPTOMAIL_FROM` (+ ZEPTOMAIL_FROM_NAME).
 - `OPENAI_API_KEY`.
-- `NEXT_PUBLIC_SITE_URL` (defaults to `https://watamubookings.com`).
-- `CRON_SECRET` for `/api/cron/billing`.
+- `NEXT_PUBLIC_SITE_URL` (defaults to `https://kwetu.ke`).
 
 ## Canonical constants
 
-- Host commission rate: **8%** (source of truth: `wb_settings.commission_rate` in Supabase; hard-coded fallback in `src/lib/subscriptions/pricing.ts`).
-- First listing subscription: KES 5,000/mo; each additional: KES 2,500/mo; annual prepay: 10 months; grace period: 48h.
+- Host commission rate: **7.5%** (source of truth: `wb_settings.billing.commission_rate_bps = 750` in Supabase; hard-coded fallback in `src/app/dashboard/earnings/page.tsx` and `src/app/admin/page.tsx`).
+- No host subscription — commission-only. See `20260422_commission_only_u_turn.sql` migration for the revert of the 2026-04-20 subscription shipping.
 
 ## Commit history (master head)
 

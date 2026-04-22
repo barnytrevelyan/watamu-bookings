@@ -58,15 +58,11 @@ export const MONTH_LABELS = [
 ] as const;
 
 export type BookingStatus =
-  | 'enquiry'
   | 'pending_payment'
   | 'confirmed'
-  | 'declined'
   | 'cancelled'
   | 'completed'
   | 'refunded';
-
-export type BookingMode = 'platform' | 'direct';
 
 export type PaymentMethod = 'stripe' | 'mpesa';
 
@@ -241,8 +237,6 @@ export interface Property {
   peak_season_months: string | null;
   source_url: string | null;
   import_source: string | null;
-  billing_mode: 'commission' | 'subscription';
-  deposit_percent: number;
   place_id: string;
   created_at: string;
   updated_at: string;
@@ -313,8 +307,6 @@ export interface Boat {
   captain_fishing_reports: number;
   source_url: string | null;
   import_source: string | null;
-  billing_mode: 'commission' | 'subscription';
-  deposit_percent: number;
   created_at: string;
   updated_at: string;
 }
@@ -401,11 +393,6 @@ export interface Booking {
   total_price: number;
   currency: string | null;
   status: BookingStatus;
-  booking_mode: BookingMode;
-  deposit_amount: number | null;
-  enquiry_token: string | null;
-  host_responded_at: string | null;
-  host_decline_reason: string | null;
   guest_contact_name: string | null;
   guest_contact_email: string | null;
   guest_contact_phone: string | null;

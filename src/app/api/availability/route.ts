@@ -56,12 +56,11 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Get property price for breakdown. billing_mode='subscription' means
-      // the host has opted into a flat monthly fee instead of commission —
-      // the guest sees no service fee line in that case.
+      // Get property price for breakdown. All listings are commission-mode:
+      // Kwetu charges the host 7.5%, the guest sees no service fee line.
       const { data: property } = await supabase
         .from('wb_properties')
-        .select('base_price_per_night, cleaning_fee, service_fee_percent, billing_mode')
+        .select('base_price_per_night, cleaning_fee')
         .eq('id', propertyId)
         .single();
 
@@ -77,9 +76,8 @@ export async function GET(request: NextRequest) {
       );
       const accommodationCost = property.base_price_per_night * nights;
       const cleaningFee = property.cleaning_fee ?? 0;
-      const onSubscription = property.billing_mode === 'subscription';
-      const serviceFeePercent = onSubscription ? 0 : (property.service_fee_percent ?? 8);
-      const serviceFee = onSubscription ? 0 : Math.round(accommodationCost * (serviceFeePercent / 100));
+      const serviceFeePercent = 0; // No guest-facing service fee.
+      const serviceFee = 0;
       const totalPrice = accommodationCost + cleaningFee + serviceFee;
 
       return NextResponse.json({

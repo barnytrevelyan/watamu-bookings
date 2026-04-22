@@ -2,7 +2,7 @@
 
 **Purpose:** A load-bearing list of invariants, canonical helpers, and landmines for the Watamu Bookings codebase. Read this before making non-trivial changes — especially before rewriting or "cleaning up" any of the named files.
 
-Last ground-truthed: 2026-04-20.
+Last ground-truthed: 2026-04-22 (commission-only U-turn).
 
 ---
 
@@ -10,10 +10,10 @@ Last ground-truthed: 2026-04-20.
 
 - **Framework:** Next.js 14.2.3 (App Router). `next.config.js` sets `typescript.ignoreBuildErrors = true` and `eslint.ignoreDuringBuilds = true`. Local gate is `npm run type-check` (`tsc --noEmit`) — it MUST be clean before shipping.
 - **Auth + DB:** Supabase (`@supabase/ssr@0.3.0`, `@supabase/supabase-js@2.43.0`). Project: `jiyoxdeiyydyxjymahrh` (WatamuBookings, eu-central-1). RLS is enabled on every `wb_*` table.
-- **Payments:** Stripe (platform bookings) + M-Pesa Daraja (platform bookings, Kenyan phones). Subscription bookings do NOT touch these — they're enquiry-mode (see §3).
-- **Email:** ZeptoMail via `src/lib/email/zeptomail.ts`. Templates in `src/lib/email/*-templates.ts`.
+- **Payments:** Stripe + M-Pesa Daraja (commission-only, Kenyan phones via M-Pesa). Every booking goes through a payment flow — there is no enquiry/subscription branch.
+- **Email:** ZeptoMail via `src/lib/email/zeptomail.ts`. Templates in `src/lib/email/templates.ts`.
 - **AI import:** OpenAI `gpt-4o` (generic) or `gpt-4o-mini` (platform paid); falls back per-source (airbnb / booking.com / fishingbooker have dedicated scrapers).
-- **Hosting:** Vercel. Branch: `master`. Cron: `/api/cron/billing` daily at 02:00 UTC.
+- **Hosting:** Vercel. Branch: `master`. No billing cron — all revenue is commission taken per-booking.
 
 ## 2. Must-not-touch zones
 
@@ -39,36 +39,28 @@ Every scraper has an `isAllowedXUrl()` check that validates `protocol === 'https
 
 `src/app/api/webhooks/stripe/route.ts` must use the raw body (`await request.text()`), not parsed JSON. Breaking the raw-body path breaks signature verification silently.
 
-## 3. Booking modes — dual flow
+## 3. Booking flow — single path
 
-There are two distinct booking flows, determined by the **listing's** `billing_mode`:
+Every booking is a commission booking. At creation a booking is `pending_payment`; once Stripe/M-Pesa confirms, it flips to `confirmed`. The platform takes its 7.5% on confirmed bookings (surfaced to hosts on `/dashboard/earnings`).
 
-| Listing `billing_mode` | Booking `status` at creation | `booking_mode` | Payment path |
-|---|---|---|---|
-| `commission` (default, 8%) | `pending_payment` | `platform` | Stripe or M-Pesa via `/api/payments/*` |
-| `subscription` | `enquiry` | `direct` | No payment collected; host responds via `/booking/[id]/respond` |
+The `wb_booking_status` enum still carries legacy `enquiry` and `declined` values and `wb_properties.billing_mode` / `wb_boats.billing_mode` columns are still present (pinned to `'commission'`) — left in place by the 2026-04-22 U-turn migration so in-flight rows don't break. New code must not set or branch on those values; a later migration can drop them.
 
-**Invariant:** `/api/bookings/route.ts` reads the listing's `billing_mode` and picks the branch. Do not hard-code the enquiry path or the payment path — both must remain operational simultaneously.
+## 4. Commission rate — 7.5%
 
-Commission rate is 8% (stored in `wb_settings` + code constant). See `project_commission_rate.md` memory.
+The canonical rate is **7.5%** (750 basis points). Sources that must match:
 
-## 4. Host subscription pricing
+- DB: `wb_settings.billing.commission_rate_bps = 750`.
+- Server-side calculation: `src/app/dashboard/earnings/page.tsx` (`COMMISSION_RATES.kwetu = 0.075`).
+- Admin revenue card: `src/app/admin/page.tsx` (`COMMISSION_RATE = 0.075`).
+- Marketing copy: `/become-a-host`, `/about`, `/contact`.
 
-See `project_subscription_pricing.md` memory for the canonical numbers. Key figures that should match:
-
-- First listing: **KES 5,000 / month**
-- Each additional listing: **KES 2,500 / month**
-- Annual prepay: **10 months' price** (2 months free)
-- Trial: **2 months launch / 1 month standard**
-- Grace window after failed payment: **48 hours**
-
-These live in `src/lib/subscriptions/pricing.ts` and in `wb_settings`. Copy on `/become-a-host` and `/dashboard/billing` must match both.
+See the `project_commission_rate.md` memory. If you change the rate, update every site above and add a migration that updates the `wb_settings` row.
 
 ## 5. Database — schema landmines
 
 ### `wb_properties` + `wb_boats`
 
-Both have: `is_published` (boolean — controls public visibility), `status` (text — 'draft' / 'pending_review' / 'published' / 'rejected'), `is_featured`, `slug` (UNIQUE), `owner_id` (FK to `wb_profiles.id`), `billing_mode` ('commission' | 'subscription'), `deposit_percent` (default 25).
+Both have: `is_published` (boolean — controls public visibility), `status` (text — 'draft' / 'pending_review' / 'published' / 'rejected'), `is_featured`, `slug` (UNIQUE), `owner_id` (FK to `wb_profiles.id`). Legacy `billing_mode` and `deposit_percent` columns remain in the schema (pinned to `'commission'` / default) but are unused by the app post-2026-04-22.
 
 Public list queries filter `is_published=true`. Status is for admin workflow. They are NOT interchangeable.
 
@@ -79,7 +71,7 @@ Single table handles both property and boat bookings (`listing_type` enum). **Re
 - `property` bookings: `property_id`, `check_in`, `check_out`
 - `boat` bookings: `boat_id`, `trip_date`, usually `trip_id`
 
-Enquiry-mode bookings also populate `guest_contact_name`, `guest_contact_email`, `guest_contact_phone`, `enquiry_token` (UUID — used by `/booking/[id]/respond`).
+Legacy enquiry fields (`enquiry_token`, `host_responded_at`, `host_decline_reason`, `booking_mode`, `deposit_amount`) still exist on the table but are no longer populated — do not read or set them in new code.
 
 ### `wb_images` — polymorphic
 
@@ -98,7 +90,7 @@ Same pattern for boats (22 features). The link table PK is `(boat_id, feature_id
 - `wb_property_type`: `villa` | `apartment` | `cottage` | `house` | `hotel` | `banda` | `penthouse` | `bungalow` | `studio` | `beach_house`
 - `wb_boat_type`: `deep_sea` | `sport_fisher` | `dhow` | `catamaran` | `speedboat` | `glass_bottom` | `kayak` | `sailboat`
 - `wb_trip_type`: `half_day` | `half_day_morning` | `half_day_afternoon` | `full_day` | `overnight` | `multi_day` | `sunset_cruise` | `custom`
-- `wb_booking_status`: `enquiry` | `pending_payment` | `confirmed` | `declined` | `cancelled` | `completed` | `refunded`
+- `wb_booking_status`: `pending_payment` | `confirmed` | `cancelled` | `completed` | `refunded` (the `enquiry` and `declined` values still exist in the enum but are unused post-2026-04-22)
 - `wb_user_role`: `admin` | `owner` | `guest`
 
 Adding a new value = migration + TypeScript union update in `src/lib/types.ts` + UI surface (select options, filter chips, labels) + any switch/default handling.
@@ -119,7 +111,6 @@ Adding a new value = migration + TypeScript union update in `src/lib/types.ts` +
 | Browser Supabase client | `import { createClient } from '@/lib/supabase/client'` |
 | Service-role (admin) Supabase | `import { createAdminClient } from '@/lib/supabase/admin'` (server-side only!) |
 | Import-route auth | `import { resolveImportUser } from '@/lib/import/auth'` |
-| Subscription pricing | `import { ... } from '@/lib/subscriptions/pricing'` |
 | Email send | `import { sendTransactional } from '@/lib/email/zeptomail'` |
 | Placeholder stock images | `import { getPropertyImage, getBoatImage, STOCK_IMAGES } from '@/lib/images'` |
 | Types | `import type { Property, Boat, Booking, ... } from '@/lib/types'` |
@@ -145,17 +136,11 @@ Plus two blurred pointer-events-none decorative blobs with `opacity-30 blur-3xl`
 
 See `.env.example` for the full list. Fail-loud at runtime on missing keys — do not silently fall back.
 
-Required in production: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_PASSKEY`, `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `NEXT_PUBLIC_SITE_URL`, `WATAMU_AI_API_KEY`, `WATAMU_AI_PROVIDER`, `ZEPTOMAIL_TOKEN`, `ZEPTOMAIL_FROM_EMAIL`, `CRON_SECRET`.
+Required in production: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_PASSKEY`, `MPESA_SHORTCODE`, `MPESA_CALLBACK_URL`, `NEXT_PUBLIC_SITE_URL`, `WATAMU_AI_API_KEY`, `WATAMU_AI_PROVIDER`, `ZEPTOMAIL_TOKEN`, `ZEPTOMAIL_FROM_EMAIL`.
 
 ## 11. Cron jobs
 
-`vercel.json` declares a single cron: `/api/cron/billing` daily 02:00 UTC. It:
-1. Consumes trial months.
-2. Generates invoices for active subscriptions.
-3. Marks 48h-overdue subscriptions as `grace` then `suspended`.
-4. (If wired) runs the AI-budget-alert check.
-
-**Auth:** `Authorization: Bearer $CRON_SECRET` or `?token=$CRON_SECRET` for manual curl. Do not remove either path.
+No billing cron — commission is taken per-booking via the payment flow. `vercel.json` no longer declares a billing cron. If a new cron is added, keep the `Authorization: Bearer $CRON_SECRET` pattern established previously.
 
 ## 12. Security headers
 
@@ -178,9 +163,9 @@ Set in `next.config.js:async headers()`. Preserve all of them:
 
 1. **Login → dashboard → import**: auth cookie round-trip + `resolveImportUser`.
 2. **Create property → publish → appears on `/properties`**: `is_published=true` gate.
-3. **Guest enquiry on subscription listing → host responds via link**: `/booking/[id]/respond` reads `enquiry_token`.
-4. **Stripe payment → webhook → booking `confirmed`**: raw-body signature verify.
-5. **M-Pesa STK push → callback → booking `confirmed`**: callback URL must match `MPESA_CALLBACK_URL`.
+3. **Stripe payment → webhook → booking `confirmed`**: raw-body signature verify.
+4. **M-Pesa STK push → callback → booking `confirmed`**: callback URL must match `MPESA_CALLBACK_URL`.
+5. **Earnings dashboard**: `/dashboard/earnings` must compute Kwetu / Airbnb / Booking.com net correctly from commission rates.
 6. **Sitemap generation**: must not 500 if DB is down.
 7. **Listing filters on `/properties` and `/boats`**: especially the half-day fan-out on boats.
 

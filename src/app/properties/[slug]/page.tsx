@@ -359,9 +359,6 @@ export default async function PropertyDetailPage({
                 rooms={rooms}
                 availability={availability}
                 cleaningFee={(property as { cleaning_fee?: number | null }).cleaning_fee ?? 0}
-                serviceFeePercent={(property as { billing_mode?: string }).billing_mode === 'subscription' ? 0 : ((property as { service_fee_percent?: number | null }).service_fee_percent ?? 8)}
-                billingMode={((property as { billing_mode?: 'commission' | 'subscription' }).billing_mode) ?? 'commission'}
-                depositPercent={(property as { deposit_percent?: number | null }).deposit_percent ?? 25}
               />
 
               {/* Owner info */}

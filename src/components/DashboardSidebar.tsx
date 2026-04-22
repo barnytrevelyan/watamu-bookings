@@ -34,17 +34,17 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   group: 'overview' | 'listings' | 'revenue' | 'tools';
-  badgeKey?: 'enquiries';
+  badgeKey?: 'pending';
 };
 
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, group: 'overview' },
   { href: '/dashboard/properties', label: 'Properties', icon: Home, group: 'listings' },
   { href: '/dashboard/boats', label: 'Boats & Charters', icon: Anchor, group: 'listings' },
-  { href: '/dashboard/bookings', label: 'Bookings', icon: CalendarCheck, group: 'revenue', badgeKey: 'enquiries' },
+  { href: '/dashboard/bookings', label: 'Bookings', icon: CalendarCheck, group: 'revenue', badgeKey: 'pending' },
   { href: '/dashboard/reviews', label: 'Reviews', icon: Star, group: 'revenue' },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, group: 'revenue' },
-  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard, group: 'revenue' },
+  { href: '/dashboard/earnings', label: 'Earnings', icon: CreditCard, group: 'revenue' },
   { href: '/dashboard/import', label: 'AI Import', icon: Sparkles, group: 'tools' },
 ];
 
@@ -68,9 +68,9 @@ export default function DashboardSidebar({
   const brand = useBrand();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAdmin, user } = useAuth();
-  const [enquiryCount, setEnquiryCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  // Load pending-enquiry count so we can surface an attention-grabbing pill
+  // Load pending-payment count so we can surface an attention-grabbing pill
   // next to the Bookings nav item — hosts shouldn't have to dig for these.
   useEffect(() => {
     if (!user) return;
@@ -93,7 +93,7 @@ export default function DashboardSidebar({
             .from('wb_bookings')
             .select('id', { count: 'exact', head: true })
             .in('property_id', propIds)
-            .eq('status', 'enquiry');
+            .eq('status', 'pending_payment');
           count += c ?? 0;
         }
         if (boatIds.length > 0) {
@@ -101,10 +101,10 @@ export default function DashboardSidebar({
             .from('wb_bookings')
             .select('id', { count: 'exact', head: true })
             .in('boat_id', boatIds)
-            .eq('status', 'enquiry');
+            .eq('status', 'pending_payment');
           count += c ?? 0;
         }
-        if (!cancelled) setEnquiryCount(count);
+        if (!cancelled) setPendingCount(count);
       } catch {
         /* best-effort; never block the shell */
       }
@@ -128,7 +128,7 @@ export default function DashboardSidebar({
   };
 
   const badgeFor = (key?: NavItem['badgeKey']): number | null => {
-    if (key === 'enquiries') return enquiryCount > 0 ? enquiryCount : null;
+    if (key === 'pending') return pendingCount > 0 ? pendingCount : null;
     return null;
   };
 

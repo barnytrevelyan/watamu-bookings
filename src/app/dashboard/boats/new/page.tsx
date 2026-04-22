@@ -370,7 +370,6 @@ export default function NewBoatPage() {
           longitude: mapPinSet ? longitude : null,
           currency,
           cancellation_policy: cancellationPolicy,
-          billing_mode: 'subscription',
           is_published: false,
           status,
         })

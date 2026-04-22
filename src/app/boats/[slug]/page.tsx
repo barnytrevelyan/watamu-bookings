@@ -606,8 +606,6 @@ export default async function BoatDetailPage({
                 trips={trips}
                 capacity={boat.capacity}
                 availability={availability}
-                billingMode={((boat as { billing_mode?: 'commission' | 'subscription' }).billing_mode) ?? 'commission'}
-                depositPercent={(boat as { deposit_percent?: number | null }).deposit_percent ?? 25}
               />
 
               {/* Owner info */}
