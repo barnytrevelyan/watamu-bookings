@@ -88,7 +88,7 @@ export default async function BecomeAHostPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <StatCard label="Free to list" value="KES 0" icon={<Wallet className="h-4 w-4" />} />
+              <StatCard label="Commission" value="0%" icon={<Wallet className="h-4 w-4" />} />
               <StatCard label="From" value="KES 3,000/mo" icon={<Coins className="h-4 w-4" />} />
               <StatCard label="Paid in" value="24 hrs" icon={<Zap className="h-4 w-4" />} />
               <StatCard label="Supports" value="M-Pesa" icon={<ShieldCheck className="h-4 w-4" />} />
