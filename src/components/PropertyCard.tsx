@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Heart, Star, BedDouble, Bath, Users, MapPin } from 'lucide-react';
+import { Heart, Star, BedDouble, Bath, Users, MapPin, Sparkles } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { useCurrency } from '@/lib/places/BrandProvider';
 import { formatPrice } from '@/lib/currency';
@@ -23,6 +23,18 @@ interface PropertyCardProps {
   maxGuests: number;
   isFavorited?: boolean;
   onToggleFavorite?: (slug: string) => void;
+  /**
+   * When the guest has searched with dates inside this property's flexi
+   * window, pass the discounted nightly price here so the card can show
+   * the struck-through base price and a "Last-minute deal" badge.
+   */
+  flexiPricePerNight?: number | null;
+  /**
+   * When true, render the "Last-minute deal" badge even without a
+   * concrete discounted price (e.g. the "last-minute deals" filter is
+   * on but no dates are selected).
+   */
+  isLastMinuteEligible?: boolean;
 }
 
 export default function PropertyCard({
@@ -39,9 +51,18 @@ export default function PropertyCard({
   maxGuests,
   isFavorited = false,
   onToggleFavorite,
+  flexiPricePerNight = null,
+  isLastMinuteEligible = false,
 }: PropertyCardProps) {
   const [favorited, setFavorited] = useState(isFavorited);
   const currency = useCurrency();
+
+  const hasFlexiDiscount =
+    flexiPricePerNight != null && flexiPricePerNight < pricePerNight;
+  const discountPercent = hasFlexiDiscount
+    ? Math.round(((pricePerNight - (flexiPricePerNight ?? pricePerNight)) / pricePerNight) * 100)
+    : 0;
+  const showLastMinute = hasFlexiDiscount || isLastMinuteEligible;
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -78,6 +99,16 @@ export default function PropertyCard({
           <div className="absolute top-3 left-3">
             <Badge variant="info">{type}</Badge>
           </div>
+
+          {/* Last-minute deal badge */}
+          {showLastMinute && (
+            <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-[var(--color-coral-500)] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+              <Sparkles className="h-3 w-3" />
+              {hasFlexiDiscount && discountPercent > 0
+                ? `Last-minute · -${discountPercent}%`
+                : 'Last-minute deal'}
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -120,9 +151,20 @@ export default function PropertyCard({
 
           {/* Price */}
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <span className="text-lg font-bold text-gray-900">
-              {formatPrice(pricePerNight, currency)}
-            </span>
+            {hasFlexiDiscount ? (
+              <>
+                <span className="text-sm text-gray-400 line-through mr-2">
+                  {formatPrice(pricePerNight, currency)}
+                </span>
+                <span className="text-lg font-bold text-[var(--color-coral-600)]">
+                  {formatPrice(flexiPricePerNight!, currency)}
+                </span>
+              </>
+            ) : (
+              <span className="text-lg font-bold text-gray-900">
+                {formatPrice(pricePerNight, currency)}
+              </span>
+            )}
             <span className="text-sm text-gray-500"> / night</span>
           </div>
         </div>

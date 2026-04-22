@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, Users, Home, Anchor } from 'lucide-react';
+import { Search, Calendar, Users, Home, Anchor, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -40,6 +40,8 @@ interface SearchFiltersProps {
     amenities?: string[];
     /** Comma-separated destination slugs from the URL (?places=watamu,kilifi). */
     places?: string;
+    /** "1" when the guest wants to see last-minute deals only. */
+    last_minute?: string;
   };
 }
 
@@ -133,6 +135,9 @@ export default function SearchFilters({
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
     initial?.amenities ?? []
   );
+  const [lastMinuteOnly, setLastMinuteOnly] = useState<boolean>(
+    initial?.last_minute === '1',
+  );
 
   // Re-seed from URL when parent updates (useful for back/forward nav)
   useEffect(() => {
@@ -146,6 +151,7 @@ export default function SearchFilters({
       initial.max_price ? Math.min(PRICE_MAX, Number(initial.max_price)) : PRICE_MAX,
     ]);
     setSelectedAmenities(initial.amenities ?? []);
+    setLastMinuteOnly(initial.last_minute === '1');
   }, [
     initial?.check_in,
     initial?.check_out,
@@ -154,6 +160,7 @@ export default function SearchFilters({
     initial?.min_price,
     initial?.max_price,
     initial?.amenities?.join(','),
+    initial?.last_minute,
   ]);
 
   // Boat filters
@@ -219,6 +226,7 @@ export default function SearchFilters({
       if (priceRange[0] > PRICE_MIN) params.set('min_price', String(priceRange[0]));
       if (priceRange[1] < PRICE_MAX) params.set('max_price', String(priceRange[1]));
       if (selectedAmenities.length > 0) params.set('amenities', selectedAmenities.join(','));
+      if (lastMinuteOnly) params.set('last_minute', '1');
       router.push(`/properties${params.toString() ? `?${params}` : ''}`);
     } else {
       if (tripDate) params.set('trip_date', tripDate);
@@ -367,6 +375,25 @@ export default function SearchFilters({
                   onChange={setSelectedAmenities}
                 />
               )}
+            </div>
+
+            {/* Last-minute deals toggle */}
+            <div className="mt-4">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={lastMinuteOnly}
+                onClick={() => setLastMinuteOnly((v) => !v)}
+                className={
+                  (lastMinuteOnly
+                    ? 'border-[var(--color-coral-400)] bg-[var(--color-coral-50)] text-[var(--color-coral-700)] ring-1 ring-[var(--color-coral-200)]'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-[var(--color-coral-300)] hover:bg-[var(--color-coral-50)]/60') +
+                  ' inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
+                }
+              >
+                <Sparkles className="h-4 w-4" />
+                Last-minute deals only
+              </button>
             </div>
           </>
         ) : (

@@ -13,6 +13,8 @@ import {
   MessageSquare,
   Check,
   Percent,
+  TrendingDown,
+  Clock,
 } from 'lucide-react';
 import { getCurrentPlace } from '@/lib/places/context';
 import EarningsComparisonCalculator from './EarningsComparisonCalculator';
@@ -193,6 +195,103 @@ export default async function BecomeAHostPage() {
 
       {/* ---------- EARNINGS COMPARISON CALCULATOR ---------- */}
       <EarningsComparisonCalculator />
+
+      {/* ---------- FLEXI PRICING ---------- */}
+      <section className="mx-auto max-w-6xl px-4 py-16 lg:py-20">
+        <div className="grid items-center gap-10 lg:grid-cols-2">
+          <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-coral-50)] px-3 py-1 text-xs font-medium text-[var(--color-coral-700)]">
+              <TrendingDown className="h-3.5 w-3.5" />
+              Fill empty nights — automatically
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900">
+              Flexi pricing: rescue last-minute nights without lifting a finger
+            </h2>
+            <p className="mt-4 text-gray-600">
+              Empty nights earn nothing. Turn on flexi pricing and {brandName} will
+              automatically discount an unbooked night as check-in approaches — gently
+              at first, more the closer it gets — until a guest grabs it. Set the rules
+              once; we handle the rest.
+            </p>
+
+            <div className="mt-6 space-y-4 text-sm text-gray-700">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-coral-50)] text-[var(--color-coral-600)]">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold text-gray-900">You pick the window</p>
+                  <p className="mt-0.5 text-gray-600">
+                    Choose how many days out the discount starts — e.g. 10 days before
+                    check-in. Outside that window, guests pay your full rate.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-coral-50)] text-[var(--color-coral-600)]">
+                  <TrendingDown className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold text-gray-900">You pick the floor</p>
+                  <p className="mt-0.5 text-gray-600">
+                    Set the lowest you&rsquo;ll ever go — e.g. 80% of your normal price.
+                    The discount ramps smoothly from full price down to that floor.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--color-coral-50)] text-[var(--color-coral-600)]">
+                  <Clock className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-semibold text-gray-900">You pick the notice</p>
+                  <p className="mt-0.5 text-gray-600">
+                    Some hosts accept same-day bookings; others need a day or two to
+                    prepare. Set your minimum booking notice per property — we won&rsquo;t
+                    accept bookings inside that window.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-6 text-sm text-gray-500">
+              Guests see a <span className="font-semibold text-[var(--color-coral-600)]">Last-minute</span>{' '}
+              badge on your card and can filter search results to your discounted dates —
+              so the right traveller finds you at the right moment.
+            </p>
+
+            <Link
+              href="/dashboard/flexi-pricing"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[var(--color-coral-500)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-coral-600)]"
+            >
+              Set your flexi defaults
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              How a KES 10,000 night ramps down
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              Example: 10-day window, 80% floor, 1 day minimum notice.
+            </p>
+
+            <ol className="mt-5 space-y-3 text-sm">
+              <FlexiSampleRow daysOut="10+ days out" price="KES 10,000" label="Full price" />
+              <FlexiSampleRow daysOut="7 days out" price="KES 9,333" label="-7%" highlight={false} />
+              <FlexiSampleRow daysOut="4 days out" price="KES 8,667" label="-13%" highlight={false} />
+              <FlexiSampleRow daysOut="2 days out" price="KES 8,000" label="-20% floor" highlight />
+              <FlexiSampleRow daysOut="Day of check-in" price="Not bookable" label="Past your notice" dimmed />
+            </ol>
+
+            <div className="mt-6 rounded-lg bg-[var(--color-coral-50)] px-4 py-3 text-xs text-[var(--color-coral-800)]">
+              Empty night rescued at 80% &gt; empty night worth 0%. Most hosts who enable
+              flexi pricing recover 2–4 otherwise-wasted nights a month.
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ---------- AI IMPORT ---------- */}
       <section className="bg-gray-50 py-16 lg:py-20">
@@ -476,6 +575,10 @@ export default async function BecomeAHostPage() {
               a="No. Keep your Airbnb, Booking.com or FishingBooker listing as long as you want — calendar sync keeps everything in one place."
             />
             <FaqItem
+              q="What is flexi pricing and how much control do I have?"
+              a={`Flexi pricing automatically discounts nights that are still empty as check-in approaches. You stay in full control — set how many days out the discount starts (your "window"), the lowest you'll ever go (your "floor", as a percentage of your normal price), and how much notice you need before a booking (0 for same-day, 1+ days if you need prep time). Rules can be set account-wide as defaults and overridden per property. Guests see a "Last-minute" badge on qualifying listings and can filter search results by them. Turn it off any time from Dashboard → Flexi pricing.`}
+            />
+            <FaqItem
               q="Once I link my Airbnb or Booking.com calendar, does it stay in sync on its own?"
               a={`Yes. After you connect an iCal feed on a listing, we re-fetch it automatically once a day and block any new dates without you doing anything. Bookings made on ${brandName} push out through your export feed the moment they're confirmed, and Airbnb / Booking.com poll that feed on their own cadence (typically every couple of hours). If a feed breaks, the listing shows a sync error on your dashboard so you can fix it. For same-day certainty before a busy weekend, hit "Sync Now" on a listing to force an immediate refresh in seconds.`}
             />
@@ -672,6 +775,60 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       </summary>
       <p className="mt-3 text-sm text-gray-600">{a}</p>
     </details>
+  );
+}
+
+function FlexiSampleRow({
+  daysOut,
+  price,
+  label,
+  highlight = false,
+  dimmed = false,
+}: {
+  daysOut: string;
+  price: string;
+  label: string;
+  highlight?: boolean;
+  dimmed?: boolean;
+}) {
+  return (
+    <li
+      className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
+        highlight
+          ? 'border-[var(--color-coral-300)] bg-[var(--color-coral-50)]'
+          : dimmed
+            ? 'border-gray-200 bg-gray-50'
+            : 'border-gray-200 bg-white'
+      }`}
+    >
+      <span className={`text-xs font-medium ${dimmed ? 'text-gray-400' : 'text-gray-500'}`}>
+        {daysOut}
+      </span>
+      <div className="flex items-center gap-2">
+        <span
+          className={`text-sm font-semibold ${
+            dimmed
+              ? 'text-gray-400'
+              : highlight
+                ? 'text-[var(--color-coral-700)]'
+                : 'text-gray-900'
+          }`}
+        >
+          {price}
+        </span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            highlight
+              ? 'bg-[var(--color-coral-500)] text-white'
+              : dimmed
+                ? 'bg-gray-200 text-gray-500'
+                : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          {label}
+        </span>
+      </div>
+    </li>
   );
 }
 

@@ -45,6 +45,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard/reviews', label: 'Reviews', icon: Star, group: 'revenue' },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, group: 'revenue' },
   { href: '/dashboard/earnings', label: 'Earnings', icon: CreditCard, group: 'revenue' },
+  { href: '/dashboard/flexi-pricing', label: 'Flexi pricing', icon: Sparkles, group: 'tools' },
   { href: '/dashboard/import', label: 'AI Import', icon: Sparkles, group: 'tools' },
 ];
 

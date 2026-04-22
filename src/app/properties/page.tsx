@@ -7,6 +7,7 @@ import { getCurrentPlace, resolvePlaceSlugs, listActivePlaces } from "@/lib/plac
 import { filterPropertiesByPlace, filterPropertiesByPlaces } from "@/lib/places/queries";
 import type { Place, Property } from "@/lib/types";
 import type { Metadata } from "next";
+import { resolveFlexiConfig, computeFlexiPrice, daysUntil } from "@/lib/flexi";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { place } = await getCurrentPlace();
@@ -36,6 +37,8 @@ interface SearchParams {
    * overrides the path-scoped place so users can search across destinations.
    */
   places?: string;
+  /** "1" to filter to properties with an active last-minute (flexi) discount. */
+  last_minute?: string;
   sort?: string;
   page?: string;
 }
@@ -65,12 +68,20 @@ async function getProperties(
       `
       *,
       images:wb_images(id, url, alt_text, sort_order),
-      reviews:wb_reviews(rating)
+      reviews:wb_reviews(rating),
+      owner:wb_profiles!wb_properties_owner_id_fkey(flexi_default_enabled, flexi_default_window_days, flexi_default_cutoff_days, flexi_default_floor_percent)
     `,
       { count: "exact" }
     )
     .eq("is_published", true)
     .eq("is_test", false);
+
+  // Last-minute-only filter: scope to flexi-enabled properties at the DB
+  // layer. Further refinement (actually within window for selected dates)
+  // happens in-memory after fetch.
+  if (searchParams.last_minute === '1') {
+    query = query.eq('flexi_enabled', true);
+  }
 
   // If the user explicitly picked a set of destinations via ?places=, honour
   // that. Otherwise scope to the current path-resolved place.
@@ -170,11 +181,53 @@ async function getProperties(
 
   if (error) {
     console.error("Error fetching properties:", error);
-    return { properties: [] as Property[], total: 0, page };
+    return { properties: [] as PropertyWithFlexi[], total: 0, page };
   }
 
-  return { properties: (data ?? []) as Property[], total: count ?? 0, page };
+  // Decorate each property with an effective flexi price per night for the
+  // selected dates (if any), then optionally filter to only those where the
+  // discount is actually active during the requested window.
+  const decorated: PropertyWithFlexi[] = (data ?? []).map((p: any) => {
+    const owner = Array.isArray(p.owner) ? p.owner[0] : p.owner;
+    const flexi = resolveFlexiConfig(p, owner ?? null);
+    let flexi_price_per_night: number | null = null;
+    let is_last_minute = false;
+    if (flexi.enabled && searchParams.check_in) {
+      const r = computeFlexiPrice(
+        Number(p.base_price_per_night) || 0,
+        flexi,
+        searchParams.check_in,
+      );
+      if (!r.pastCutoff && r.isLastMinute) {
+        flexi_price_per_night = r.effectivePrice;
+        is_last_minute = true;
+      } else if (r.pastCutoff) {
+        // Past cutoff → unbookable; hide it from last-minute results.
+        is_last_minute = false;
+      }
+    }
+    return { ...p, _flexi: flexi, flexi_price_per_night, is_last_minute };
+  });
+
+  let filtered = decorated;
+  let total = count ?? 0;
+  if (searchParams.last_minute === '1' && searchParams.check_in) {
+    // With dates selected, only show properties where the discount is
+    // actually active for the chosen check-in. Count reflects this page's
+    // post-filter size; pagination for last-minute + dates is best-effort.
+    filtered = decorated.filter((p) => p.is_last_minute);
+    total = filtered.length;
+  }
+
+  return { properties: filtered, total, page };
 }
+
+type PropertyWithFlexi = Property & {
+  owner?: unknown;
+  _flexi?: ReturnType<typeof resolveFlexiConfig>;
+  flexi_price_per_night?: number | null;
+  is_last_minute?: boolean;
+};
 
 export default async function PropertiesPage({
   searchParams,
@@ -242,6 +295,7 @@ export default async function PropertiesPage({
               max_price: params.max_price,
               amenities: selectedAmenities,
               places: params.places,
+              last_minute: params.last_minute,
             }}
           />
         </div>
@@ -280,6 +334,11 @@ export default async function PropertiesPage({
                 bedrooms={property.bedrooms || 0}
                 bathrooms={property.bathrooms || 0}
                 maxGuests={property.max_guests || 2}
+                flexiPricePerNight={property.flexi_price_per_night ?? null}
+                isLastMinuteEligible={
+                  Boolean(property.flexi_enabled) &&
+                  (params.last_minute === '1' || Boolean(property.is_last_minute))
+                }
               />
             ))}
           </div>

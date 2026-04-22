@@ -197,6 +197,11 @@ export interface Profile {
   owner_type: 'property' | 'boat' | 'both' | null;
   is_verified: boolean;
   is_super_admin: boolean;
+  /** Flexi pricing host defaults — inherited by properties with null overrides. */
+  flexi_default_enabled: boolean;
+  flexi_default_window_days: number;
+  flexi_default_cutoff_days: number;
+  flexi_default_floor_percent: number;
   created_at: string;
   updated_at: string;
 }
@@ -235,6 +240,13 @@ export interface Property {
   low_season_months: string | null;
   high_season_months: string | null;
   peak_season_months: string | null;
+  /** Flexi pricing (last-minute discount). When enabled, the nightly rate
+   *  ramps down linearly from base (at window edge) to floor (at day 0).
+   *  Null window/floor inherit the host's defaults on wb_profiles. */
+  flexi_enabled: boolean;
+  flexi_window_days: number | null;
+  flexi_cutoff_days: number | null;
+  flexi_floor_percent: number | null;
   source_url: string | null;
   import_source: string | null;
   place_id: string;

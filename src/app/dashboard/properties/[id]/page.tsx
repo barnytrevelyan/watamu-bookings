@@ -79,6 +79,16 @@ export default function EditPropertyPage() {
   const [checkOutTime, setCheckOutTime] = useState('10:00');
   const [basePrice, setBasePrice] = useState('');
   const [currency, setCurrency] = useState('KES');
+  // Flexi pricing (last-minute discount)
+  const [flexiEnabled, setFlexiEnabled] = useState(false);
+  const [flexiWindowDays, setFlexiWindowDays] = useState(''); // blank = inherit host default
+  const [flexiCutoffDays, setFlexiCutoffDays] = useState(''); // blank = inherit host default
+  const [flexiFloorPercent, setFlexiFloorPercent] = useState(''); // blank = inherit host default
+  const [hostFlexiDefault, setHostFlexiDefault] = useState<{
+    window_days: number;
+    cutoff_days: number;
+    floor_percent: number;
+  } | null>(null);
   const [cancellationPolicy, setCancellationPolicy] = useState('moderate');
   const [houseRules, setHouseRules] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
@@ -96,7 +106,7 @@ export default function EditPropertyPage() {
       try {
         const supabase = createClient();
 
-        const [{ data: property, error: propError }, { data: amenities }] =
+        const [{ data: property, error: propError }, { data: amenities }, { data: profile }] =
           await Promise.all([
             supabase
               .from('wb_properties')
@@ -114,6 +124,13 @@ export default function EditPropertyPage() {
               .from('wb_amenities')
               .select('id, name, icon, category')
               .order('category'),
+            supabase
+              .from('wb_profiles')
+              .select(
+                'flexi_default_window_days, flexi_default_cutoff_days, flexi_default_floor_percent',
+              )
+              .eq('id', user!.id)
+              .maybeSingle(),
           ]);
 
         if (propError || !property) {
@@ -138,6 +155,16 @@ export default function EditPropertyPage() {
         setCheckOutTime(property.check_out_time || '10:00');
         setBasePrice(property.base_price_per_night?.toString() || '');
         setCurrency(property.currency || 'KES');
+        setFlexiEnabled(Boolean(property.flexi_enabled));
+        setFlexiWindowDays(
+          property.flexi_window_days != null ? String(property.flexi_window_days) : '',
+        );
+        setFlexiCutoffDays(
+          property.flexi_cutoff_days != null ? String(property.flexi_cutoff_days) : '',
+        );
+        setFlexiFloorPercent(
+          property.flexi_floor_percent != null ? String(property.flexi_floor_percent) : '',
+        );
         setCancellationPolicy(property.cancellation_policy || 'moderate');
         setHouseRules(property.house_rules || '');
         setIsPublished(property.is_published);
@@ -150,6 +177,13 @@ export default function EditPropertyPage() {
           )
         );
         if (amenities) setAllAmenities(amenities);
+        if (profile) {
+          setHostFlexiDefault({
+            window_days: profile.flexi_default_window_days ?? 7,
+            cutoff_days: profile.flexi_default_cutoff_days ?? 1,
+            floor_percent: profile.flexi_default_floor_percent ?? 70,
+          });
+        }
       } catch (err) {
         setError('Failed to load property');
       } finally {
@@ -217,6 +251,11 @@ export default function EditPropertyPage() {
           check_out_time: checkOutTime,
           base_price_per_night: parseFloat(basePrice),
           currency,
+          flexi_enabled: flexiEnabled,
+          flexi_window_days: flexiWindowDays.trim() === '' ? null : parseInt(flexiWindowDays, 10),
+          flexi_cutoff_days: flexiCutoffDays.trim() === '' ? null : parseInt(flexiCutoffDays, 10),
+          flexi_floor_percent:
+            flexiFloorPercent.trim() === '' ? null : parseInt(flexiFloorPercent, 10),
           cancellation_policy: cancellationPolicy,
           house_rules: houseRules.trim() || null,
           is_published: isPublished,
@@ -571,6 +610,117 @@ export default function EditPropertyPage() {
                 </div>
               </Field>
             </div>
+
+            {/* ── Flexi pricing (last-minute discount) ────────────────── */}
+            <div className="rounded-2xl border border-[var(--color-primary-100)] bg-gradient-to-br from-[var(--color-primary-50)] via-white to-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Flexi pricing — last-minute deals
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-600 max-w-lg">
+                    Drop the nightly rate automatically as the check-in date approaches —
+                    a booked property earns more than an empty one. Guests see a
+                    &ldquo;Last-minute deal&rdquo; badge on their search results.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={flexiEnabled}
+                  onClick={() => setFlexiEnabled((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    flexiEnabled ? 'bg-[var(--color-primary-600)]' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                      flexiEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {flexiEnabled && (
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field
+                    label="Discount window (days)"
+                    hint={
+                      hostFlexiDefault
+                        ? `Default: ${hostFlexiDefault.window_days} days.`
+                        : 'Leave blank to use your host default.'
+                    }
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={90}
+                      placeholder={String(hostFlexiDefault?.window_days ?? 7)}
+                      value={flexiWindowDays}
+                      onChange={(e) => setFlexiWindowDays(e.target.value)}
+                    />
+                  </Field>
+                  <Field
+                    label="Booking notice required (days)"
+                    hint={
+                      hostFlexiDefault
+                        ? `Default: ${hostFlexiDefault.cutoff_days} day${
+                            hostFlexiDefault.cutoff_days === 1 ? '' : 's'
+                          }. 0 = same-day OK.`
+                        : '0 = same-day bookings OK.'
+                    }
+                  >
+                    <Input
+                      type="number"
+                      min={0}
+                      max={89}
+                      placeholder={String(hostFlexiDefault?.cutoff_days ?? 1)}
+                      value={flexiCutoffDays}
+                      onChange={(e) => setFlexiCutoffDays(e.target.value)}
+                    />
+                  </Field>
+                  <Field
+                    label="Floor (% of base price)"
+                    hint={
+                      hostFlexiDefault
+                        ? `Default: ${hostFlexiDefault.floor_percent}%.`
+                        : 'Lowest acceptable price as a % of base.'
+                    }
+                  >
+                    <Input
+                      type="number"
+                      min={10}
+                      max={100}
+                      placeholder={String(hostFlexiDefault?.floor_percent ?? 70)}
+                      value={flexiFloorPercent}
+                      onChange={(e) => setFlexiFloorPercent(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              )}
+
+              {flexiEnabled && basePrice && (
+                <FlexiPreview
+                  basePrice={Number(basePrice) || 0}
+                  windowDays={
+                    flexiWindowDays.trim() !== ''
+                      ? parseInt(flexiWindowDays, 10)
+                      : hostFlexiDefault?.window_days ?? 7
+                  }
+                  cutoffDays={
+                    flexiCutoffDays.trim() !== ''
+                      ? parseInt(flexiCutoffDays, 10)
+                      : hostFlexiDefault?.cutoff_days ?? 1
+                  }
+                  floorPercent={
+                    flexiFloorPercent.trim() !== ''
+                      ? parseInt(flexiFloorPercent, 10)
+                      : hostFlexiDefault?.floor_percent ?? 70
+                  }
+                />
+              )}
+            </div>
+
             <Field label="Cancellation policy">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {CANCELLATION_POLICIES.map((p) => (
@@ -807,6 +957,91 @@ function Field({
         {hint && <span className="text-xs font-normal text-gray-400">{hint}</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Preview the flexi curve for the host: shows the effective price at
+ * representative days-out across the ramp, so they can sanity-check
+ * window + cutoff + floor before saving.
+ *
+ * Ramp: base at windowDays → floor at cutoffDays. Inside the cutoff
+ * (daysOut < cutoffDays) the listing is unbookable, so we skip those
+ * samples rather than showing a phantom price.
+ */
+function FlexiPreview({
+  basePrice,
+  windowDays,
+  cutoffDays,
+  floorPercent,
+}: {
+  basePrice: number;
+  windowDays: number;
+  cutoffDays: number;
+  floorPercent: number;
+}) {
+  // Clamp cutoff so the ramp never collapses to a point.
+  const safeCutoff = Math.max(0, Math.min(cutoffDays, Math.max(0, windowDays - 1)));
+  const span = Math.max(1, windowDays - safeCutoff);
+  // Pick a handful of days within [cutoff, window]: endpoints + midpoints.
+  const samples = Array.from(
+    new Set(
+      [
+        windowDays,
+        Math.round(safeCutoff + (span * 2) / 3),
+        Math.round(safeCutoff + span / 3),
+        safeCutoff,
+      ].filter((d) => d >= safeCutoff && d <= windowDays),
+    ),
+  ).sort((a, b) => b - a);
+
+  const floor = basePrice * (Math.min(100, Math.max(10, floorPercent)) / 100);
+  const fmt = new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+  return (
+    <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3">
+      <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">
+        Preview — price as check-in approaches
+      </p>
+      <div className="grid grid-cols-4 gap-2 text-center">
+        {samples.map((d) => {
+          const ratio = span > 0 ? (d - safeCutoff) / span : 1;
+          const price = Math.round(floor + (basePrice - floor) * ratio);
+          const isCutoff = d === safeCutoff;
+          return (
+            <div
+              key={d}
+              className={`rounded-lg p-2 ${
+                isCutoff ? 'bg-[var(--color-coral-50)] ring-1 ring-[var(--color-coral-200)]' : 'bg-gray-50'
+              }`}
+            >
+              <div className="text-[10px] text-gray-500">
+                {d === 0
+                  ? 'Same day'
+                  : `${d} day${d === 1 ? '' : 's'} out${isCutoff ? ' (cutoff)' : ''}`}
+              </div>
+              <div className="mt-1 text-sm font-semibold text-gray-900">
+                {fmt.format(price)}
+              </div>
+              {price < basePrice && (
+                <div className="text-[10px] text-[var(--color-coral-600)]">
+                  -{Math.round(((basePrice - price) / basePrice) * 100)}%
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {safeCutoff > 0 && (
+        <p className="mt-2 text-[11px] text-gray-500">
+          Bookings are not accepted within {safeCutoff} day{safeCutoff === 1 ? '' : 's'} of check-in.
+        </p>
+      )}
     </div>
   );
 }

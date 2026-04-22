@@ -12,6 +12,7 @@ import { propertySchema, breadcrumbSchema } from "@/lib/jsonld";
 import PropertyBookingSidebar from "./PropertyBookingSidebar";
 import { getCurrentPlace } from "@/lib/places/context";
 import type { Place, Property, Room, Amenity, Review, Image } from "@/lib/types";
+import { resolveFlexiConfig } from "@/lib/flexi";
 
 /* ---------- Data fetching ---------- */
 
@@ -26,6 +27,10 @@ interface PropertyDetail extends Property {
     full_name: string;
     avatar_url: string | null;
     created_at: string;
+    flexi_default_enabled: boolean | null;
+    flexi_default_window_days: number | null;
+    flexi_default_cutoff_days: number | null;
+    flexi_default_floor_percent: number | null;
   } | null;
 }
 
@@ -45,7 +50,7 @@ async function getProperty(slug: string, currentPlace: Place | null): Promise<Pr
         cleanliness_rating, location_rating, value_rating, communication_rating,
         author:wb_profiles!guest_id(id, full_name, avatar_url)
       ),
-      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at),
+      owner:wb_profiles!wb_properties_owner_id_fkey(id, full_name, avatar_url, created_at, flexi_default_enabled, flexi_default_window_days, flexi_default_cutoff_days, flexi_default_floor_percent),
       place:wb_places(*)
     `
     )
@@ -359,6 +364,7 @@ export default async function PropertyDetailPage({
                 rooms={rooms}
                 availability={availability}
                 cleaningFee={(property as { cleaning_fee?: number | null }).cleaning_fee ?? 0}
+                flexi={resolveFlexiConfig(property, property.owner)}
               />
 
               {/* Owner info */}

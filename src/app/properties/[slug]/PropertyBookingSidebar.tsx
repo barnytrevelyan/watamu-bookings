@@ -10,6 +10,8 @@ import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { useCurrency } from "@/lib/places/BrandProvider";
 import { formatPrice } from "@/lib/currency";
 import type { Room } from "@/lib/types";
+import { computeFlexiPrice, daysUntil, type FlexiConfig } from "@/lib/flexi";
+import { Sparkles } from "lucide-react";
 
 interface AvailabilityDay {
   date: string;
@@ -25,6 +27,7 @@ interface Props {
   rooms: Room[];
   availability: AvailabilityDay[];
   cleaningFee?: number | null;
+  flexi?: FlexiConfig;
 }
 
 export default function PropertyBookingSidebar({
@@ -35,6 +38,7 @@ export default function PropertyBookingSidebar({
   rooms,
   availability,
   cleaningFee = 0,
+  flexi,
 }: Props) {
   // Coerce numeric values that Supabase returns as strings from numeric columns.
   const nightlyRateNumber = Number(pricePerNight) || 0;
@@ -76,27 +80,59 @@ export default function PropertyBookingSidebar({
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const nightlyRate = Number(selectedRoom?.price_per_night ?? nightlyRateNumber) || nightlyRateNumber;
 
-  // Calculate total respecting per-night overrides. No guest service fee —
-  // Kwetu takes commission from the host, the guest pays only the nightly
-  // rate + cleaning.
-  const { accommodationTotal, totalPrice } = useMemo(() => {
-    if (nights === 0) return { accommodationTotal: 0, totalPrice: 0 };
+  // Calculate total respecting per-night overrides and flexi (last-minute)
+  // discount. No guest service fee — Kwetu takes commission from the host,
+  // the guest pays only the nightly rate + cleaning.
+  const { accommodationTotal, baseAccommodationTotal, totalPrice, isLastMinute } = useMemo(() => {
+    if (nights === 0) {
+      return {
+        accommodationTotal: 0,
+        baseAccommodationTotal: 0,
+        totalPrice: 0,
+        isLastMinute: false,
+      };
+    }
 
     let total = 0;
+    let baseTotal = 0;
+    let anyLastMinute = false;
     const start = new Date(checkIn);
     for (let i = 0; i < nights; i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
       const dateStr = d.toISOString().split("T")[0];
       const override = priceOverrides.get(dateStr);
-      total += Number(override ?? nightlyRate) || nightlyRate;
+      const nightly = Number(override ?? nightlyRate) || nightlyRate;
+      baseTotal += nightly;
+      if (flexi?.enabled) {
+        const r = computeFlexiPrice(nightly, flexi, d);
+        total += r.effectivePrice;
+        if (r.isLastMinute) anyLastMinute = true;
+      } else {
+        total += nightly;
+      }
     }
 
     return {
       accommodationTotal: total,
+      baseAccommodationTotal: baseTotal,
       totalPrice: total + cleaningFeeNumber,
+      isLastMinute: anyLastMinute,
     };
-  }, [nights, checkIn, nightlyRate, priceOverrides, cleaningFeeNumber]);
+  }, [nights, checkIn, nightlyRate, priceOverrides, cleaningFeeNumber, flexi]);
+
+  // Booking notice — the host only accepts bookings that start more than
+  // `cutoffDays` out. Computed against the selected check-in (if any).
+  const pastCutoff = useMemo(() => {
+    if (!checkIn || !flexi?.enabled) return false;
+    const daysOut = daysUntil(checkIn);
+    return daysOut < flexi.cutoffDays;
+  }, [checkIn, flexi]);
+
+  const discountPercent =
+    baseAccommodationTotal > 0 && accommodationTotal < baseAccommodationTotal
+      ? Math.round(((baseAccommodationTotal - accommodationTotal) / baseAccommodationTotal) * 100)
+      : 0;
 
   const handleDateSelect = useCallback(
     (dates: { checkIn: string; checkOut: string }) => {
@@ -113,6 +149,14 @@ export default function PropertyBookingSidebar({
     }
     if (nights < 1) {
       toast.error("Stay must be at least 1 night.");
+      return;
+    }
+    if (pastCutoff) {
+      toast.error(
+        flexi && flexi.cutoffDays === 1
+          ? "The host needs at least 1 day's notice — please pick a later check-in."
+          : `The host needs at least ${flexi?.cutoffDays ?? 1} days' notice — please pick a later check-in.`,
+      );
       return;
     }
 
@@ -160,11 +204,19 @@ export default function PropertyBookingSidebar({
   return (
     <div className="border border-gray-200 rounded-xl p-5 shadow-lg">
       {/* Price header */}
-      <div className="flex items-baseline gap-1 mb-5">
-        <span className="text-2xl font-bold text-gray-900">
-          {formatPrice(nightlyRate, currency)}
-        </span>
-        <span className="text-gray-500">/ night</span>
+      <div className="mb-5">
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-bold text-gray-900">
+            {formatPrice(nightlyRate, currency)}
+          </span>
+          <span className="text-gray-500">/ night</span>
+        </div>
+        {flexi?.enabled && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--color-coral-50)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--color-coral-600)] ring-1 ring-[var(--color-coral-200)]">
+            <Sparkles className="h-3 w-3" />
+            Last-minute deals available
+          </div>
+        )}
       </div>
 
       {/* Calendar */}
@@ -253,15 +305,43 @@ export default function PropertyBookingSidebar({
         </div>
       )}
 
+      {/* Past-cutoff warning (host requires more notice) */}
+      {pastCutoff && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <strong className="block font-semibold">Too close to check-in</strong>
+          The host needs at least {flexi?.cutoffDays ?? 1} day{flexi?.cutoffDays === 1 ? '' : 's'}{' '}
+          notice. Please pick a later check-in date.
+        </div>
+      )}
+
       {/* Price breakdown */}
       {nights > 0 && (
         <div className="border-t border-gray-100 pt-4 mb-4 space-y-2 text-sm">
           <div className="flex justify-between text-gray-700">
             <span>
-              {formatPrice(nightlyRate, currency)} x {nights} night{nights !== 1 ? "s" : ""}
+              {nights} night{nights !== 1 ? "s" : ""}
+              {isLastMinute && (
+                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--color-coral-50)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-coral-600)]">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Last-minute
+                </span>
+              )}
             </span>
-            <span>{formatPrice(accommodationTotal, currency)}</span>
+            <span className="text-right">
+              {discountPercent > 0 && (
+                <span className="mr-2 text-gray-400 line-through">
+                  {formatPrice(baseAccommodationTotal, currency)}
+                </span>
+              )}
+              {formatPrice(accommodationTotal, currency)}
+            </span>
           </div>
+          {discountPercent > 0 && (
+            <div className="flex justify-between text-[var(--color-coral-600)] text-xs">
+              <span>Flexi discount</span>
+              <span>-{discountPercent}%</span>
+            </div>
+          )}
           {cleaningFeeNumber > 0 && (
             <div className="flex justify-between text-gray-700">
               <span>Cleaning fee</span>
@@ -285,10 +365,12 @@ export default function PropertyBookingSidebar({
         className="w-full bg-teal-600 hover:bg-teal-700 text-white"
         size="lg"
         onClick={handleBook}
-        disabled={isSubmitting || nights < 1}
+        disabled={isSubmitting || nights < 1 || pastCutoff}
       >
         {isSubmitting
           ? "Booking…"
+          : pastCutoff
+          ? "Too close to check-in"
           : nights > 0
           ? `Book Now — ${formatPrice(totalPrice, currency)}`
           : "Select dates to book"}

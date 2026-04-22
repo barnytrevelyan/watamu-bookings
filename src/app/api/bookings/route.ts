@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { resolveFlexiConfig, computeFlexiPrice, daysUntil } from '@/lib/flexi';
 
 /* ------------------------------------------------------------------ */
 /*  POST /api/bookings — Create a new booking                         */
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
       owner_id: string;
       price: number; // per-night for property, trip/from for boat
       tripName?: string | null;
+      flexi?: ReturnType<typeof resolveFlexiConfig> | null;
     };
 
     let listing: ListingInfo;
@@ -107,19 +109,47 @@ export async function POST(request: NextRequest) {
     if (listingType === 'property') {
       const { data: property, error: propError } = await supabase
         .from('wb_properties')
-        .select('id, name, slug, owner_id, base_price_per_night')
+        .select(
+          'id, name, slug, owner_id, base_price_per_night, flexi_enabled, flexi_window_days, flexi_cutoff_days, flexi_floor_percent, owner:wb_profiles!wb_properties_owner_id_fkey(flexi_default_enabled, flexi_default_window_days, flexi_default_cutoff_days, flexi_default_floor_percent)',
+        )
         .eq('id', propertyId)
         .single();
 
       if (propError || !property) {
         return NextResponse.json({ error: 'Property not found.' }, { status: 404 });
       }
+
+      // Supabase returns the joined profile as an object when the FK is
+      // one-to-one, but the generic typings treat it as possibly an array —
+      // normalise.
+      const ownerProfile = Array.isArray((property as any).owner)
+        ? (property as any).owner[0]
+        : (property as any).owner;
+      const flexi = resolveFlexiConfig(property as any, ownerProfile ?? null);
+
+      // Enforce the host's booking-notice cutoff server-side.
+      if (flexi.enabled) {
+        const daysOut = daysUntil(checkIn);
+        if (daysOut < flexi.cutoffDays) {
+          return NextResponse.json(
+            {
+              error:
+                flexi.cutoffDays === 1
+                  ? "This host needs at least 1 day's notice — please pick a later check-in."
+                  : `This host needs at least ${flexi.cutoffDays} days' notice — please pick a later check-in.`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+
       listing = {
         id: property.id,
         name: property.name,
         slug: property.slug,
         owner_id: property.owner_id,
         price: Number(property.base_price_per_night) || 0,
+        flexi,
       };
     } else {
       const { data: boat, error: boatError } = await supabase
@@ -209,7 +239,21 @@ export async function POST(request: NextRequest) {
       const nights = Math.ceil(
         (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000
       );
-      totalPrice = listing.price * nights;
+      if (listing.flexi?.enabled) {
+        // Apply the flexi ramp night-by-night so the server price matches
+        // what the guest saw in the sidebar.
+        const start = new Date(checkIn);
+        let total = 0;
+        for (let i = 0; i < nights; i++) {
+          const d = new Date(start);
+          d.setUTCDate(d.getUTCDate() + i);
+          const r = computeFlexiPrice(listing.price, listing.flexi, d);
+          total += r.effectivePrice;
+        }
+        totalPrice = total;
+      } else {
+        totalPrice = listing.price * nights;
+      }
     } else {
       totalPrice = listing.price;
     }
