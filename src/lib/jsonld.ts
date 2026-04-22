@@ -204,7 +204,14 @@ export function organizationSchema(host?: BrandHost | null) {
     url,
     logo: `${url}/icon-512.png`,
     description: `Local marketplace for beachfront accommodation and fishing charters in ${locality}, Kenya.`,
-    sameAs: [],
+    // Keep in sync with SOCIAL_LINKS in components/Footer.tsx. sameAs is
+    // the primary signal search engines use to tie the brand to external
+    // profiles, so an empty array here drops knowledge-panel coverage.
+    sameAs: [
+      'https://www.instagram.com/kwetu.ke/',
+      'https://www.facebook.com/kwetu.ke',
+      'https://www.linkedin.com/company/kwetu-ke/',
+    ],
     address: {
       '@type': 'PostalAddress',
       addressLocality: locality,
@@ -262,5 +269,62 @@ export function breadcrumbSchema(
       name: item.name,
       item: item.url.startsWith('http') ? item.url : `${SITE}${item.url}`,
     })),
+  };
+}
+
+/**
+ * FAQ schema. Renders Q/A pairs as a FAQPage — eligible for rich-result
+ * surfacing in Google and frequently cited verbatim by AI answer engines
+ * (Perplexity, ChatGPT Search) when users ask adjacent questions.
+ *
+ * Questions should be short and user-phrased (not marketing copy).
+ */
+export function faqSchema(items: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  };
+}
+
+/**
+ * Service schema for the marketplace itself. We deliberately model Kwetu
+ * as a Service rather than a Product because we're a booking platform, not
+ * a physical good — Google's rich-result eligibility for Service is
+ * narrower but it's the honest classification and prevents mis-attribution
+ * in AI answer engines.
+ */
+export function marketplaceServiceSchema(host?: BrandHost | null) {
+  const url = siteUrl(host);
+  const brand = host?.brand_name ?? 'Kwetu';
+  const locality = host?.brand_short ?? 'the Kenyan coast';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: `${brand} — Coastal Kenya Bookings`,
+    url,
+    serviceType: 'Short-let and fishing charter booking marketplace',
+    provider: {
+      '@type': 'Organization',
+      name: brand,
+      url,
+    },
+    areaServed: {
+      '@type': 'Place',
+      name: `${locality}, Kenya`,
+    },
+    offers: {
+      '@type': 'AggregateOffer',
+      priceCurrency: 'KES',
+      offerCount: '50+',
+      availability: 'https://schema.org/InStock',
+    },
   };
 }

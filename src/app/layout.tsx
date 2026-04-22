@@ -25,9 +25,17 @@ export async function generateMetadata(): Promise<Metadata> {
   // place to anchor copy on, and "in Kwetu, Kenya" reads as if Kwetu were a
   // town — so fall back to a coast-scoped phrasing.
   const hasSpecificPlace = Boolean(place?.name);
-  const hostUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (host.host ? `https://${host.host}` : "https://watamubookings.com");
+  // Prefer the runtime request host (so kwetu.ke requests canonicalise to
+  // kwetu.ke, not the predecessor brand baked into the env var). Drop the
+  // `www.` prefix — we canonicalise on the apex. NEXT_PUBLIC_SITE_URL is
+  // used only when the request host isn't available (e.g. at build time
+  // during static optimisation). Final fallback is kwetu.ke — never the
+  // legacy watamubookings.com domain, because that used to silently
+  // redirect canonical tags and poisoned every crawl.
+  const runtimeHost = host.host?.replace(/^www\./, '') ?? null;
+  const hostUrl = runtimeHost
+    ? `https://${runtimeHost}`
+    : process.env.NEXT_PUBLIC_SITE_URL || "https://kwetu.ke";
 
   const defaultTitle = place?.seo_title
     ? place.seo_title

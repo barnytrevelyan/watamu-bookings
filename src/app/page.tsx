@@ -9,7 +9,14 @@ import DestinationCardLink from "@/components/DestinationCardLink";
 import WeatherWidget from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/Button";
 import JsonLd from "@/components/JsonLd";
-import { organizationSchema, websiteSchema, touristDestinationSchema } from "@/lib/jsonld";
+import {
+  organizationSchema,
+  websiteSchema,
+  touristDestinationSchema,
+  breadcrumbSchema,
+  faqSchema,
+  marketplaceServiceSchema,
+} from "@/lib/jsonld";
 import { STOCK_IMAGES, getPropertyImage, getBoatImage } from "@/lib/images";
 import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
 import type { Property, Boat, Place, PlaceFeature, PlaceContext } from "@/lib/types";
@@ -190,9 +197,47 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* SEO: Organization, WebSite + SearchAction, TouristDestination */}
+      {/* SEO: Organization, WebSite + SearchAction, TouristDestination,
+          BreadcrumbList, Service, FAQPage. We emit multiple blocks so
+          Google and AI answer engines can match whichever schema is most
+          relevant for a given query. Keep FAQ answers terse and factual —
+          these are often copy-pasted verbatim into AI responses. */}
       <JsonLd id="ld-org" data={organizationSchema(host)} />
       <JsonLd id="ld-website" data={websiteSchema(host)} />
+      <JsonLd
+        id="ld-breadcrumb"
+        data={breadcrumbSchema([{ name: 'Home', url: '/' }])}
+      />
+      <JsonLd id="ld-service" data={marketplaceServiceSchema(host)} />
+      <JsonLd
+        id="ld-faq"
+        data={faqSchema([
+          {
+            question: `What is ${host.brand_name}?`,
+            answer: `${host.brand_name} is a Kenya-first booking marketplace for beachfront short-let properties and fishing charters on the Kenyan coast. Hosts keep more of each booking — we charge a flat 7.5% commission, no subscription.`,
+          },
+          {
+            question: 'How do I pay for a booking?',
+            answer:
+              'You can pay with M-Pesa or a Visa/Mastercard credit or debit card. M-Pesa STK Push payments complete in seconds and are confirmed instantly.',
+          },
+          {
+            question: 'Is my booking refundable?',
+            answer:
+              "Refund terms are set by each host and displayed on the property or boat page before you book. Most properties offer flexible refunds up to seven days before check-in.",
+          },
+          {
+            question: 'How does Kwetu compare to Airbnb or Booking.com?',
+            answer:
+              'We focus exclusively on Kenya and charge hosts a flat 7.5% commission (no subscription) versus 15–20%+ on global platforms. Lower fees mean hosts can offer you better rates.',
+          },
+          {
+            question: 'Where does Kwetu operate?',
+            answer:
+              "We cover Kenya's coastal destinations including Watamu, Malindi, Kilifi, Diani and Lamu, with plans to add more places across the Kenyan coast.",
+          },
+        ])}
+      />
       {place ? <JsonLd id="ld-destination" data={touristDestinationSchema(place)} /> : null}
 
       {/* ===== HERO SECTION ===== */}
@@ -203,6 +248,13 @@ export default async function HomePage() {
           fill
           className="object-cover"
           priority
+          // LCP element. `fetchPriority="high"` + `sizes="100vw"` is the
+          // difference between ~4s and <2.5s LCP on 4G mobile — without
+          // sizes, next/image can't pick the right srcset candidate and
+          // tends to over-fetch.
+          fetchPriority="high"
+          sizes="100vw"
+          quality={75}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/50" />
 
@@ -455,6 +507,9 @@ function ShellLanding({
           fill
           className="object-cover"
           priority
+          fetchPriority="high"
+          sizes="100vw"
+          quality={75}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
 
