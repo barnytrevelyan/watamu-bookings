@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { TrendingUp, Info } from 'lucide-react';
-import { computeMonthlyChargeKes } from '@/lib/subscriptions/pricing';
+import { computeMonthlyChargeKes, tierForListingNumber } from '@/lib/subscriptions/pricing';
 
 const FMT = new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 });
 
@@ -46,8 +46,31 @@ export default function EarningsCalculator({
   const savingsVsAirbnb = kwetuNetAnnual - airbnbNetAnnual;
   const savingsVsBooking = kwetuNetAnnual - bookingNetAnnual;
 
-  const perListingMonthly = listings > 0 ? kwetuSubscription / listings : 0;
   const kwetuSubscriptionAnnual = kwetuSubscription * 12;
+
+  // Group listings by pricing tier so the calculator shows the real shape of
+  // the ladder (e.g. 1 × 3,000 + 2 × 1,500) rather than a misleading "average
+  // per listing" — the per-listing price actually steps down across tiers.
+  const tierBreakdown = useMemo(() => {
+    const buckets = new Map<
+      string,
+      { label: string; unit: number; count: number }
+    >();
+    for (let i = 1; i <= listings; i++) {
+      const tier = tierForListingNumber(i);
+      const existing = buckets.get(tier.label);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        buckets.set(tier.label, {
+          label: tier.label,
+          unit: tier.price_kes,
+          count: 1,
+        });
+      }
+    }
+    return Array.from(buckets.values());
+  }, [listings]);
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-10">
@@ -181,8 +204,21 @@ export default function EarningsCalculator({
                 </div>
               </div>
               {listings > 1 && (
-                <div className="mt-1 text-[11px] text-slate-500">
-                  {listings} listings &middot; {fmt(perListingMonthly)}/listing avg
+                <div className="mt-2 border-t border-teal-100 pt-2 space-y-0.5">
+                  {tierBreakdown.map((tier) => (
+                    <div
+                      key={tier.label}
+                      className="flex items-baseline justify-between gap-2 text-[11px] text-slate-600"
+                    >
+                      <span>
+                        {tier.label}
+                        {tier.count > 1 ? ` · ${tier.count} × ${fmt(tier.unit)}` : ''}
+                      </span>
+                      <span className="font-semibold text-slate-700">
+                        {fmt(tier.unit * tier.count)}/mo
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
