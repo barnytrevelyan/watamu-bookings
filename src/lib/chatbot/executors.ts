@@ -29,6 +29,25 @@ function isIsoDate(v: unknown): v is string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
+/** Clamp slugs to a sane length. Slugs come from Claude, whose inputs come
+ *  from guest text, so the worst case is Claude hallucinating a 10KB slug
+ *  and us pushing it into a Supabase query. Never legitimate. */
+function clampSlug(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim();
+  if (!s) return undefined;
+  return s.length > 120 ? s.slice(0, 120) : s;
+}
+
+/** Clamp an arbitrary numeric input to a safe range. */
+function clampNumber(v: unknown, min: number, max: number): number | undefined {
+  const n = typeof v === 'number' ? v : Number(v);
+  if (!Number.isFinite(n)) return undefined;
+  if (n < min) return min;
+  if (n > max) return max;
+  return Math.floor(n);
+}
+
 /** Build a canonical /properties?... URL from the filters the bot used. */
 function buildPropertiesUrl(filters: {
   place?: string;
@@ -124,6 +143,12 @@ export async function execSearchListings(
       ? input.place.toLowerCase()
       : undefined;
 
+  // Clamp numeric inputs so a hallucinated 10-billion-KES filter or
+  // negative-bedroom query can't produce strange Supabase queries.
+  const guests = clampNumber(input.guests, 1, 50);
+  const bedroomsMin = clampNumber(input.bedrooms_min, 1, 20);
+  const maxPriceKes = clampNumber(input.max_price_kes, 1, 5_000_000);
+
   if (kind === 'boat') {
     const selectCols = `
       id, slug, name, boat_type, capacity, summary,
@@ -140,9 +165,13 @@ export async function execSearchListings(
     } else {
       q = supa.from('wb_boats').select(selectCols, { count: 'exact' });
     }
-    q = q.eq('is_published', true).eq('is_test', false).limit(8);
+    q = q.eq('is_published', true).eq('is_test', false);
+    // Apply guests → capacity filter at the DB. max_price is post-filter
+    // because boat prices live on wb_boat_trips, not the boat row.
+    if (guests) q = q.gte('capacity', guests);
+    q = q.limit(8);
     const { data, count } = await q;
-    const matches = (data ?? []).map((b: any) => {
+    let matches = (data ?? []).map((b: any) => {
       const cheapestTrip = Array.isArray(b.trips) && b.trips.length > 0
         ? b.trips.reduce((lo: any, t: any) =>
             Number(t.price_total) < Number(lo.price_total) ? t : lo,
@@ -161,10 +190,15 @@ export async function execSearchListings(
         url: `/boats/${b.slug}`,
       };
     });
+    if (maxPriceKes) {
+      matches = matches.filter(
+        (m: any) => m.from_price_kes == null || m.from_price_kes <= maxPriceKes,
+      );
+    }
     return {
       kind: 'boat',
       matches,
-      total: count ?? matches.length,
+      total: maxPriceKes ? matches.length : count ?? matches.length,
       url: buildBoatsUrl({ place }),
     };
   }
@@ -209,12 +243,18 @@ export async function execSearchListings(
     }
   }
 
-  if (input.guests) q = q.gte('max_guests', input.guests);
-  if (input.bedrooms_min) q = q.gte('bedrooms', input.bedrooms_min);
-  if (input.max_price_kes) q = q.lte('base_price_per_night', input.max_price_kes);
+  if (guests) q = q.gte('max_guests', guests);
+  if (bedroomsMin) q = q.gte('bedrooms', bedroomsMin);
+  if (maxPriceKes) q = q.lte('base_price_per_night', maxPriceKes);
   if (input.last_minute_only) q = q.eq('flexi_enabled', true);
 
-  const wantedAmenities = input.amenities ?? [];
+  // Clamp amenity list size + per-string length. Legitimate queries are
+  // 1–4 amenities; if Claude hallucinates a 200-item list we don't want
+  // to do 200 case-insensitive LIKE scans.
+  const wantedAmenities = (input.amenities ?? [])
+    .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+    .slice(0, 8)
+    .map((a) => (a.length > 64 ? a.slice(0, 64) : a));
   const amenityIds = await resolveAmenityIds(supa, wantedAmenities);
   if (wantedAmenities.length > 0 && amenityIds.length === 0) {
     // User asked for amenities we don't carry — return nothing.
@@ -226,9 +266,9 @@ export async function execSearchListings(
         place,
         check_in: input.check_in,
         check_out: input.check_out,
-        guests: input.guests,
-        bedrooms_min: input.bedrooms_min,
-        max_price_kes: input.max_price_kes,
+        guests,
+        bedrooms_min: bedroomsMin,
+        max_price_kes: maxPriceKes,
         last_minute_only: input.last_minute_only,
       }),
     };
@@ -252,9 +292,9 @@ export async function execSearchListings(
           place,
           check_in: input.check_in,
           check_out: input.check_out,
-          guests: input.guests,
-          bedrooms_min: input.bedrooms_min,
-          max_price_kes: input.max_price_kes,
+          guests,
+          bedrooms_min: bedroomsMin,
+          max_price_kes: maxPriceKes,
           amenityIds,
           last_minute_only: input.last_minute_only,
         }),
@@ -320,9 +360,9 @@ export async function execSearchListings(
       place,
       check_in: input.check_in,
       check_out: input.check_out,
-      guests: input.guests,
-      bedrooms_min: input.bedrooms_min,
-      max_price_kes: input.max_price_kes,
+      guests,
+      bedrooms_min: bedroomsMin,
+      max_price_kes: maxPriceKes,
       amenityIds,
       last_minute_only: input.last_minute_only,
     }),
@@ -337,9 +377,8 @@ interface GetListingInput {
 export async function execGetListing(
   input: GetListingInput,
 ): Promise<Record<string, unknown>> {
-  if (!input.slug || typeof input.slug !== 'string') {
-    return { error: 'slug is required' };
-  }
+  const slug = clampSlug(input.slug);
+  if (!slug) return { error: 'slug is required' };
   const supa = await createClient();
   const kind = input.kind ?? 'property';
 
@@ -350,7 +389,7 @@ export async function execGetListing(
         `id, slug, name, boat_type, capacity, summary, description,
          trips:wb_boat_trips(id, name, trip_type, duration_hours, price_total, description, is_active)`,
       )
-      .eq('slug', input.slug)
+      .eq('slug', slug)
       .eq('is_published', true)
       .eq('is_test', false)
       .maybeSingle();
@@ -375,7 +414,7 @@ export async function execGetListing(
        bathrooms, max_guests, base_price_per_night, cleaning_fee, flexi_enabled,
        amenities:wb_property_amenities(amenity:wb_amenities(name))`,
     )
-    .eq('slug', input.slug)
+    .eq('slug', slug)
     .eq('is_published', true)
     .eq('is_test', false)
     .maybeSingle();
@@ -417,7 +456,8 @@ interface CheckAvailabilityInput {
 export async function execCheckAvailability(
   input: CheckAvailabilityInput,
 ): Promise<Record<string, unknown>> {
-  if (!input.slug) return { error: 'slug is required' };
+  const slug = clampSlug(input.slug);
+  if (!slug) return { error: 'slug is required' };
   const supa = await createClient();
   const kind = input.kind ?? 'property';
 
@@ -428,7 +468,7 @@ export async function execCheckAvailability(
     const { data: boat } = await supa
       .from('wb_boats')
       .select('id')
-      .eq('slug', input.slug)
+      .eq('slug', slug)
       .eq('is_published', true)
       .maybeSingle();
     if (!boat) return { error: 'Boat not found' };
@@ -438,7 +478,7 @@ export async function execCheckAvailability(
     });
     return {
       kind: 'boat',
-      slug: input.slug,
+      slug,
       trip_date: input.trip_date,
       available: Boolean(ok),
     };
@@ -450,7 +490,7 @@ export async function execCheckAvailability(
   const { data: prop } = await supa
     .from('wb_properties')
     .select('id')
-    .eq('slug', input.slug)
+    .eq('slug', slug)
     .eq('is_published', true)
     .maybeSingle();
   if (!prop) return { error: 'Property not found' };
@@ -461,7 +501,7 @@ export async function execCheckAvailability(
   });
   return {
     kind: 'property',
-    slug: input.slug,
+    slug,
     check_in: input.check_in,
     check_out: input.check_out,
     available: Boolean(ok),
@@ -471,7 +511,8 @@ export async function execCheckAvailability(
 export async function execGetPrice(
   input: CheckAvailabilityInput,
 ): Promise<Record<string, unknown>> {
-  if (!input.slug) return { error: 'slug is required' };
+  const slug = clampSlug(input.slug);
+  if (!slug) return { error: 'slug is required' };
   const supa = await createClient();
   const kind = input.kind ?? 'property';
 
@@ -482,7 +523,7 @@ export async function execGetPrice(
         `id, slug, name,
          trips:wb_boat_trips(id, name, trip_type, price_total, duration_hours, is_active)`,
       )
-      .eq('slug', input.slug)
+      .eq('slug', slug)
       .eq('is_published', true)
       .maybeSingle();
     if (!boat) return { error: 'Boat not found' };
@@ -510,7 +551,7 @@ export async function execGetPrice(
        flexi_window_days, flexi_cutoff_days, flexi_floor_percent,
        owner:wb_profiles!wb_properties_owner_id_fkey(flexi_default_enabled, flexi_default_window_days, flexi_default_cutoff_days, flexi_default_floor_percent)`,
     )
-    .eq('slug', input.slug)
+    .eq('slug', slug)
     .eq('is_published', true)
     .maybeSingle();
   if (!p) return { error: 'Property not found' };
@@ -563,7 +604,10 @@ export async function execGetPrice(
 }
 
 export function execSearchDocs(input: { query?: string }): Record<string, unknown> {
-  const q = (input?.query ?? '').toString();
+  // Cap the query. The corpus ranker only needs a few words; accepting a
+  // 10KB query just wastes CPU in the regex split.
+  const raw = (input?.query ?? '').toString();
+  const q = raw.length > 400 ? raw.slice(0, 400) : raw;
   const hits = searchDocsCorpus(q, 3);
   return {
     query: q,

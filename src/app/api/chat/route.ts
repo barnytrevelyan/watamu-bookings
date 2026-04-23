@@ -39,6 +39,14 @@ import { checkDailyBudget, logTurnUsage } from '@/lib/chatbot/budget';
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOOL_ITERATIONS = 6;
 const MAX_MESSAGES_KEPT = 20;
+// Per-message hard ceiling. The textarea caps at 1,000 chars on the client
+// but a malicious caller can POST anything — keep it modest so a pathological
+// client can't push the context window (and our bill) sky-high.
+const MAX_MESSAGE_CHARS = 4_000;
+// Hard ceiling on the whole request body. Next.js has its own limits but
+// they're generous; this rejects 1MB+ pastes early so we don't burn work
+// parsing them.
+const MAX_BODY_BYTES = 32_000;
 
 // Per-IP in-memory rate limit. Good enough for Phase 1; swap to Redis when
 // the widget is turned on for real traffic.
@@ -87,13 +95,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Read raw first so we can reject oversize bodies before parsing. The
+  // request is small on the happy path so the double-parse is fine.
+  let raw: string;
+  try {
+    raw = await request.text();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+  if (raw.length > MAX_BODY_BYTES * 2) {
+    return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
+  }
+
   let body: {
     messages?: ChatMessage[];
     turnstile_token?: string;
     session_id?: string;
   };
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
@@ -140,13 +160,21 @@ export async function POST(request: NextRequest) {
   }
 
   // Keep the tail only — long conversations get expensive fast.
-  const messages = incoming.slice(-MAX_MESSAGES_KEPT).filter(
-    (m) =>
-      m &&
-      (m.role === 'user' || m.role === 'assistant') &&
-      typeof m.content === 'string' &&
-      m.content.trim().length > 0,
-  );
+  // Also clamp each message to MAX_MESSAGE_CHARS so a determined client can't
+  // push 10MB per turn past our per-IP rate limit.
+  const messages = incoming
+    .slice(-MAX_MESSAGES_KEPT)
+    .filter(
+      (m) =>
+        m &&
+        (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.content === 'string' &&
+        m.content.trim().length > 0,
+    )
+    .map((m) => ({
+      role: m.role,
+      content: m.content.length > MAX_MESSAGE_CHARS ? m.content.slice(0, MAX_MESSAGE_CHARS) : m.content,
+    }));
 
   const sessionId =
     body.session_id && typeof body.session_id === 'string' && body.session_id.length > 0
