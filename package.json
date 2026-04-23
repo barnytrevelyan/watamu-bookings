@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@stripe/react-stripe-js": "^2.7.0",
     "@stripe/stripe-js": "^3.4.0",
     "@supabase/ssr": "^0.3.0",

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ChatWidget from "@/components/ChatWidget";
 import { getCurrentPlace, listActivePlaces } from "@/lib/places/context";
 import { BrandProvider } from "@/lib/places/BrandProvider";
 import { getPreferredCurrency } from "@/lib/currency-server";
@@ -199,6 +200,10 @@ export default async function RootLayout({
               placeLabel={placeLabel}
             />
           )}
+          {/* Site chatbot — beta, gated client-side by ?chat=1 or
+              localStorage.kwetu_chat_beta. Hidden on the bare survey
+              shell to avoid interfering with the survey flow. */}
+          {!isBareShell && <ChatWidget />}
         </BrandProvider>
       </body>
     </html>
