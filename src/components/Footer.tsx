@@ -1,16 +1,14 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Mail, MapPin, Instagram, Linkedin, Facebook } from 'lucide-react';
+import { Mail, MapPin } from 'lucide-react';
 
-// Public social profiles for Kwetu. These double as Organization.sameAs
-// signals in JSON-LD (see jsonld.ts) — keep the two lists in sync so
-// search engines can stitch the brand graph together.
-const SOCIAL_LINKS: { label: string; href: string; Icon: React.ElementType }[] = [
-  { label: 'Instagram', href: 'https://www.instagram.com/kwetu.ke/', Icon: Instagram },
-  { label: 'Facebook', href: 'https://www.facebook.com/kwetu.ke', Icon: Facebook },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/company/kwetu-ke/', Icon: Linkedin },
-];
+// Social profiles are intentionally empty for now — Kwetu doesn't have
+// live accounts yet, and showing icons that link to placeholder/404 pages
+// erodes trust. When accounts exist, re-import the icons from lucide-react
+// and repopulate this list, AND mirror the URLs into getOrganizationSchema
+// in src/lib/jsonld.ts so Organization.sameAs stays in sync.
+const SOCIAL_LINKS: { label: string; href: string; Icon: React.ElementType }[] = [];
 
 const footerColumns = [
   {
@@ -110,21 +108,25 @@ export default function Footer({
             </div>
 
             {/* Social profiles. rel="me" on the first link helps search
-                engines verify the brand <-> profile relationship. */}
-            <div className="mt-5 flex items-center gap-3">
-              {SOCIAL_LINKS.map(({ label, href, Icon }, idx) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  rel={idx === 0 ? 'me noopener' : 'noopener'}
-                  target="_blank"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Icon className="h-5 w-5" />
-                </a>
-              ))}
-            </div>
+                engines verify the brand <-> profile relationship.
+                Rendered only when SOCIAL_LINKS has entries — intentionally
+                empty until Kwetu has live accounts. */}
+            {SOCIAL_LINKS.length > 0 && (
+              <div className="mt-5 flex items-center gap-3">
+                {SOCIAL_LINKS.map(({ label, href, Icon }, idx) => (
+                  <a
+                    key={label}
+                    href={href}
+                    aria-label={label}
+                    rel={idx === 0 ? 'me noopener' : 'noopener'}
+                    target="_blank"
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <Icon className="h-5 w-5" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Link columns */}

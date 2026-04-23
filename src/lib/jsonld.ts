@@ -207,11 +207,10 @@ export function organizationSchema(host?: BrandHost | null) {
     // Keep in sync with SOCIAL_LINKS in components/Footer.tsx. sameAs is
     // the primary signal search engines use to tie the brand to external
     // profiles, so an empty array here drops knowledge-panel coverage.
-    sameAs: [
-      'https://www.instagram.com/kwetu.ke/',
-      'https://www.facebook.com/kwetu.ke',
-      'https://www.linkedin.com/company/kwetu-ke/',
-    ],
+    // Kwetu has no live social accounts yet — pointing crawlers at 404
+    // profiles is worse than no signal. Repopulate in lockstep with
+    // SOCIAL_LINKS when accounts exist.
+    sameAs: [] as string[],
     address: {
       '@type': 'PostalAddress',
       addressLocality: locality,
