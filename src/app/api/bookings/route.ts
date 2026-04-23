@@ -231,14 +231,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- Calculate totals ---
+    // --- Calculate totals + build a frozen price snapshot ---
+    //
+    // price_snapshot is the immutable record of *what we quoted the guest*.
+    // Storing it alongside the booking means later base-rate or flexi edits
+    // can never retroactively change what this guest agreed to pay, and any
+    // dispute ("why was I charged X?") has a per-night audit trail.
 
     let totalPrice = 0;
+    let priceSnapshot: Record<string, unknown>;
 
     if (listingType === 'property') {
       const nights = Math.ceil(
         (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000
       );
+      const basePerNight = listing.price;
+      const perNight: Array<{ date: string; price: number; discount_percent: number }> = [];
       if (listing.flexi?.enabled) {
         // Apply the flexi ramp night-by-night so the server price matches
         // what the guest saw in the sidebar.
@@ -247,15 +255,47 @@ export async function POST(request: NextRequest) {
         for (let i = 0; i < nights; i++) {
           const d = new Date(start);
           d.setUTCDate(d.getUTCDate() + i);
-          const r = computeFlexiPrice(listing.price, listing.flexi, d);
+          const r = computeFlexiPrice(basePerNight, listing.flexi, d);
           total += r.effectivePrice;
+          perNight.push({
+            date: d.toISOString().slice(0, 10),
+            price: r.effectivePrice,
+            discount_percent: r.discountPercent,
+          });
         }
         totalPrice = total;
       } else {
-        totalPrice = listing.price * nights;
+        totalPrice = basePerNight * nights;
       }
+      priceSnapshot = {
+        listing_type: 'property',
+        base_per_night: basePerNight,
+        nights,
+        check_in: checkIn,
+        check_out: checkOut,
+        flexi_enabled: Boolean(listing.flexi?.enabled),
+        flexi_config: listing.flexi?.enabled
+          ? {
+              window_days: listing.flexi.windowDays,
+              cutoff_days: listing.flexi.cutoffDays,
+              floor_percent: listing.flexi.floorPercent,
+            }
+          : null,
+        per_night_breakdown: listing.flexi?.enabled ? perNight : null,
+        effective_total: totalPrice,
+        captured_at: new Date().toISOString(),
+      };
     } else {
       totalPrice = listing.price;
+      priceSnapshot = {
+        listing_type: 'boat',
+        trip_date: tripDate,
+        trip_id: tripId ?? null,
+        trip_name: listing.tripName ?? null,
+        trip_price_total: listing.price,
+        effective_total: totalPrice,
+        captured_at: new Date().toISOString(),
+      };
     }
 
     // --- Snapshot guest contact (use profile fallback) ---
@@ -295,11 +335,27 @@ export async function POST(request: NextRequest) {
         guest_contact_email: guestContactEmail,
         guest_contact_phone: guestContactPhone,
         special_requests: guestMessage || null,
+        price_snapshot: priceSnapshot,
       })
       .select('id, total_price, status')
       .single();
 
     if (insertError) {
+      // 23P01 = exclusion_violation (GIST overlap), 23505 = unique_violation.
+      // Either means a concurrent request grabbed these dates between our
+      // availability check and insert — the DB-level guard is now the
+      // source of truth, so surface it as a 409 the same way as the RPC.
+      if (insertError.code === '23P01' || insertError.code === '23505') {
+        return NextResponse.json(
+          {
+            error:
+              listingType === 'property'
+                ? 'These dates were just booked by someone else. Please pick different dates.'
+                : 'This trip was just booked by someone else. Please pick another date.',
+          },
+          { status: 409 },
+        );
+      }
       console.error('Booking insert error:', insertError);
       return NextResponse.json({ error: 'Failed to create booking.' }, { status: 500 });
     }
