@@ -137,9 +137,11 @@ export async function execSearchListings(
   const kind = input.kind ?? 'property';
 
   // Normalise place input. If the model passes a free-text place, only
-  // honour it when it matches a known slug.
+  // honour it when it matches a known slug. Guard against non-string
+  // inputs (Claude usually obeys the schema but the type cast lies).
   const place =
-    input.place && PLACE_SLUGS.has(input.place.toLowerCase())
+    typeof input.place === 'string' &&
+    PLACE_SLUGS.has(input.place.toLowerCase())
       ? input.place.toLowerCase()
       : undefined;
 
@@ -566,12 +568,13 @@ export async function execGetPrice(
     ) || 0;
 
   // Walk the ramp night-by-night so multi-night flexi stays get the correct
-  // subtotal (same logic the booking API uses).
+  // subtotal (same logic the booking API uses). Use UTC arithmetic so the
+  // result is the same regardless of the server's local timezone.
   let accommodation = 0;
   let flexiActive = false;
   for (let i = 0; i < nights; i++) {
     const d = new Date(input.check_in);
-    d.setDate(d.getDate() + i);
+    d.setUTCDate(d.getUTCDate() + i);
     const iso = d.toISOString().slice(0, 10);
     if (flexi.enabled) {
       const r = computeFlexiPrice(base, flexi, iso);
