@@ -56,15 +56,19 @@ declare global {
 const TURNSTILE_SCRIPT_URL =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
-function isBetaEnabled(): boolean {
+const DISABLED_FLAG_KEY = 'kwetu_chat_disabled_v1';
+
+function isBotVisible(): boolean {
   if (typeof window === 'undefined') return false;
-  if (window.localStorage.getItem(BETA_FLAG_KEY) === '1') return true;
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('chat') === '1') {
-    window.localStorage.setItem(BETA_FLAG_KEY, '1');
-    return true;
-  }
-  return false;
+  // Client-side kill-switch. If the API route ever returns 503 (key not set,
+  // bot disabled at the edge), we remember that for the rest of this browser
+  // session so we stop showing a broken widget. Also lets future code turn
+  // it off manually if needed.
+  if (window.localStorage.getItem(DISABLED_FLAG_KEY) === '1') return false;
+  // Legacy: honour the old beta flag the other way round. If anyone set
+  // kwetu_chat_beta=0 explicitly they can still opt out.
+  if (window.localStorage.getItem(BETA_FLAG_KEY) === '0') return false;
+  return true;
 }
 
 export default function ChatWidget() {
@@ -84,7 +88,7 @@ export default function ChatWidget() {
 
   // Gate on mount — avoids SSR mismatch.
   useEffect(() => {
-    setEnabled(isBetaEnabled());
+    setEnabled(isBotVisible());
   }, []);
 
   // Stable per-browser session id so we can correlate turns server-side.
@@ -238,6 +242,19 @@ export default function ChatWidget() {
           setInput(trimmed);
           return;
         }
+      }
+
+      // 503 means the deployment hasn't got an ANTHROPIC_API_KEY. Don't keep
+      // showing a broken widget — flip the kill-switch and fade out.
+      if (res.status === 503) {
+        try {
+          localStorage.setItem(DISABLED_FLAG_KEY, '1');
+        } catch {
+          /* ignore */
+        }
+        setEnabled(false);
+        setMessages((prev) => prev.slice(0, -1));
+        return;
       }
 
       if (!res.ok) {
