@@ -12,10 +12,17 @@ export default function DashboardShell({
   const { user, profile, loading } = useAuth();
 
   useEffect(() => {
-    // Only redirect once we know for sure there's no user
-    if (!loading && !user) {
+    // Only redirect once we know for sure there's no user — and give the auth
+    // state a brief grace period to settle. Token refreshes can fire a
+    // transient null during rotation, and bouncing to /auth/login on that
+    // flicker is how we lost Barny off /dashboard/flexi-pricing. 400ms is
+    // enough for any legitimate refresh round-trip to complete.
+    if (loading) return;
+    if (user) return;
+    const t = setTimeout(() => {
       window.location.href = '/auth/login';
-    }
+    }, 400);
+    return () => clearTimeout(t);
   }, [loading, user]);
 
   // Still checking auth
