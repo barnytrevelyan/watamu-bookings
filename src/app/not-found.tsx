@@ -3,7 +3,7 @@ import { Compass, Home, Search } from "lucide-react";
 
 export const metadata = {
   title: "Page not found",
-  description: "We couldn't find that page.",
+  description: "We couldn\u2019t find that page.",
 };
 
 export default function NotFound() {

@@ -46,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ? place.seo_description
     : hasSpecificPlace
       ? `Discover and book stunning beachfront properties and world-class fishing boat charters in ${placeName}, Kenya. Your gateway to paradise on the Kenyan coast.`
-      : `Discover and book stunning beachfront properties and world-class fishing boat charters on Kenya's coast. Local hosts, local payments, local support.`;
+      : `Discover and book stunning beachfront properties and world-class fishing boat charters on Kenya\u2019s coast. Local hosts, local payments, local support.`;
 
   return {
     title: {
