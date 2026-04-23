@@ -6,10 +6,11 @@
  * Floating button bottom-right; expands into a chat panel. Talks to
  * /api/chat, which runs Claude Haiku with the Kwetu tool set.
  *
- * Beta-gated: the widget is only rendered when the user has opted in via
- * either the ?chat=1 query param (sticky — persisted to localStorage) or
- * the `kwetu_chat_beta` localStorage flag manually set. This lets Barny
- * test in production without exposing it to real traffic.
+ * Visibility: shown to everyone by default. Two client-side kill-switches:
+ *   - localStorage.kwetu_chat_disabled_v1 = '1' is flipped automatically
+ *     when /api/chat returns 503 (missing API key), so we never show a
+ *     perma-broken widget.
+ *   - localStorage.kwetu_chat_beta = '0' is a manual opt-out.
  *
  * Conversation is persisted to localStorage so a page navigation doesn't
  * wipe context. We cap history length in both directions (20 turns total)
@@ -85,6 +86,8 @@ export default function ChatWidget() {
   const turnstileMountRef = useRef<HTMLDivElement | null>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const launcherRef = useRef<HTMLButtonElement | null>(null);
 
   // Gate on mount — avoids SSR mismatch.
   useEffect(() => {
@@ -193,6 +196,28 @@ export default function ChatWidget() {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, sending]);
+
+  // Focus the input when the panel opens, restore focus to the launcher
+  // when it closes. Nice-to-have for keyboard + screen reader users.
+  useEffect(() => {
+    if (open) {
+      // Next tick so the textarea has mounted.
+      const t = setTimeout(() => textareaRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    } else {
+      launcherRef.current?.focus();
+    }
+  }, [open]);
+
+  // Escape closes the panel when it's open. Handler only bound while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
 
   async function send() {
     const trimmed = input.trim();
@@ -306,9 +331,11 @@ export default function ChatWidget() {
     <>
       {/* Floating launcher */}
       <button
+        ref={launcherRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close Kwetu assistant' : 'Open Kwetu assistant'}
+        aria-expanded={open}
         className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] text-white shadow-lg ring-4 ring-white/60 transition-transform hover:scale-105"
       >
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
@@ -358,6 +385,10 @@ export default function ChatWidget() {
           <div
             ref={listRef}
             className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-gray-50/50"
+            // aria-live="polite" so screen-reader users are told about new
+            // assistant replies without interrupting current speech.
+            aria-live="polite"
+            aria-atomic="false"
           >
             {messages.length === 0 && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-5 text-sm text-gray-600">
@@ -416,6 +447,7 @@ export default function ChatWidget() {
             )}
             <div className="flex items-end gap-2">
               <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -426,6 +458,7 @@ export default function ChatWidget() {
                 }}
                 rows={1}
                 placeholder="Ask about stays, trips, or how Kwetu works"
+                aria-label="Ask the Kwetu assistant"
                 className="flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-[var(--color-primary-400)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-200)]"
                 disabled={sending}
                 maxLength={1000}
