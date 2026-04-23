@@ -124,3 +124,34 @@
 - Nightly: generate invoices via `wb_generate_invoice_number()` +
   `wb_compute_monthly_charge_kes()` → insert → email host; check overdue → transition
   to `grace`; after `grace_period_hours` unpaid → revert all listings to commission
+
+## Chatbot
+
+### POST /api/chat
+- **Purpose**: Kwetu site chatbot endpoint. Runs Claude Haiku with five
+  read-only tools over the live Supabase data and a small FAQ corpus.
+- **Auth**: public (anon), read-only. Phase 2 will gate a second tool set
+  behind Supabase auth for host-mode questions.
+- **Body**: `{ messages: [{role, content}], turnstile_token?, session_id? }`
+- **Returns** (success): `{ reply, tool_trace }`
+- **Returns** (Turnstile required): `401 { error, require_turnstile: true, site_key }`
+- **Returns** (budget tripped): `429 { error, budget: {spent_usd, cap_usd} }`
+- **Abuse controls (stacked)**:
+  1. `ANTHROPIC_API_KEY` missing → 503 so the widget can hide.
+  2. Per-IP in-memory rate limit (20 msgs / minute / IP).
+  3. Cloudflare Turnstile: first message in a browser session must carry a
+     valid token. On success the server sets a signed 24h httpOnly cookie
+     (`kwetu_chat_verify`) so subsequent turns skip the challenge. Skipped
+     when `TURNSTILE_SECRET_KEY` is unset (dev).
+  4. Daily USD budget cap (`CHAT_DAILY_BUDGET_USD`, default $5). Each
+     turn logs token counts + cost to `wb_events` as `chat_turn`; the sum
+     is checked before every request. Failing open on lookup error.
+- **Tools surfaced**: `search_listings`, `get_listing`, `check_availability`,
+  `get_price`, `search_docs`. Schemas in `src/lib/chatbot/tools.ts`.
+  Executors in `src/lib/chatbot/executors.ts`. FAQ corpus in
+  `src/lib/chatbot/docs.ts`. System prompt in `src/lib/chatbot/prompt.ts`.
+- **Widget**: `src/components/ChatWidget.tsx`. Beta-gated client-side by
+  `?chat=1` (sticky via `localStorage.kwetu_chat_beta`). Hidden on the
+  `/survey` bare-shell routes.
+- **Hard caps**: max 6 tool-use iterations per turn, 20-message history
+  window, 1024 output-token cap per Anthropic call.

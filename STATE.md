@@ -61,6 +61,9 @@ archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
 - `/api/import/airbnb|booking-com|discover|fishingbooker|generic` — scrapers. **Dedicated scrapers (airbnb/booking-com/fishingbooker) are non-AI and must not be touched.** `resolveImportUser()` from `src/lib/import/auth.ts` is required on every route.
 - `/api/payments/create-intent` + `/api/payments/mpesa-stk`.
 - `/api/webhooks/mpesa` + `/api/webhooks/stripe` (Stripe needs raw body).
+- `/api/chat` — site chatbot (Claude Haiku + 5 read-only tools). Turnstile
+  + per-IP rate limit + daily USD budget cap. Beta widget, gated client-side
+  by `?chat=1` / `localStorage.kwetu_chat_beta`. See `SITE_REFERENCE/routes/api.md`.
 
 ## Core libs / components
 
@@ -69,6 +72,8 @@ archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
 - `src/lib/supabase/server.ts` — server-side client with cookie bridge.
 - `src/lib/supabase/client.ts` — browser client.
 - `src/lib/supabase/admin.ts` — service-role client (API routes only).
+- `src/lib/chatbot/` — site chatbot (tools, executors, system prompt,
+  FAQ corpus, Turnstile verify + signed cookie, daily USD budget cap).
 - `src/lib/stripe.ts`, `src/lib/mpesa.ts`.
 - `src/lib/email/*` — ZeptoMail templates for booking confirmation + host onboarding.
 - `src/lib/import/auth.ts` — **do not touch** `resolveImportUser()`.
@@ -76,8 +81,9 @@ archaeology. Pair this with `REGRESSION_GUARD.md` (rules + landmines).
 - Components: `Navbar`, `Footer`, `PropertyCard`, `BoatCard`, `SearchFilters`,
   `ImageGallery`, `BookingCalendar`, `StarRating`, `ReviewCard`, `AmenityBadge`,
   `CalendarSync`, `DashboardShell`, `DashboardSidebar`,
-  `WeatherWidget`, `JsonLd`, and a `ui/` primitive set (`Button`, `Card`,
-  `Input`, `Modal`, `Select`, `Tabs`, `Textarea`, `Badge`).
+  `WeatherWidget`, `JsonLd`, `ChatWidget` (beta chatbot), and a `ui/`
+  primitive set (`Button`, `Card`, `Input`, `Modal`, `Select`, `Tabs`,
+  `Textarea`, `Badge`).
 
 ## Resilience layer (added 2026-04-20)
 
@@ -145,6 +151,10 @@ Boats:
 - `ZEPTOMAIL_TOKEN`, `ZEPTOMAIL_FROM` (+ ZEPTOMAIL_FROM_NAME).
 - `OPENAI_API_KEY`.
 - `NEXT_PUBLIC_SITE_URL` (defaults to `https://kwetu.ke`).
+- Chatbot: `ANTHROPIC_API_KEY`, `CHAT_DAILY_BUDGET_USD` (default $5),
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` (optional —
+  unset disables the human-check), `CHAT_SIGN_SECRET` (optional — falls
+  back to a derivation of the service-role key when unset).
 
 ## Canonical constants
 
