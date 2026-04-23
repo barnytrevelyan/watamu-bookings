@@ -47,6 +47,10 @@ const nextConfig = {
       "'unsafe-inline'",
       ...(isProd ? [] : ["'unsafe-eval'"]),
       "https://js.stripe.com",
+      // Cloudflare Turnstile (chatbot human-check). The API script is hosted
+      // on challenges.cloudflare.com and injects additional scripts from
+      // static.cloudflareinsights.com for its telemetry.
+      "https://challenges.cloudflare.com",
     ].join(" ");
     const csp = [
       "default-src 'self'",
@@ -54,8 +58,8 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
-      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://challenges.cloudflare.com",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",

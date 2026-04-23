@@ -1,29 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import crypto from 'crypto';
 import { TOOLS } from '@/lib/chatbot/tools';
 import { dispatchTool } from '@/lib/chatbot/executors';
 import { buildSystemPrompt } from '@/lib/chatbot/prompt';
+import {
+  CHAT_VERIFY_COOKIE,
+  VERIFY_COOKIE_OPTIONS,
+  isTurnstileEnabled,
+  signVerifyCookie,
+  validateVerifyCookie,
+  verifyTurnstileToken,
+} from '@/lib/chatbot/turnstile';
+import { checkDailyBudget, logTurnUsage } from '@/lib/chatbot/budget';
 
 /**
  * POST /api/chat — Kwetu site chatbot endpoint (Phase 1).
  *
  * Request body:
- *   { messages: Array<{role: 'user'|'assistant', content: string}> }
+ *   {
+ *     messages: Array<{role: 'user'|'assistant', content: string}>,
+ *     turnstile_token?: string,   // required on first-in-session message
+ *     session_id?: string         // client-supplied; for analytics
+ *   }
  *
- * Response body:
- *   { reply: string, tool_trace: Array<{name, input, result_preview}> }
+ * Response body on success:
+ *   { reply: string, tool_trace: [...] }
  *
- * Behaviour:
- *   - Runs Claude Haiku with the Kwetu tool set in a tool-use loop.
- *   - Returns the final assistant text plus a tool trace (for debug and
- *     for the client widget to render inline listing cards if it wants).
- *   - Non-streaming in Phase 1. Streaming upgrade is a Phase 3 job.
- *
- * Guardrails:
- *   - Requires ANTHROPIC_API_KEY; otherwise 503 so the widget can hide.
- *   - Hard cap of 6 tool-use iterations per turn so a runaway model
- *     can't loop us into a timeout.
- *   - Tight per-IP rate limit to blunt the worst-case abuse.
+ * Abuse controls stacked in order:
+ *   1. ANTHROPIC_API_KEY missing → 503 (widget hides).
+ *   2. Per-IP in-memory rate limit → 429 on burst.
+ *   3. Turnstile verification (when configured) → 401 with
+ *      { require_turnstile: true, site_key } until a valid token is
+ *      supplied. Signed cookie trusted for 24h on success.
+ *   4. Daily USD budget cap → 429 with graceful message when tripped.
  */
 
 const MODEL = 'claude-haiku-4-5-20251001';
@@ -53,6 +63,14 @@ interface ChatMessage {
   content: string;
 }
 
+function clientIp(request: NextRequest): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  );
+}
+
 export async function POST(request: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
@@ -61,10 +79,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown';
+  const ip = clientIp(request);
   if (!rateLimit(ip)) {
     return NextResponse.json(
       { error: 'Too many requests. Please slow down.' },
@@ -72,11 +87,51 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { messages?: ChatMessage[] };
+  let body: {
+    messages?: ChatMessage[];
+    turnstile_token?: string;
+    session_id?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  // --- Turnstile verification ---
+  // If Turnstile is configured AND the caller doesn't already hold a valid
+  // signed cookie, require a fresh token with this request.
+  const turnstileNeeded = isTurnstileEnabled();
+  const cookie = request.cookies.get(CHAT_VERIFY_COOKIE)?.value;
+  const alreadyVerified = validateVerifyCookie(cookie);
+  let shouldSetCookie = false;
+
+  if (turnstileNeeded && !alreadyVerified) {
+    const ok = await verifyTurnstileToken(body.turnstile_token, ip);
+    if (!ok) {
+      return NextResponse.json(
+        {
+          error: 'Please complete the human check to continue.',
+          require_turnstile: true,
+          site_key: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null,
+        },
+        { status: 401 },
+      );
+    }
+    shouldSetCookie = true;
+  }
+
+  // --- Daily budget ceiling ---
+  const budget = await checkDailyBudget();
+  if (!budget.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          "Kwetu's assistant has reached its daily limit. Please try again tomorrow, or browse directly at /properties and /boats.",
+        budget: { spent_usd: budget.spendUsd, cap_usd: budget.capUsd },
+      },
+      { status: 429 },
+    );
   }
 
   const incoming = Array.isArray(body.messages) ? body.messages : [];
@@ -93,11 +148,13 @@ export async function POST(request: NextRequest) {
       m.content.trim().length > 0,
   );
 
+  const sessionId =
+    body.session_id && typeof body.session_id === 'string' && body.session_id.length > 0
+      ? body.session_id.slice(0, 128)
+      : crypto.randomUUID();
+
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  // Anthropic's "messages" format: content is either a string OR an array
-  // of content blocks. We start with string content from the client and
-  // mutate into block arrays as tool calls happen.
   const convo: Anthropic.Messages.MessageParam[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
@@ -110,6 +167,9 @@ export async function POST(request: NextRequest) {
   }> = [];
 
   let assistantText = '';
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let turnCount = 0;
 
   for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter += 1) {
     let response: Anthropic.Messages.Message;
@@ -129,25 +189,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Gather any plain text in this turn.
+    turnCount += 1;
+    totalInputTokens += response.usage?.input_tokens ?? 0;
+    totalOutputTokens += response.usage?.output_tokens ?? 0;
+
     for (const block of response.content) {
       if (block.type === 'text') assistantText += block.text;
     }
 
-    if (response.stop_reason !== 'tool_use') {
-      // Model's done — return.
-      break;
-    }
+    if (response.stop_reason !== 'tool_use') break;
 
-    // Otherwise: run every tool_use block in parallel, then loop.
     const toolUseBlocks = response.content.filter(
       (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use',
     );
 
-    // Append the assistant turn (with tool_use) to the convo.
     convo.push({ role: 'assistant', content: response.content });
 
-    // Run each tool and build a single user message containing all tool_results.
     const toolResults: Anthropic.Messages.ToolResultBlockParam[] = await Promise.all(
       toolUseBlocks.map(async (tu) => {
         const input = (tu.input ?? {}) as Record<string, unknown>;
@@ -177,16 +234,29 @@ export async function POST(request: NextRequest) {
     );
 
     convo.push({ role: 'user', content: toolResults });
-    // Reset assistantText for the next iteration — only the final iter
-    // returns text we actually show.
     assistantText = '';
   }
 
   const finalReply = assistantText.trim() ||
     "I'm sorry — I couldn't produce an answer for that. Try asking it a different way, or browse Kwetu directly at /properties or /boats.";
 
-  return NextResponse.json({
+  // Log cost/usage best-effort (never blocks response).
+  void logTurnUsage({
+    sessionId,
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
+    path: '/api/chat',
+    turnCount,
+  });
+
+  const res = NextResponse.json({
     reply: finalReply,
     tool_trace: toolTrace,
   });
+
+  if (shouldSetCookie) {
+    res.cookies.set(CHAT_VERIFY_COOKIE, signVerifyCookie(), VERIFY_COOKIE_OPTIONS);
+  }
+
+  return res;
 }

@@ -16,7 +16,7 @@
  * because it's also what the API keeps.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X, RotateCcw, Sparkles, ExternalLink } from 'lucide-react';
 
 interface ChatMsg {
@@ -29,7 +29,32 @@ interface ChatMsg {
 
 const STORAGE_KEY = 'kwetu_chat_history_v1';
 const BETA_FLAG_KEY = 'kwetu_chat_beta';
+const SESSION_KEY = 'kwetu_chat_session_id_v1';
 const MAX_HISTORY = 20;
+
+// Cloudflare Turnstile global handle (added by their injected script).
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        el: HTMLElement,
+        opts: {
+          sitekey: string;
+          callback?: (token: string) => void;
+          'error-callback'?: () => void;
+          'expired-callback'?: () => void;
+          theme?: 'light' | 'dark' | 'auto';
+          size?: 'normal' | 'compact' | 'invisible';
+        },
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
+
+const TURNSTILE_SCRIPT_URL =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 function isBetaEnabled(): boolean {
   if (typeof window === 'undefined') return false;
@@ -49,12 +74,91 @@ export default function ChatWidget() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileNeeded, setTurnstileNeeded] = useState(false);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const turnstileMountRef = useRef<HTMLDivElement | null>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   // Gate on mount — avoids SSR mismatch.
   useEffect(() => {
     setEnabled(isBetaEnabled());
   }, []);
+
+  // Stable per-browser session id so we can correlate turns server-side.
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return;
+    let id = localStorage.getItem(SESSION_KEY);
+    if (!id) {
+      id =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(SESSION_KEY, id);
+    }
+    sessionIdRef.current = id;
+  }, [enabled]);
+
+  // Lazy-load the Turnstile script once we know we need it. Also renders
+  // the widget into the composer so the user can complete the challenge.
+  const ensureTurnstileLoaded = useCallback((): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined') return reject();
+      if (window.turnstile) return resolve();
+      const existing = document.querySelector<HTMLScriptElement>(
+        `script[src="${TURNSTILE_SCRIPT_URL}"]`,
+      );
+      if (existing) {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject());
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = TURNSTILE_SCRIPT_URL;
+      s.async = true;
+      s.defer = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject();
+      document.head.appendChild(s);
+    });
+  }, []);
+
+  // Render Turnstile whenever a sitekey lands AND the mount point is ready.
+  useEffect(() => {
+    if (!turnstileNeeded || !turnstileSiteKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureTurnstileLoaded();
+        if (cancelled || !turnstileMountRef.current || !window.turnstile) return;
+        // Reset if already rendered.
+        if (turnstileWidgetIdRef.current) {
+          window.turnstile.remove(turnstileWidgetIdRef.current);
+          turnstileWidgetIdRef.current = null;
+        }
+        turnstileWidgetIdRef.current = window.turnstile.render(
+          turnstileMountRef.current,
+          {
+            sitekey: turnstileSiteKey,
+            size: 'normal',
+            theme: 'light',
+            callback: (token: string) => setTurnstileToken(token),
+            'error-callback': () => setTurnstileToken(null),
+            'expired-callback': () => setTurnstileToken(null),
+          },
+        );
+      } catch {
+        // Cloudflare script failed to load — stay soft, user can still
+        // browse the rest of the site.
+        setError("Couldn't load the human check. Please try again later.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [turnstileNeeded, turnstileSiteKey, ensureTurnstileLoaded]);
 
   // Load persisted history on mount.
   useEffect(() => {
@@ -89,6 +193,12 @@ export default function ChatWidget() {
   async function send() {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
+    // If Turnstile is required but the user hasn't completed the challenge
+    // yet, nudge them instead of sending an unverified request.
+    if (turnstileNeeded && !turnstileToken) {
+      setError('Please complete the human check below before sending.');
+      return;
+    }
     setError(null);
     const next: ChatMsg[] = [...messages, { role: 'user', content: trimmed }];
     setMessages(next);
@@ -100,8 +210,36 @@ export default function ChatWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: next.map(({ role, content }) => ({ role, content })),
+          turnstile_token: turnstileToken ?? undefined,
+          session_id: sessionIdRef.current,
         }),
       });
+
+      // 401 with require_turnstile means the server wants a fresh human
+      // check — surface the widget in the composer.
+      if (res.status === 401) {
+        const body = (await res.json().catch(() => ({}))) as {
+          require_turnstile?: boolean;
+          site_key?: string | null;
+          error?: string;
+        };
+        if (body?.require_turnstile) {
+          setTurnstileNeeded(true);
+          setTurnstileSiteKey(body.site_key || null);
+          setTurnstileToken(null);
+          setError(
+            body.site_key
+              ? 'Please complete the human check below to continue.'
+              : 'The human check is not configured on this deployment.',
+          );
+          // Remove the optimistic user message so they can retry cleanly
+          // after completing the challenge.
+          setMessages((prev) => prev.slice(0, -1));
+          setInput(trimmed);
+          return;
+        }
+      }
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || `Request failed (${res.status})`);
@@ -114,6 +252,11 @@ export default function ChatWidget() {
         ...prev,
         { role: 'assistant', content: data.reply, trace: data.tool_trace },
       ]);
+      // Verified for 24h now — drop the challenge UI and the stale token.
+      if (turnstileNeeded) {
+        setTurnstileNeeded(false);
+        setTurnstileToken(null);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong.';
       setError(msg);
@@ -249,6 +392,11 @@ export default function ChatWidget() {
             }}
             className="border-t border-gray-100 bg-white px-3 py-3"
           >
+            {turnstileNeeded && (
+              <div className="mb-2 flex justify-center">
+                <div ref={turnstileMountRef} />
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <textarea
                 value={input}
@@ -267,7 +415,11 @@ export default function ChatWidget() {
               />
               <button
                 type="submit"
-                disabled={sending || !input.trim()}
+                disabled={
+                  sending ||
+                  !input.trim() ||
+                  (turnstileNeeded && !turnstileToken)
+                }
                 aria-label="Send message"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary-600)] text-white transition-colors hover:bg-[var(--color-primary-700)] disabled:opacity-40"
               >
