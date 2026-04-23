@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';

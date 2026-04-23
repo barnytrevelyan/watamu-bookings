@@ -7,7 +7,7 @@ import { getCurrentPlace, resolvePlaceSlugs, listActivePlaces } from "@/lib/plac
 import { filterPropertiesByPlace, filterPropertiesByPlaces } from "@/lib/places/queries";
 import type { Place, Property } from "@/lib/types";
 import type { Metadata } from "next";
-import { resolveFlexiConfig, computeFlexiPrice, daysUntil } from "@/lib/flexi";
+import { resolveFlexiConfig, computeFlexiPrice } from "@/lib/flexi";
 import TrackView from "@/lib/analytics/TrackView";
 
 export async function generateMetadata(): Promise<Metadata> {

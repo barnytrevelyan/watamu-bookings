@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import TrackedGallery from "./TrackedGallery";

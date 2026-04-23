@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBrand } from '@/lib/places/BrandProvider';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { StarRating } from '@/components/StarRating';
 import {
   Home,
@@ -19,10 +18,7 @@ import {
   Sparkles,
   Plus,
   ArrowRight,
-  MessageSquare,
   ShieldAlert,
-  Clock,
-  CheckCircle2,
 } from 'lucide-react';
 
 interface DashboardStats {
